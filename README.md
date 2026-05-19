@@ -34,3 +34,30 @@ lib/                Supabase 클라이언트, KST/페이즈 헬퍼
 supabase/           마이그레이션 + Edge Function
 design/             React+Babel CDN 프로토타입 (시각 참조용)
 ```
+
+## Vercel 배포
+
+1. [vercel.com/new](https://vercel.com/new) 접속 → GitHub 로그인
+2. `MAZE-JungWan/lunch-roulette` 임포트 (Framework: Next.js 자동 감지)
+3. **Environment Variables**에 추가:
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://dtuwddiepnxygtotwglv.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `.env.local`의 값 그대로
+4. Deploy 클릭. 1~2분 후 `*.vercel.app` 도메인 발급
+5. (선택) Vercel Project Settings → Domains에서 커스텀 도메인 연결
+
+## Supabase 인프라
+
+- 프로젝트 ID: `dtuwddiepnxygtotwglv` (region: ap-northeast-2 / Seoul)
+- 테이블: `public.menus`, `public.results`
+- pg_cron 잡 2개:
+  - `spin-lunch-roulette` (`55 2 * * *` UTC = 11:55 KST) → Edge Function 호출
+  - `reset-menus` (`0 15 * * *` UTC = 00:00 KST) → `menus` truncate
+- Edge Function: `spin-roulette` (`verify_jwt: false`, KST 11:55 이전 호출은 자동 거부, 멱등성 보장)
+
+## 메모리 사용 주의
+
+VS Code의 백그라운드 인덱서(TS LSP, ESLint, Tailwind IntelliSense)가 `design/`
+폴더의 jsx 프로토타입과 큰 PNG들을 한꺼번에 스캔하면 메모리가 폭주할 수 있어,
+`.vscode/settings.json`·`eslint.config.mjs`·`tsconfig.json`·`globals.css`의
+Tailwind `@source` 모두에서 `design/`·`supabase/functions/`를 제외해 두었다.
+이 파일들을 다시 활성화하려는 경우 주의할 것.
