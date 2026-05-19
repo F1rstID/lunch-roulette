@@ -1,0 +1,46 @@
+{
+  "//": "design/ 와 supabase/functions/ 는 분석/감시에서 모두 제외. design/*.jsx 의 큰 inline SVG/스타일과 design/screens/*.png 가 Tailwind/TypeScript/ESLint 백그라운드 인덱서를 폭주시킨 전례가 있음.",
+
+  "files.watcherExclude": {
+    "**/.next/**": true,
+    "**/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "design/**": true,
+    "supabase/functions/**": true
+  },
+
+  "search.exclude": {
+    "**/.next": true,
+    "**/node_modules": true,
+    "design/screens/**": true
+  },
+
+  "files.exclude": {
+    "**/.next": true,
+    "**/.DS_Store": true
+  },
+
+  "typescript.tsserver.exclude": [
+    "design/**",
+    "supabase/functions/**",
+    ".next/**"
+  ],
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.disableAutomaticTypeAcquisition": true,
+
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.options": {
+    "ignorePatterns": ["design/**", "supabase/functions/**", ".next/**"]
+  },
+
+  "tailwindCSS.includeLanguages": {
+    "typescriptreact": "javascriptreact"
+  },
+  "tailwindCSS.files.exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/.next/**",
+    "design/**",
+    "supabase/functions/**"
+  ]
+}

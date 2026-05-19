@@ -3,6 +3,11 @@
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
+/* Tailwind v4: 명시적으로 스캔 범위를 좁힌다. 디자인 프로토타입 폴더(design/*.jsx)는
+   inline SVG/스타일이 매우 커서 자동 source 디텍션이 메모리를 폭주시킬 수 있음. */
+@source "../app/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+
 /* ── Design tokens (포팅 from design/Lunch Roulette.html) ──────────── */
 :root {
   --bg:         oklch(0.985 0.004 80);

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 추가: 디자인 프로토타입 JSX(큰 inline SVG/스타일) + Deno Edge Function 제외
+    "design/**",
+    "supabase/functions/**",
   ]),
 ]);
 
