@@ -1,26 +1,153 @@
+/* ── Pretendard + JetBrains Mono ───────────────────────────────────── */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
+/* ── Design tokens (포팅 from design/Lunch Roulette.html) ──────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:         oklch(0.985 0.004 80);
+  --bg-soft:    oklch(0.965 0.006 80);
+  --panel:      oklch(1    0     0);
+  --ink:        oklch(0.20 0.012 70);
+  --ink-soft:   oklch(0.36 0.012 70);
+  --muted:      oklch(0.55 0.012 70);
+  --line:       oklch(0.91 0.008 70);
+  --line-soft:  oklch(0.945 0.006 70);
+  --accent:     oklch(0.68 0.135 55);
+  --accent-ink: oklch(0.45 0.13  55);
+  --accent-soft:oklch(0.96 0.035 65);
+  --green:      oklch(0.62 0.13  150);
+  --red:        oklch(0.60 0.18  25);
+  --radius:     10px;
+  --radius-lg:  14px;
+  --shadow-sm:  0 1px 2px rgba(30, 20, 5, 0.04), 0 1px 0 rgba(30, 20, 5, 0.02);
+  --shadow-md:  0 1px 2px rgba(30, 20, 5, 0.05), 0 8px 24px -8px rgba(30, 20, 5, 0.12);
+  --font-sans:  "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+input, textarea { font-family: inherit; }
+
+::selection { background: var(--accent-soft); }
+
+/* ── shared utility classes ────────────────────────────────────────── */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.micro {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  width: 100%;
+}
+
+/* dot indicator */
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: inline-block;
+  vertical-align: middle;
+}
+.dot.live {
+  background: var(--green);
+  box-shadow: 0 0 0 0 oklch(0.62 0.13 150 / 0.6);
+  animation: pulse 1.8s infinite;
+}
+.dot.spin {
+  background: var(--accent);
+  animation: pulse 1.2s infinite;
+}
+.dot.done {
+  background: var(--ink-soft);
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* card */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* app shell */
+.wrap {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* keyframes */
+@keyframes wheel-spin-final {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(var(--end-rot, 1080deg)); }
+}
+
+@keyframes wheel-idle-drift {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pop-in {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }

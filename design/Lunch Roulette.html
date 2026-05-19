@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>점심 룰렛</title>
+<meta name="viewport" content="width=1280" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" />
+
+<style>
+  :root {
+    --bg:        oklch(0.985 0.004 80);
+    --bg-soft:   oklch(0.965 0.006 80);
+    --panel:     oklch(1    0     0);
+    --ink:       oklch(0.20  0.012 70);
+    --ink-soft:  oklch(0.36  0.012 70);
+    --muted:     oklch(0.55  0.012 70);
+    --line:      oklch(0.91  0.008 70);
+    --line-soft: oklch(0.945 0.006 70);
+    --accent:    oklch(0.68 0.135 55);     /* mustard / persimmon */
+    --accent-ink:oklch(0.45 0.13  55);
+    --accent-soft:oklch(0.96 0.035 65);
+    --green:     oklch(0.62 0.13  150);
+    --red:       oklch(0.60 0.18  25);
+    --radius:    10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 2px rgba(30,20,5,.04), 0 1px 0 rgba(30,20,5,.02);
+    --shadow-md: 0 1px 2px rgba(30,20,5,.05), 0 8px 24px -8px rgba(30,20,5,.12);
+    --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-sans); }
+  body { min-height: 100vh; font-size: 14px; line-height: 1.5; letter-spacing: -0.005em; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; }
+  input, textarea { font-family: inherit; }
+  ::selection { background: var(--accent-soft); }
+
+  /* shared utility */
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .micro { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  .divider { height: 1px; background: var(--line); width: 100%; }
+
+  /* dot indicator */
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted); display: inline-block; vertical-align: middle;
+  }
+  .dot.live { background: var(--green); box-shadow: 0 0 0 0 oklch(0.62 0.13 150 / 0.6); animation: pulse 1.8s infinite; }
+  .dot.spin { background: var(--accent); animation: pulse 1.2s infinite; }
+  .dot.done { background: var(--ink-soft); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 currentColor; }
+    70% { box-shadow: 0 0 0 6px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  /* card */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* app shell */
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+  .wrap { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+
+  /* header */
+  .topbar { border-bottom: 1px solid var(--line); background: var(--bg); }
+  .topbar-inner { display: flex; align-items: center; gap: 28px; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.02em; font-size: 15px; white-space: nowrap; }
+  .brand-mark {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: conic-gradient(from -90deg, var(--accent) 0 25%, oklch(0.88 0.02 70) 25% 50%, var(--accent) 50% 75%, oklch(0.88 0.02 70) 75% 100%);
+    border: 1.5px solid var(--ink);
+    position: relative;
+  }
+  .brand-mark::after { content: ""; position: absolute; inset: -4px 50% auto auto; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--ink); transform: translateX(50%); }
+  .tabs { display: flex; gap: 4px; margin-left: 8px; }
+  .tab {
+    appearance: none; border: 0; background: transparent;
+    padding: 8px 12px; border-radius: 7px; cursor: pointer;
+    color: var(--ink-soft); font-size: 13.5px; font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .tab:hover { background: var(--bg-soft); color: var(--ink); }
+  .tab[aria-current="true"] { background: var(--ink); color: white; }
+  .tab[aria-current="true"]:hover { background: var(--ink); }
+  .tab .count { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: oklch(0 0 0 / 0.06); color: var(--ink-soft); }
+  .tab[aria-current="true"] .count { background: oklch(1 0 0 / 0.18); color: white; }
+
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; color: var(--ink-soft); font-size: 13px; }
+  .clock-readout { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+  .clock-readout .mono { font-size: 12.5px; color: var(--ink); }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; background: var(--bg-soft); color: var(--ink-soft); border: 1px solid var(--line); }
+
+  /* page heading */
+  .page-head { padding: 36px 0 24px; }
+  .page-head h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .page-head .sub { color: var(--muted); font-size: 14px; }
+
+  /* keyframes for spin */
+  @keyframes wheel-spin-final {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(var(--end-rot, 1080deg)); }
+  }
+  @keyframes wheel-idle-drift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes pop-in { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes fade-up { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* loader */
+  #loading {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: var(--bg); color: var(--muted); font-size: 13px;
+  }
+</style>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="loading">로딩중…</div>
+<div id="app"></div>
+
+<!-- Tweaks defaults block -->
+<script>
+  window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "timePhase": "decided",
+    "showFakeData": true,
+    "showFakeLog": true
+  }/*EDITMODE-END*/;
+</script>
+
+<!-- Components -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="wheel.jsx"></script>
+<script type="text/babel" src="menu-list.jsx"></script>
+<script type="text/babel" src="calendar.jsx"></script>
+<script type="text/babel" src="ranking.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>

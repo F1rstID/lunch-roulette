@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 점심 룰렛 (Lunch Roulette)
 
-## Getting Started
+매일 11:55(KST)에 자동으로 돌아가는 익명 멀티유저 점심 메뉴 룰렛.
 
-First, run the development server:
+## 개요
+
+- 누구나 접속해서 메뉴를 자유롭게 추가 (완전 익명)
+- 11:55(KST)에 서버에서 자동으로 룰렛 회전 → 결과 확정
+- 결과는 23:59까지 메인에 고정, 자정에 메뉴 초기화
+- 확정된 결과는 캘린더/랭킹 탭에 영구 보존
+
+## 스택
+
+- Next.js (App Router) + TypeScript + Tailwind
+- Supabase (Postgres, Realtime, Edge Functions, pg_cron) — 무료 티어
+- Vercel 배포 — 무료 티어
+
+## 로컬 개발
 
 ```bash
+cp .env.example .env.local       # Supabase URL/anon key 입력
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000` 접속.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 디렉토리
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/                Next.js 페이지 (오늘 / log / rank)
+components/         UI 컴포넌트
+lib/                Supabase 클라이언트, KST/페이즈 헬퍼
+supabase/           마이그레이션 + Edge Function
+design/             React+Babel CDN 프로토타입 (시각 참조용)
+```

@@ -1,65 +1,289 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { supabase, type MenuRow, type ResultRow } from "@/lib/supabase/client";
+import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
+import { currentPhase, type Phase } from "@/lib/phase";
+import { TopBar } from "@/components/TopBar";
+import { PhaseTimeline } from "@/components/PhaseTimeline";
+import { Wheel, type WheelPhase } from "@/components/Wheel";
+import { MenuList } from "@/components/MenuList";
+import { ResultBlock } from "@/components/ResultBlock";
+
+export default function TodayPage() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const todayKey = todayKstDate(now);
+  const phase = currentPhase(now);
+
+  const [menus, setMenus] = useState<MenuRow[]>([]);
+  const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
+  const [forceSpin, setForceSpin] = useState(false);
+  const initialLoadedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    initialLoadedRef.current = false;
+    (async () => {
+      const [menuRes, todayRes] = await Promise.all([
+        supabase.from("menus").select("*").order("created_at", { ascending: true }),
+        supabase.from("results").select("*").eq("date", todayKey).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      if (menuRes.data) setMenus(menuRes.data as MenuRow[]);
+      setTodayResult(todayRes.data ? (todayRes.data as ResultRow) : null);
+      initialLoadedRef.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [todayKey]);
+
+  useEffect(() => {
+    const channel: RealtimeChannel = supabase
+      .channel("lunch-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "menus" },
+        (payload) => {
+          const row = payload.new as MenuRow;
+          setMenus((prev) =>
+            prev.some((m) => m.id === row.id) ? prev : [...prev, row].sort(byCreatedAt),
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "menus" },
+        (payload) => {
+          const oldRow = payload.old as Partial<MenuRow>;
+          if (oldRow.id) setMenus((prev) => prev.filter((m) => m.id !== oldRow.id));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "results" },
+        (payload) => {
+          const row = payload.new as ResultRow;
+          if (row.date === todayKey) {
+            setTodayResult(row);
+            if (initialLoadedRef.current) {
+              setForceSpin(true);
+              setTimeout(() => setForceSpin(false), 5000);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [todayKey]);
+
+  const winnerIndex = useMemo(() => {
+    if (!todayResult) return -1;
+    return menus.findIndex((m) => m.name === todayResult.menu);
+  }, [todayResult, menus]);
+
+  const wheelPhase: WheelPhase = forceSpin
+    ? "spinning"
+    : todayResult
+      ? "decided"
+      : phase === "spinning"
+        ? "spinning"
+        : "idle";
+
+  const resolvedPhase: Phase = todayResult ? "decided" : phase;
+
+  const addMenu = useCallback(async (name: string) => {
+    const trimmed = name.trim().slice(0, 24);
+    if (!trimmed) return;
+    await supabase.from("menus").insert({ name: trimmed });
+  }, []);
+
+  const removeMenu = useCallback(async (id: string) => {
+    await supabase.from("menus").delete().eq("id", id);
+  }, []);
+
+  const clockTime = formatHhMmSs(now);
+  const headline = phaseHeadline(resolvedPhase, todayResult?.menu);
+  const subhead = phaseSubhead(resolvedPhase, menus.length, todayResult?.menu);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <TopBar
+        active="today"
+        candidateCount={menus.length}
+        phase={resolvedPhase}
+        clockTime={clockTime}
+      />
+
+      <main className="wrap" style={{ flex: 1 }}>
+        <div style={pageHeadStyles.head}>
+          <div>
+            <div className="micro" style={{ marginBottom: 8 }}>
+              {formatKstLongDay(now)}
+            </div>
+            <h1 style={pageHeadStyles.h1}>{headline}</h1>
+            <div style={pageHeadStyles.sub}>{subhead}</div>
+          </div>
+          <PhaseTimeline current={resolvedPhase} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div style={layoutStyles.cols}>
+          <div style={layoutStyles.left}>
+            <div className="card" style={layoutStyles.stage}>
+              <StageHeader phase={resolvedPhase} clockTime={clockTime} />
+              <div style={layoutStyles.wheelHolder}>
+                <Wheel items={menus} phase={wheelPhase} winnerIndex={winnerIndex} size={460} />
+              </div>
+              <ResultBlock
+                phase={resolvedPhase}
+                candidateCount={menus.length}
+                winner={todayResult ? { name: todayResult.menu } : null}
+              />
+            </div>
+          </div>
+
+          <div style={layoutStyles.right}>
+            <MenuList
+              items={menus}
+              phase={resolvedPhase}
+              onAddAction={addMenu}
+              onRemoveAction={removeMenu}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
       </main>
+
+      <Footer clockTime={clockTime} />
+    </>
+  );
+}
+
+function StageHeader({ phase, clockTime }: { phase: Phase; clockTime: string }) {
+  const label =
+    phase === "accepting" ? "후보 접수중" : phase === "spinning" ? "룰렛 회전중" : "오늘의 결과";
+  const dot = phase === "accepting" ? "live" : phase === "spinning" ? "spin" : "done";
+  return (
+    <div style={stageStyles.header}>
+      <div style={stageStyles.headerLeft}>
+        <span className="micro">STAGE</span>
+        <span style={{ color: "var(--ink)", fontWeight: 600, fontSize: 13 }}>{label}</span>
+      </div>
+      <div style={stageStyles.headerRight}>
+        <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
+          {clockTime}
+        </span>
+        <span className={`dot ${dot}`} />
+      </div>
     </div>
   );
 }
+
+function Footer({ clockTime }: { clockTime: string }) {
+  return (
+    <footer style={footerStyles.wrap}>
+      <div className="wrap" style={footerStyles.inner}>
+        <span>점심 룰렛 · v0.1 · 결과는 매일 자정에 초기화돼요</span>
+        <span className="mono">{clockTime} KST</span>
+      </div>
+    </footer>
+  );
+}
+
+function byCreatedAt(a: MenuRow, b: MenuRow) {
+  return a.created_at < b.created_at ? -1 : 1;
+}
+
+function phaseHeadline(phase: Phase, winnerName?: string) {
+  if (phase === "accepting") return "오늘 점심 뭐 먹지?";
+  if (phase === "spinning") return "운명의 카운트다운…";
+  if (phase === "decided" && winnerName) return "오늘은 이거예요.";
+  return "오늘의 점심";
+}
+
+function phaseSubhead(phase: Phase, count: number, winnerName?: string) {
+  if (phase === "accepting")
+    return `현재 ${count}개의 후보가 룰렛에 올라가 있어요. 11:55에 자동으로 결정돼요.`;
+  if (phase === "spinning") return "룰렛은 11:55에 시작되어 약 5초간 돌아갑니다.";
+  if (phase === "decided" && winnerName)
+    return `"${winnerName}" · 더는 변경할 수 없어요. 결과는 자정에 초기화됩니다.`;
+  return "";
+}
+
+const pageHeadStyles = {
+  head: {
+    padding: "36px 0 24px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: 32,
+  },
+  h1: {
+    fontSize: 28,
+    fontWeight: 700,
+    letterSpacing: "-0.02em",
+    margin: "0 0 6px",
+  },
+  sub: { color: "var(--muted)", fontSize: 14 },
+} satisfies Record<string, CSSProperties>;
+
+const layoutStyles = {
+  cols: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)",
+    gap: 24,
+    paddingBottom: 56,
+  },
+  left: { display: "flex", flexDirection: "column", gap: 16 },
+  right: { display: "flex", flexDirection: "column", gap: 16 },
+  stage: {
+    padding: 0,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  },
+  wheelHolder: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "32px 24px 24px",
+    background:
+      "radial-gradient(circle at center, oklch(0.99 0.005 80) 0%, oklch(0.965 0.006 80) 70%)",
+  },
+} satisfies Record<string, CSSProperties>;
+
+const stageStyles = {
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "14px 20px",
+    borderBottom: "1px solid var(--line)",
+    background: "white",
+  },
+  headerLeft: { display: "flex", alignItems: "center", gap: 12 },
+  headerRight: { display: "flex", alignItems: "center", gap: 8 },
+} satisfies Record<string, CSSProperties>;
+
+const footerStyles = {
+  wrap: {
+    borderTop: "1px solid var(--line)",
+    padding: "16px 0",
+    background: "var(--bg)",
+  },
+  inner: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    color: "var(--muted)",
+    fontSize: 12,
+  },
+} satisfies Record<string, CSSProperties>;
