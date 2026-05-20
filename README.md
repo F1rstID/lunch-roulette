@@ -38,21 +38,23 @@ design/             React+Babel CDN 프로토타입 (시각 참조용)
 ## Vercel 배포
 
 1. [vercel.com/new](https://vercel.com/new) 접속 → GitHub 로그인
-2. `MAZE-JungWan/lunch-roulette` 임포트 (Framework: Next.js 자동 감지)
-3. **Environment Variables**에 추가:
-   - `NEXT_PUBLIC_SUPABASE_URL` = `https://dtuwddiepnxygtotwglv.supabase.co`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `.env.local`의 값 그대로
+2. `F1rstID/lunch-roulette` 임포트 (Framework: Next.js 자동 감지)
+3. **Environment Variables**에 추가 (`.env.local`의 값 그대로):
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://swxiqytyxjlcgubqlozk.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `sb_publishable_…`
 4. Deploy 클릭. 1~2분 후 `*.vercel.app` 도메인 발급
 5. (선택) Vercel Project Settings → Domains에서 커스텀 도메인 연결
 
 ## Supabase 인프라
 
-- 프로젝트 ID: `dtuwddiepnxygtotwglv` (region: ap-northeast-2 / Seoul)
+- 프로젝트 ref: `swxiqytyxjlcgubqlozk` (region: ap-northeast-2 / Seoul, F1rstID's Org)
 - 테이블: `public.menus`, `public.results`
 - pg_cron 잡 2개:
   - `spin-lunch-roulette` (`55 2 * * *` UTC = 11:55 KST) → Edge Function 호출
   - `reset-menus` (`0 15 * * *` UTC = 00:00 KST) → `menus` truncate
 - Edge Function: `spin-roulette` (`verify_jwt: false`, KST 11:55 이전 호출은 자동 거부, 멱등성 보장)
+- 다른 Supabase 프로젝트로 옮길 때는 `supabase/migrations/0002_cron.sql` 안의
+  `swxiqytyxjlcgubqlozk`를 새 ref로 모두 치환한 뒤 재적용
 
 ## 메모리 사용 주의
 

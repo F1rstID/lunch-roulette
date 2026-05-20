@@ -20,7 +20,7 @@ select cron.schedule(
   '55 2 * * *',
   $cmd$
   select net.http_post(
-    url := 'https://dtuwddiepnxygtotwglv.supabase.co/functions/v1/spin-roulette',
+    url := 'https://swxiqytyxjlcgubqlozk.supabase.co/functions/v1/spin-roulette',
     headers := '{"Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb
   );
