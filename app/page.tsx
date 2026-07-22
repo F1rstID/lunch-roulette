@@ -24,6 +24,7 @@ export default function TodayPage() {
   const [menus, setMenus] = useState<MenuRow[]>([]);
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
   const [forceSpin, setForceSpin] = useState(false);
+  const [respinning, setRespinning] = useState(false);
   const initialLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -45,6 +46,16 @@ export default function TodayPage() {
   }, [todayKey]);
 
   useEffect(() => {
+    // results INSERT(자동 추첨) / UPDATE(다시 돌리기) 공통 처리
+    const applyResult = (row: ResultRow) => {
+      if (row.date !== todayKey) return;
+      setTodayResult(row);
+      if (initialLoadedRef.current) {
+        setForceSpin(true);
+        setTimeout(() => setForceSpin(false), 5000);
+      }
+    };
+
     const channel: RealtimeChannel = supabase
       .channel("lunch-realtime")
       .on(
@@ -68,16 +79,12 @@ export default function TodayPage() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "results" },
-        (payload) => {
-          const row = payload.new as ResultRow;
-          if (row.date === todayKey) {
-            setTodayResult(row);
-            if (initialLoadedRef.current) {
-              setForceSpin(true);
-              setTimeout(() => setForceSpin(false), 5000);
-            }
-          }
-        },
+        (payload) => applyResult(payload.new as ResultRow),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "results" },
+        (payload) => applyResult(payload.new as ResultRow),
       )
       .subscribe();
 
@@ -109,6 +116,16 @@ export default function TodayPage() {
 
   const removeMenu = useCallback(async (id: string) => {
     await supabase.from("menus").delete().eq("id", id);
+  }, []);
+
+  const respin = useCallback(async () => {
+    setRespinning(true);
+    try {
+      // service_role 함수가 results를 덮어쓰고, realtime UPDATE로 휠이 다시 돈다
+      await supabase.functions.invoke("respin-roulette");
+    } finally {
+      setRespinning(false);
+    }
   }, []);
 
   const clockTime = formatHhMmSs(now);
@@ -148,6 +165,19 @@ export default function TodayPage() {
                 candidateCount={menus.length}
                 winner={todayResult ? { name: todayResult.menu } : null}
               />
+              {resolvedPhase === "decided" && todayResult && (
+                <div style={respinStyles.wrap}>
+                  <button
+                    type="button"
+                    onClick={respin}
+                    disabled={respinning || forceSpin}
+                    style={respinStyles.button}
+                  >
+                    {respinning || forceSpin ? "다시 돌리는 중…" : "🎲 다시 돌리기"}
+                  </button>
+                  <span style={respinStyles.hint}>결과를 새로 뽑아 모두에게 반영돼요</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -271,6 +301,29 @@ const stageStyles = {
   },
   headerLeft: { display: "flex", alignItems: "center", gap: 12 },
   headerRight: { display: "flex", alignItems: "center", gap: 8 },
+} satisfies Record<string, CSSProperties>;
+
+const respinStyles = {
+  wrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "14px 26px 18px",
+    borderTop: "1px solid var(--line)",
+    background: "white",
+  },
+  button: {
+    appearance: "none",
+    border: "1px solid var(--line)",
+    borderRadius: 10,
+    background: "var(--bg-soft)",
+    color: "var(--ink)",
+    fontSize: 14,
+    fontWeight: 600,
+    padding: "9px 16px",
+    cursor: "pointer",
+  },
+  hint: { color: "var(--muted)", fontSize: 12.5 },
 } satisfies Record<string, CSSProperties>;
 
 const footerStyles = {
