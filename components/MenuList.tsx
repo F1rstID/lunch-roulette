@@ -10,11 +10,17 @@ import type { Phase } from "@/lib/phase";
 type Props = {
   items: MenuRow[];
   phase: Phase;
-  onAddAction: (name: string) => void | Promise<void>;
-  onRemoveAction: (id: string) => void | Promise<void>;
+  // 추가 성공 여부를 돌려준다. 실패하면 입력값을 지우지 않아 사용자가 바로 재시도할 수 있다.
+  onAddAction: (name: string) => boolean | Promise<boolean>;
+  // name 은 실패 메시지에 쓸 표시용. 페이지가 menus 를 다시 뒤지지 않게 여기서 넘긴다.
+  onRemoveAction: (id: string, name: string) => void | Promise<void>;
+  // 고정된 메뉴 이름 집합. 핀 아이콘 상태를 이름 멤버십으로 판정.
+  pinnedNames: Set<string>;
+  // currentlyPinned = 클릭 시점의 고정 상태. 핸들러가 이걸 보고 insert/delete 를 고른다.
+  onTogglePinAction: (name: string, currentlyPinned: boolean) => void | Promise<void>;
 };
 
-export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
+export function MenuList({ items, phase, pinnedNames, onAddAction, onRemoveAction, onTogglePinAction }: Props) {
   const [val, setVal] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const readOnly = phase !== "accepting";
@@ -27,7 +33,8 @@ export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
       setVal("");
       return;
     }
-    await onAddAction(t);
+    const ok = await onAddAction(t);
+    if (!ok) return;
     setVal("");
     inputRef.current?.focus();
   }
@@ -108,10 +115,14 @@ export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
                 <span className="mono">{formatHhMm(new Date(m.created_at))}</span>
               </div>
             </div>
+            <PinButton
+              pinned={pinnedNames.has(m.name)}
+              onToggle={() => onTogglePinAction(m.name, pinnedNames.has(m.name))}
+            />
             {!readOnly && (
               <button
                 aria-label="삭제"
-                onClick={() => onRemoveAction(m.id)}
+                onClick={() => onRemoveAction(m.id, m.name)}
                 style={s.del}
                 title="삭제"
               >
@@ -125,10 +136,29 @@ export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
       <footer style={s.footer}>
         <span className="micro">규칙</span>
         <span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>
-          11:55에 룰렛이 자동으로 돌아갑니다 · 결과는 자정에 초기화돼요
+          11:55에 룰렛이 자동으로 돌아갑니다 · 📌 고정한 메뉴는 매일 자동 등록돼요
         </span>
       </footer>
     </div>
+  );
+}
+
+function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={pinned ? "고정 해제" : "고정"}
+      aria-pressed={pinned}
+      title={pinned ? "고정 해제 — 내일 자동 등록 취소" : "고정 — 매일 자동 등록"}
+      onClick={onToggle}
+      style={{
+        ...s.pin,
+        opacity: pinned ? 1 : 0.32,
+        background: pinned ? "var(--accent-soft)" : "transparent",
+      }}
+    >
+      📌
+    </button>
   );
 }
 
@@ -246,6 +276,18 @@ const s = {
     borderRadius: 6,
     cursor: "pointer",
     fontSize: 13,
+  },
+  pin: {
+    appearance: "none",
+    border: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 13,
+    lineHeight: 1,
+    flexShrink: 0,
+    transition: "opacity .12s",
   },
   footer: {
     padding: "12px 20px",

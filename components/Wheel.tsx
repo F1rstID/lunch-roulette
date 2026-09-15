@@ -16,6 +16,17 @@ type Props = {
   size?: number;
 };
 
+const SPIN_TURNS = 6;
+const SPIN_MS = 4800;
+const SPIN_EASING = "cubic-bezier(0.16, 1, 0.18, 1)";
+
+// 포인터가 매번 슬라이스 정중앙에 꽂히면 부자연스러워 ±30% 범위로 흩는다.
+// Math.random()은 렌더 순수성 lint(react-hooks/purity)에 걸리므로 당첨 index로 결정적으로 만든다.
+function spinJitter(winnerIndex: number, sliceDeg: number): number {
+  const frac = ((winnerIndex + 1) * 0.618033988) % 1; // 황금비 분산: 0~1 고르게
+  return (frac - 0.5) * sliceDeg * 0.6;
+}
+
 function polar(cx: number, cy: number, r: number, deg: number): [number, number] {
   const a = (deg - 90) * (Math.PI / 180);
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
@@ -35,47 +46,33 @@ export function Wheel({
   onSpinCompleteAction,
   size = 460,
 }: Props) {
-  const [rotation, setRotation] = React.useState(0);
-  const [transitionMs, setTransitionMs] = React.useState(0);
-  const lastSpinRef = React.useRef<{ phase: WheelPhase | null; winnerIndex: number }>({
-    phase: null,
-    winnerIndex: -1,
-  });
+  const sliceDeg = items.length > 0 ? 360 / items.length : 0;
+  const hasWinner = winnerIndex >= 0 && items.length > 0;
+
+  // 당첨 슬라이스 중앙이 12시 포인터에 오는 정지 각도
+  const restRotation = hasWinner ? -(sliceDeg * winnerIndex + sliceDeg / 2) : 0;
+
+  // 회전 각도는 state가 아니라 phase에서 파생한다. spinning이면 CSS transition이 현재 각도에서
+  // 목표 각도까지 굴려 주고, decided/idle이면 transition 없이 즉시 정지 각도로 놓는다.
+  // state+effect로 갱신하면 react-hooks/set-state-in-effect 에 걸리고, 실제로도 props의 파생값이다.
+  const isSpinning = phase === "spinning" && hasWinner;
+  const rotation = isSpinning
+    ? SPIN_TURNS * 360 + restRotation + spinJitter(winnerIndex, sliceDeg)
+    : phase === "decided"
+      ? restRotation
+      : 0;
 
   React.useEffect(() => {
-    if (phase === "spinning" && winnerIndex >= 0 && items.length > 0) {
-      const last = lastSpinRef.current;
-      if (last.phase === "spinning" && last.winnerIndex === winnerIndex) return;
-      lastSpinRef.current = { phase, winnerIndex };
-      const sliceDeg = 360 / items.length;
-      const targetOffset = -(sliceDeg * winnerIndex + sliceDeg / 2);
-      const jitter = (Math.random() - 0.5) * sliceDeg * 0.6;
-      const target = 6 * 360 + targetOffset + jitter;
-      setTransitionMs(4800);
-      requestAnimationFrame(() => requestAnimationFrame(() => setRotation(target)));
-      const t = setTimeout(() => onSpinCompleteAction?.(), 4900);
-      return () => clearTimeout(t);
-    }
-    if (phase === "decided" && winnerIndex >= 0 && items.length > 0) {
-      const sliceDeg = 360 / items.length;
-      const target = -(sliceDeg * winnerIndex + sliceDeg / 2);
-      setTransitionMs(0);
-      setRotation(target);
-      lastSpinRef.current = { phase: "decided", winnerIndex };
-    }
-    if (phase === "idle") {
-      setTransitionMs(0);
-      setRotation(0);
-      lastSpinRef.current = { phase, winnerIndex: -1 };
-    }
-  }, [phase, winnerIndex, items.length, onSpinCompleteAction]);
+    if (!isSpinning) return;
+    const t = setTimeout(() => onSpinCompleteAction?.(), SPIN_MS + 100);
+    return () => clearTimeout(t);
+  }, [isSpinning, onSpinCompleteAction]);
 
   const cx = size / 2;
   const cy = size / 2;
   const R = size / 2 - 30;
   const Rinner = 56;
   const labelR = R * 0.62;
-  const sliceDeg = items.length > 0 ? 360 / items.length : 0;
   const showLabels = phase !== "spinning" && items.length > 0;
   const isDecided = phase === "decided";
 
@@ -118,10 +115,7 @@ export function Wheel({
           style={{
             transformOrigin: `${cx}px ${cy}px`,
             transform: `rotate(${rotation}deg)`,
-            transition:
-              transitionMs > 0
-                ? `transform ${transitionMs}ms cubic-bezier(0.16, 1, 0.18, 1)`
-                : "none",
+            transition: isSpinning ? `transform ${SPIN_MS}ms ${SPIN_EASING}` : "none",
           }}
         >
           {items.map((item, i) => {

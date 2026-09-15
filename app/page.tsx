@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, type MenuRow, type ResultRow } from "@/lib/supabase/client";
+import { supabase, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
 import { TopBar } from "@/components/TopBar";
@@ -10,6 +10,9 @@ import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
 import { MenuList } from "@/components/MenuList";
 import { ResultBlock } from "@/components/ResultBlock";
+
+// respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다)
+type RespinResponse = { ok?: boolean; skipped?: string; error?: string };
 
 export default function TodayPage() {
   const [now, setNow] = useState(() => new Date());
@@ -24,19 +27,26 @@ export default function TodayPage() {
   const [menus, setMenus] = useState<MenuRow[]>([]);
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
   const [forceSpin, setForceSpin] = useState(false);
+  const [respinning, setRespinning] = useState(false);
+  // 마지막 쓰기(메뉴 추가·삭제·고정·다시 돌리기) 실패 메시지. 성공하면 지운다.
+  const [actionError, setActionError] = useState<string | null>(null);
+  // 고정된 메뉴 이름 집합. 파생 표시(핀 아이콘 상태)에 O(1) 멤버십으로 쓴다.
+  const [pinnedNames, setPinnedNames] = useState<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     initialLoadedRef.current = false;
     (async () => {
-      const [menuRes, todayRes] = await Promise.all([
+      const [menuRes, todayRes, pinRes] = await Promise.all([
         supabase.from("menus").select("*").order("created_at", { ascending: true }),
         supabase.from("results").select("*").eq("date", todayKey).maybeSingle(),
+        supabase.from("pinned_menus").select("name"),
       ]);
       if (cancelled) return;
       if (menuRes.data) setMenus(menuRes.data as MenuRow[]);
       setTodayResult(todayRes.data ? (todayRes.data as ResultRow) : null);
+      if (pinRes.data) setPinnedNames(new Set((pinRes.data as { name: string }[]).map((p) => p.name)));
       initialLoadedRef.current = true;
     })();
     return () => {
@@ -45,6 +55,16 @@ export default function TodayPage() {
   }, [todayKey]);
 
   useEffect(() => {
+    // results INSERT(자동 추첨) / UPDATE(다시 돌리기) 공통 처리
+    const applyResult = (row: ResultRow) => {
+      if (row.date !== todayKey) return;
+      setTodayResult(row);
+      if (initialLoadedRef.current) {
+        setForceSpin(true);
+        setTimeout(() => setForceSpin(false), 5000);
+      }
+    };
+
     const channel: RealtimeChannel = supabase
       .channel("lunch-realtime")
       .on(
@@ -68,15 +88,33 @@ export default function TodayPage() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "results" },
+        (payload) => applyResult(payload.new as ResultRow),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "results" },
+        (payload) => applyResult(payload.new as ResultRow),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pinned_menus" },
         (payload) => {
-          const row = payload.new as ResultRow;
-          if (row.date === todayKey) {
-            setTodayResult(row);
-            if (initialLoadedRef.current) {
-              setForceSpin(true);
-              setTimeout(() => setForceSpin(false), 5000);
-            }
-          }
+          const name = (payload.new as PinnedMenuRow).name;
+          setPinnedNames((prev) => (prev.has(name) ? prev : new Set(prev).add(name)));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "pinned_menus" },
+        (payload) => {
+          const name = (payload.old as Partial<PinnedMenuRow>).name;
+          if (!name) return;
+          setPinnedNames((prev) => {
+            if (!prev.has(name)) return prev;
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
         },
       )
       .subscribe();
@@ -101,15 +139,68 @@ export default function TodayPage() {
 
   const resolvedPhase: Phase = todayResult ? "decided" : phase;
 
-  const addMenu = useCallback(async (name: string) => {
+  // 아래 세 핸들러는 useCallback 으로 감싸지 않는다. 소비자(MenuList, button)가 memo 컴포넌트가
+  // 아니라 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가
+  // async 핸들러의 수동 memo 를 보존하지 못해 에러를 낸다.
+  async function addMenu(name: string): Promise<boolean> {
     const trimmed = name.trim().slice(0, 24);
-    if (!trimmed) return;
-    await supabase.from("menus").insert({ name: trimmed });
-  }, []);
+    if (!trimmed) return false;
+    const { error } = await supabase.from("menus").insert({ name: trimmed });
+    if (error) {
+      setActionError(`메뉴 "${trimmed}" 추가 실패: ${error.message}`);
+      return false;
+    }
+    setActionError(null);
+    return true;
+  }
 
-  const removeMenu = useCallback(async (id: string) => {
-    await supabase.from("menus").delete().eq("id", id);
-  }, []);
+  async function removeMenu(id: string, name: string) {
+    const { error } = await supabase.from("menus").delete().eq("id", id);
+    if (error) {
+      setActionError(`메뉴 "${name}" 삭제 실패: ${error.message}`);
+      return;
+    }
+    setActionError(null);
+  }
+
+  // 고정 토글. currentlyPinned 는 클릭 시점의 상태 — 켜짐이면 해제(delete), 꺼짐이면 고정(insert).
+  // 실제 pinnedNames 갱신은 realtime 이벤트로 이뤄진다(menus 추가와 동일한 패턴).
+  async function togglePin(name: string, currentlyPinned: boolean) {
+    if (currentlyPinned) {
+      const { error } = await supabase.from("pinned_menus").delete().eq("name", name);
+      if (error) {
+        setActionError(`"${name}" 고정 해제 실패: ${error.message}`);
+        return;
+      }
+    } else {
+      const { error } = await supabase.from("pinned_menus").insert({ name });
+      if (error) {
+        setActionError(`"${name}" 고정 실패: ${error.message}`);
+        return;
+      }
+    }
+    setActionError(null);
+  }
+
+  async function respin() {
+    setRespinning(true);
+    try {
+      // service_role 함수가 results를 덮어쓰고, realtime UPDATE로 휠이 다시 돈다
+      const { data, error } = await supabase.functions.invoke<RespinResponse>("respin-roulette");
+      if (error) {
+        setActionError(`다시 돌리기 실패: ${error.message}`);
+        return;
+      }
+      if (data?.skipped) {
+        const reason = data.skipped === "no_candidates" ? "후보가 없어요" : data.skipped;
+        setActionError(`다시 돌리기 건너뜀: ${reason}`);
+        return;
+      }
+      setActionError(null);
+    } finally {
+      setRespinning(false);
+    }
+  }
 
   const clockTime = formatHhMmSs(now);
   const headline = phaseHeadline(resolvedPhase, todayResult?.menu);
@@ -136,6 +227,20 @@ export default function TodayPage() {
           <PhaseTimeline current={resolvedPhase} />
         </div>
 
+        {actionError && (
+          <div role="alert" style={alertStyles.wrap}>
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              style={alertStyles.close}
+              aria-label="닫기"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <div style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
             <div className="card" style={layoutStyles.stage}>
@@ -148,6 +253,19 @@ export default function TodayPage() {
                 candidateCount={menus.length}
                 winner={todayResult ? { name: todayResult.menu } : null}
               />
+              {resolvedPhase === "decided" && todayResult && (
+                <div style={respinStyles.wrap}>
+                  <button
+                    type="button"
+                    onClick={respin}
+                    disabled={respinning || forceSpin}
+                    style={respinStyles.button}
+                  >
+                    {respinning || forceSpin ? "다시 돌리는 중…" : "🎲 다시 돌리기"}
+                  </button>
+                  <span style={respinStyles.hint}>결과를 새로 뽑아 모두에게 반영돼요</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -155,8 +273,10 @@ export default function TodayPage() {
             <MenuList
               items={menus}
               phase={resolvedPhase}
+              pinnedNames={pinnedNames}
               onAddAction={addMenu}
               onRemoveAction={removeMenu}
+              onTogglePinAction={togglePin}
             />
           </div>
         </div>
@@ -271,6 +391,55 @@ const stageStyles = {
   },
   headerLeft: { display: "flex", alignItems: "center", gap: 12 },
   headerRight: { display: "flex", alignItems: "center", gap: 8 },
+} satisfies Record<string, CSSProperties>;
+
+const respinStyles = {
+  wrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "14px 26px 18px",
+    borderTop: "1px solid var(--line)",
+    background: "white",
+  },
+  button: {
+    appearance: "none",
+    border: "1px solid var(--line)",
+    borderRadius: 10,
+    background: "var(--bg-soft)",
+    color: "var(--ink)",
+    fontSize: 14,
+    fontWeight: 600,
+    padding: "9px 16px",
+    cursor: "pointer",
+  },
+  hint: { color: "var(--muted)", fontSize: 12.5 },
+} satisfies Record<string, CSSProperties>;
+
+const alertStyles = {
+  wrap: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+    padding: "10px 14px",
+    border: "1px solid var(--red)",
+    borderRadius: "var(--radius)",
+    background: "var(--panel)",
+    color: "var(--red)",
+    fontSize: 13,
+  },
+  close: {
+    appearance: "none",
+    border: "none",
+    background: "transparent",
+    color: "inherit",
+    cursor: "pointer",
+    fontSize: 16,
+    lineHeight: 1,
+    padding: "0 4px",
+  },
 } satisfies Record<string, CSSProperties>;
 
 const footerStyles = {

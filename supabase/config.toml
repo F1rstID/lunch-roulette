@@ -1,0 +1,15 @@
+# Supabase CLI 설정. 여기 없는 항목은 CLI 기본값을 쓴다.
+# project_id 는 로컬 CLI 네임스페이스(docker 컨테이너 이름 등)이고 원격 프로젝트 ref가 아니다.
+# 원격 ref(swxiqytyxjlcgubqlozk)는 `supabase link --project-ref ...` 로 연결한다 (README 참조).
+project_id = "lunch_roulette"
+
+# 두 Edge Function 모두 JWT 없이 호출된다:
+# - spin-roulette : pg_cron → pg_net http_post (헤더에 Authorization 없음)
+# - respin-roulette : 브라우저가 publishable key(sb_publishable_…, JWT 아님)로 invoke
+# 기본값(true)으로 배포되면 401 → 점심 추첨이 조용히 멈춘다. 배포 시 --no-verify-jwt 를
+# 기억에 의존하지 않도록 여기 고정한다.
+[functions.spin-roulette]
+verify_jwt = false
+
+[functions.respin-roulette]
+verify_jwt = false
