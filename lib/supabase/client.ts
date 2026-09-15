@@ -22,3 +22,9 @@ export type ResultRow = {
   candidates: { name: string }[];
   spun_at: string;
 };
+
+// 고정 메뉴. 매일 자정 재시드의 소스 (supabase/migrations/0004_pinned_menus.sql).
+export type PinnedMenuRow = {
+  name: string;
+  created_at: string;
+};

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, type MenuRow, type ResultRow } from "@/lib/supabase/client";
+import { supabase, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
 import { TopBar } from "@/components/TopBar";
@@ -28,21 +28,25 @@ export default function TodayPage() {
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
   const [forceSpin, setForceSpin] = useState(false);
   const [respinning, setRespinning] = useState(false);
-  // 마지막 쓰기(메뉴 추가·삭제·다시 돌리기) 실패 메시지. 성공하면 지운다.
+  // 마지막 쓰기(메뉴 추가·삭제·고정·다시 돌리기) 실패 메시지. 성공하면 지운다.
   const [actionError, setActionError] = useState<string | null>(null);
+  // 고정된 메뉴 이름 집합. 파생 표시(핀 아이콘 상태)에 O(1) 멤버십으로 쓴다.
+  const [pinnedNames, setPinnedNames] = useState<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     initialLoadedRef.current = false;
     (async () => {
-      const [menuRes, todayRes] = await Promise.all([
+      const [menuRes, todayRes, pinRes] = await Promise.all([
         supabase.from("menus").select("*").order("created_at", { ascending: true }),
         supabase.from("results").select("*").eq("date", todayKey).maybeSingle(),
+        supabase.from("pinned_menus").select("name"),
       ]);
       if (cancelled) return;
       if (menuRes.data) setMenus(menuRes.data as MenuRow[]);
       setTodayResult(todayRes.data ? (todayRes.data as ResultRow) : null);
+      if (pinRes.data) setPinnedNames(new Set((pinRes.data as { name: string }[]).map((p) => p.name)));
       initialLoadedRef.current = true;
     })();
     return () => {
@@ -91,6 +95,28 @@ export default function TodayPage() {
         { event: "UPDATE", schema: "public", table: "results" },
         (payload) => applyResult(payload.new as ResultRow),
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pinned_menus" },
+        (payload) => {
+          const name = (payload.new as PinnedMenuRow).name;
+          setPinnedNames((prev) => (prev.has(name) ? prev : new Set(prev).add(name)));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "pinned_menus" },
+        (payload) => {
+          const name = (payload.old as Partial<PinnedMenuRow>).name;
+          if (!name) return;
+          setPinnedNames((prev) => {
+            if (!prev.has(name)) return prev;
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
+        },
+      )
       .subscribe();
 
     return () => {
@@ -133,6 +159,25 @@ export default function TodayPage() {
     if (error) {
       setActionError(`메뉴 "${name}" 삭제 실패: ${error.message}`);
       return;
+    }
+    setActionError(null);
+  }
+
+  // 고정 토글. currentlyPinned 는 클릭 시점의 상태 — 켜짐이면 해제(delete), 꺼짐이면 고정(insert).
+  // 실제 pinnedNames 갱신은 realtime 이벤트로 이뤄진다(menus 추가와 동일한 패턴).
+  async function togglePin(name: string, currentlyPinned: boolean) {
+    if (currentlyPinned) {
+      const { error } = await supabase.from("pinned_menus").delete().eq("name", name);
+      if (error) {
+        setActionError(`"${name}" 고정 해제 실패: ${error.message}`);
+        return;
+      }
+    } else {
+      const { error } = await supabase.from("pinned_menus").insert({ name });
+      if (error) {
+        setActionError(`"${name}" 고정 실패: ${error.message}`);
+        return;
+      }
     }
     setActionError(null);
   }
@@ -228,8 +273,10 @@ export default function TodayPage() {
             <MenuList
               items={menus}
               phase={resolvedPhase}
+              pinnedNames={pinnedNames}
               onAddAction={addMenu}
               onRemoveAction={removeMenu}
+              onTogglePinAction={togglePin}
             />
           </div>
         </div>
