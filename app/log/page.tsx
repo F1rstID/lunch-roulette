@@ -48,7 +48,7 @@ export default function LogPage() {
     };
   }, [calMonth]);
 
-  // 새 result INSERT 들어오면 현재 월 범위 안이면 추가
+  // 자동 추첨(INSERT)은 추가, 다시 돌리기(UPDATE)는 같은 id 행을 교체
   useEffect(() => {
     const ch: RealtimeChannel = supabase
       .channel("log-results")
@@ -58,6 +58,14 @@ export default function LogPage() {
         (payload) => {
           const row = payload.new as ResultRow;
           setResults((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "results" },
+        (payload) => {
+          const row = payload.new as ResultRow;
+          setResults((prev) => prev.map((r) => (r.id === row.id ? row : r)));
         },
       )
       .subscribe();

@@ -43,6 +43,15 @@ export default function RankPage() {
           setResults((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev]));
         },
       )
+      .on(
+        // 다시 돌리기는 같은 날짜 행을 UPDATE 하므로 id 기준으로 교체
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "results" },
+        (payload) => {
+          const row = payload.new as ResultRow;
+          setResults((prev) => prev.map((r) => (r.id === row.id ? row : r)));
+        },
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

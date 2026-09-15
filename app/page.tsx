@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, type MenuRow, type ResultRow } from "@/lib/supabase/client";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
@@ -10,6 +10,9 @@ import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
 import { MenuList } from "@/components/MenuList";
 import { ResultBlock } from "@/components/ResultBlock";
+
+// respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다)
+type RespinResponse = { ok?: boolean; skipped?: string; error?: string };
 
 export default function TodayPage() {
   const [now, setNow] = useState(() => new Date());
@@ -25,6 +28,8 @@ export default function TodayPage() {
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
   const [forceSpin, setForceSpin] = useState(false);
   const [respinning, setRespinning] = useState(false);
+  // 마지막 쓰기(메뉴 추가·삭제·다시 돌리기) 실패 메시지. 성공하면 지운다.
+  const [actionError, setActionError] = useState<string | null>(null);
   const initialLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -108,25 +113,49 @@ export default function TodayPage() {
 
   const resolvedPhase: Phase = todayResult ? "decided" : phase;
 
-  const addMenu = useCallback(async (name: string) => {
+  // 아래 세 핸들러는 useCallback 으로 감싸지 않는다. 소비자(MenuList, button)가 memo 컴포넌트가
+  // 아니라 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가
+  // async 핸들러의 수동 memo 를 보존하지 못해 에러를 낸다.
+  async function addMenu(name: string): Promise<boolean> {
     const trimmed = name.trim().slice(0, 24);
-    if (!trimmed) return;
-    await supabase.from("menus").insert({ name: trimmed });
-  }, []);
+    if (!trimmed) return false;
+    const { error } = await supabase.from("menus").insert({ name: trimmed });
+    if (error) {
+      setActionError(`메뉴 "${trimmed}" 추가 실패: ${error.message}`);
+      return false;
+    }
+    setActionError(null);
+    return true;
+  }
 
-  const removeMenu = useCallback(async (id: string) => {
-    await supabase.from("menus").delete().eq("id", id);
-  }, []);
+  async function removeMenu(id: string, name: string) {
+    const { error } = await supabase.from("menus").delete().eq("id", id);
+    if (error) {
+      setActionError(`메뉴 "${name}" 삭제 실패: ${error.message}`);
+      return;
+    }
+    setActionError(null);
+  }
 
-  const respin = useCallback(async () => {
+  async function respin() {
     setRespinning(true);
     try {
       // service_role 함수가 results를 덮어쓰고, realtime UPDATE로 휠이 다시 돈다
-      await supabase.functions.invoke("respin-roulette");
+      const { data, error } = await supabase.functions.invoke<RespinResponse>("respin-roulette");
+      if (error) {
+        setActionError(`다시 돌리기 실패: ${error.message}`);
+        return;
+      }
+      if (data?.skipped) {
+        const reason = data.skipped === "no_candidates" ? "후보가 없어요" : data.skipped;
+        setActionError(`다시 돌리기 건너뜀: ${reason}`);
+        return;
+      }
+      setActionError(null);
     } finally {
       setRespinning(false);
     }
-  }, []);
+  }
 
   const clockTime = formatHhMmSs(now);
   const headline = phaseHeadline(resolvedPhase, todayResult?.menu);
@@ -152,6 +181,20 @@ export default function TodayPage() {
           </div>
           <PhaseTimeline current={resolvedPhase} />
         </div>
+
+        {actionError && (
+          <div role="alert" style={alertStyles.wrap}>
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              style={alertStyles.close}
+              aria-label="닫기"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         <div style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
@@ -324,6 +367,32 @@ const respinStyles = {
     cursor: "pointer",
   },
   hint: { color: "var(--muted)", fontSize: 12.5 },
+} satisfies Record<string, CSSProperties>;
+
+const alertStyles = {
+  wrap: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+    padding: "10px 14px",
+    border: "1px solid var(--red)",
+    borderRadius: "var(--radius)",
+    background: "var(--panel)",
+    color: "var(--red)",
+    fontSize: 13,
+  },
+  close: {
+    appearance: "none",
+    border: "none",
+    background: "transparent",
+    color: "inherit",
+    cursor: "pointer",
+    fontSize: 16,
+    lineHeight: 1,
+    padding: "0 4px",
+  },
 } satisfies Record<string, CSSProperties>;
 
 const footerStyles = {

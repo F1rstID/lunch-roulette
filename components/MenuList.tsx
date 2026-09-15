@@ -10,8 +10,10 @@ import type { Phase } from "@/lib/phase";
 type Props = {
   items: MenuRow[];
   phase: Phase;
-  onAddAction: (name: string) => void | Promise<void>;
-  onRemoveAction: (id: string) => void | Promise<void>;
+  // 추가 성공 여부를 돌려준다. 실패하면 입력값을 지우지 않아 사용자가 바로 재시도할 수 있다.
+  onAddAction: (name: string) => boolean | Promise<boolean>;
+  // name 은 실패 메시지에 쓸 표시용. 페이지가 menus 를 다시 뒤지지 않게 여기서 넘긴다.
+  onRemoveAction: (id: string, name: string) => void | Promise<void>;
 };
 
 export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
@@ -27,7 +29,8 @@ export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
       setVal("");
       return;
     }
-    await onAddAction(t);
+    const ok = await onAddAction(t);
+    if (!ok) return;
     setVal("");
     inputRef.current?.focus();
   }
@@ -111,7 +114,7 @@ export function MenuList({ items, phase, onAddAction, onRemoveAction }: Props) {
             {!readOnly && (
               <button
                 aria-label="삭제"
-                onClick={() => onRemoveAction(m.id)}
+                onClick={() => onRemoveAction(m.id, m.name)}
                 style={s.del}
                 title="삭제"
               >
