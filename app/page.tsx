@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
+import { supabase, MENU_NAME_MAX_LEN, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
 import { TopBar } from "@/components/TopBar";
@@ -142,12 +142,18 @@ export default function TodayPage() {
   // 아래 세 핸들러는 useCallback 으로 감싸지 않는다. 소비자(MenuList, button)가 memo 컴포넌트가
   // 아니라 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가
   // async 핸들러의 수동 memo 를 보존하지 못해 에러를 낸다.
-  async function addMenu(name: string): Promise<boolean> {
-    const trimmed = name.trim().slice(0, 24);
-    if (!trimmed) return false;
-    const { error } = await supabase.from("menus").insert({ name: trimmed });
+  // 여러 이름을 한 번에 등록. MenuList 가 파싱·중복 제거를 끝낸 배열을 준다.
+  // 단일 insert 문이라 전부 성공하거나 전부 실패한다(원자적). 방어적으로 한 번 더 정규화.
+  async function addMenus(names: string[]): Promise<boolean> {
+    const rows = names
+      .map((n) => n.trim().slice(0, MENU_NAME_MAX_LEN))
+      .filter(Boolean)
+      .map((name) => ({ name }));
+    if (rows.length === 0) return false;
+    const { error } = await supabase.from("menus").insert(rows);
     if (error) {
-      setActionError(`메뉴 "${trimmed}" 추가 실패: ${error.message}`);
+      const label = rows.length === 1 ? `"${rows[0].name}"` : `${rows.length}개`;
+      setActionError(`메뉴 ${label} 추가 실패: ${error.message}`);
       return false;
     }
     setActionError(null);
@@ -274,7 +280,7 @@ export default function TodayPage() {
               items={menus}
               phase={resolvedPhase}
               pinnedNames={pinnedNames}
-              onAddAction={addMenu}
+              onAddAction={addMenus}
               onRemoveAction={removeMenu}
               onTogglePinAction={togglePin}
             />
