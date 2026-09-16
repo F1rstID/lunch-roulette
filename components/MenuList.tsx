@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRef, useState, type CSSProperties } from "react";
-import type { MenuRow } from "@/lib/supabase/client";
+import { MENU_NAME_MAX_LEN, type MenuRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
 import { formatHhMm } from "@/lib/time";
 import type { Phase } from "@/lib/phase";
@@ -10,8 +10,9 @@ import type { Phase } from "@/lib/phase";
 type Props = {
   items: MenuRow[];
   phase: Phase;
-  // 추가 성공 여부를 돌려준다. 실패하면 입력값을 지우지 않아 사용자가 바로 재시도할 수 있다.
-  onAddAction: (name: string) => boolean | Promise<boolean>;
+  // 파싱·중복 제거가 끝난 이름 배열을 한 번에 넘긴다(batch). 성공 여부를 돌려준다.
+  // 실패하면 입력값을 지우지 않아 사용자가 바로 재시도할 수 있다.
+  onAddAction: (names: string[]) => boolean | Promise<boolean>;
   // name 은 실패 메시지에 쓸 표시용. 페이지가 menus 를 다시 뒤지지 않게 여기서 넘긴다.
   onRemoveAction: (id: string, name: string) => void | Promise<void>;
   // 고정된 메뉴 이름 집합. 핀 아이콘 상태를 이름 멤버십으로 판정.
@@ -20,6 +21,25 @@ type Props = {
   onTogglePinAction: (name: string, currentlyPinned: boolean) => void | Promise<void>;
 };
 
+// 입력창 자체의 상한. 항목별 상한(MENU_NAME_MAX_LEN)과 별개 — 쉼표로 여러 개를 한 줄에 쓰려면
+// 입력창은 훨씬 길어야 한다. (예전엔 24라 "A, B, C, D," 가 24자에서 잘려 꼬리 쉼표가 남았다.)
+const INPUT_MAX_LEN = 120;
+
+// 쉼표(반각 , / 전각 ，)로 나눠 여러 메뉴를 한 번에 등록한다.
+// trim → 빈 항목 제거 → 항목별 24자 상한 → 입력 내 중복 제거 → 이미 있는 메뉴 제외.
+// 순수 함수라 I/O 없이 테스트 가능.
+export function parseMenuInput(input: string, existing: string[]): string[] {
+  const seen = new Set(existing);
+  const out: string[] = [];
+  for (const piece of input.split(/[,，]/)) {
+    const name = piece.trim().slice(0, MENU_NAME_MAX_LEN);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
 export function MenuList({ items, phase, pinnedNames, onAddAction, onRemoveAction, onTogglePinAction }: Props) {
   const [val, setVal] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,13 +47,14 @@ export function MenuList({ items, phase, pinnedNames, onAddAction, onRemoveActio
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const t = val.trim();
-    if (!t) return;
-    if (items.some((x) => x.name === t)) {
+    if (!val.trim()) return;
+    const names = parseMenuInput(val, items.map((x) => x.name));
+    if (names.length === 0) {
+      // 전부 이미 있는 메뉴(또는 빈 항목뿐) — 입력만 비운다
       setVal("");
       return;
     }
-    const ok = await onAddAction(t);
+    const ok = await onAddAction(names);
     if (!ok) return;
     setVal("");
     inputRef.current?.focus();
@@ -59,8 +80,8 @@ export function MenuList({ items, phase, pinnedNames, onAddAction, onRemoveActio
         <input
           ref={inputRef}
           type="text"
-          placeholder={readOnly ? "오늘은 추가할 수 없어요" : "예) 김치찌개, 마라탕, 샐러드…"}
-          maxLength={24}
+          placeholder={readOnly ? "오늘은 추가할 수 없어요" : "예) 김치찌개, 마라탕, 샐러드 (쉼표로 여러 개)"}
+          maxLength={INPUT_MAX_LEN}
           value={val}
           onChange={(e) => setVal(e.target.value)}
           disabled={readOnly}

@@ -9,6 +9,9 @@ export const supabase = createClient(url, key, {
   realtime: { params: { eventsPerSecond: 10 } },
 });
 
+// menus.name / pinned_menus.name 의 DB check 제약(char_length 1~24)과 동일. 여기서만 정의한다.
+export const MENU_NAME_MAX_LEN = 24;
+
 export type MenuRow = {
   id: string;
   name: string;
