@@ -50,7 +50,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. `lib/supabase/client.ts`의 행 타입이 새 스키마를 반영하고(`RestaurantRow`·`CandidateRow`·`SettingsRow`, `ResultRow.restaurant_id` nullable FK, `results.menu`는 매장명 스냅샷 유지) `npx tsc --noEmit`이 통과한다.
   5. 마이그레이션을 두 번 실행해도 안전하다 — 모든 문이 `if not exists` / `drop ... if exists` / unschedule 후 재등록 중 하나를 쓴다.
 **로컬 검증**: 마이그레이션은 로컬 Supabase 스택이 없어 적용해 볼 수 없다. 파일 낭독 리뷰 + 위 5개 항목 체크리스트(`grep truncate`, `grep results` 포함) + `npx tsc --noEmit`으로 확인한다. 프로젝트 ref 하드코딩(`0002_cron.sql` 선례)은 주석으로 계산식을 남긴다.
-**Plans**: TBD
+**Plans**: 3 plans (3 waves)
+- [ ] 02-01-PLAN.md — vitest 수집 경계에 마이그레이션 계약 스펙 추가 (wave 1)
+- [ ] 02-02-PLAN.md — 계약 스펙 RED → 0005 마이그레이션 + 행 타입 GREEN (wave 2)
+- [ ] 02-03-PLAN.md — 낭독 리뷰 8항목·검증 맵·게이트 5종·사용자 승인 (wave 3)
 
 ### Phase 3: 순수 로직
 **Goal**: 추첨 시각 판정·쿨다운 필터·KST 변환을 주입 가능한 순수 함수 한 곳으로 모으고, 테스트로 계약을 고정한다. 하드코딩 상수와 복붙을 이 페이즈에서 끝낸다.
@@ -140,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
-| 2. 데이터 모델 | 0/TBD | Not started | - |
+| 2. 데이터 모델 | 0/3 | Not started | - |
 | 3. 순수 로직 | 0/TBD | Not started | - |
 | 4. 서버 추첨 | 0/TBD | Not started | - |
 | 5. 매장 탭 | 0/TBD | Not started | - |
