@@ -36,6 +36,13 @@
 ### TS 타입 (`lib/supabase/client.ts`, 수동 유지)
 - **D-13** `RestaurantRow { id: string; name: string; menus: string[]; location: string | null; pinned: boolean; created_at: string }`, `CandidateRow { restaurant_id: string; created_at: string }`, `SettingsRow { id: 1; spin_time: string /* "HH:MM:SS" PostgREST */; cooldown_days: number; history_since: string /* "yyyy-mm-dd" */ }`, `ResultRow`에 `restaurant_id: string | null` 추가(기존 필드 유지). `MenuRow`·`PinnedMenuRow`는 **이 페이즈에서 삭제하지 않는다** — 페이지가 아직 쓰므로 Phase 6에서 제거 (tsc 깨짐 방지).
 
+### 리서치 후 추가 결정 (사용자 승인 2026-09-18, RESEARCH.md Open Questions)
+- **D-14** 세 번째 cron 잡 `purge-cron-history` 추가: 매일 1회, `delete from cron.job_run_details where end_time < now() - interval '7 days'`. 매분 폴링의 `job_run_details` 무한 적재(하루 1,440행) 방지. 같은 unschedule→schedule 패턴, 같은 파일.
+- **D-15** Docker 드라이런 하네스는 **Phase 2 범위 밖** — Phase 8 컷오버 직전 선택 항목으로 남긴다(로드맵 Phase 8 비고에 한 줄). Phase 2 검증은 vitest 계약 테스트 + 낭독 리뷰 + tsc.
+- **D-16** `restaurants.name` 제한은 1~24자 유지(D-01). 주석으로 `MENU_NAME_MAX_LEN`(`lib/constants.ts`)과 같은 값임을 남긴다.
+- **D-17** `candidates(created_at)` 인덱스는 넣되 **이름 명시** `create index if not exists candidates_created_at_idx on public.candidates (created_at)`. 무명 `create index`는 재실행 시 중복 생성되므로 파일 전체에서 금지.
+- **D-18** (리서치 확정 사항의 반영) `cron.unschedule`은 jobid 루프(0002 패턴)로만 — 이름 인자 형태 금지. `alter publication` 은 `pg_publication_tables` 가드 필수. `create policy if not exists` 문법 없음 → `drop policy if exists`+`create policy`. `net.http_post` 에 `timeout_milliseconds := 5000` 명시. 매장 삭제 시 `results.restaurant_id` set null UPDATE 가 Realtime 으로 나가 휠 재회전을 유발할 수 있음 → 마이그레이션 주석으로 남기고 가드는 Phase 6.
+
 ### Claude's Discretion
 - 마이그레이션 파일명(`0005_restaurants_settings.sql` 권장), 주석 문안(한글 Why), 인덱스(`candidates(created_at)`, `restaurants(pinned)` 정도), `settings` seed 방식, publication 가드 함수 형태.
 - `history_since` 기본값 표현식의 정확한 형태(KST 기준 오늘이면 됨).
