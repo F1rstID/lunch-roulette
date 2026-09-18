@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "01-03 완료: vitest 하네스 + lib/time·phase·errors 회귀 테스트 26건"
-last_updated: "2026-09-18T06:38:28.737Z"
+status: verifying
+stopped_at: "01-04 완료: parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (Phase 1 4/4 · 게이트 5종 통과)"
+last_updated: "2026-09-18T06:46:56.050Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 0
+  completed_plans: 4
+  percent: 13
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 
 Phase: 1 (안전망) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-18
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [████████░░] 75%
 | Phase 01 P01 | 8min | 2 tasks | 2 files |
 | Phase 01 P02 | 6min | 3 tasks | 5 files |
 | Phase 01 P03 | 9min | 3 tasks | 7 files |
+| Phase 01 P04 | 7min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Progress: [████████░░] 75%
 - [Phase 01]: vitest 를 4.1.11 로 정확 고정 (--save-exact) — 최신 5.0.1 은 engines.node 가 로컬 Node v25.6.1 과 불일치하고 optional peer @types/node 도 레포 ^20 과 어긋난다. 신규 패키지도 01-01 의 정확 버전 고정 컨벤션을 따른다
 - [Phase 01]: vitest 수집 경계를 tsconfig·eslint 와 동일하게 맞춤 (design/**·.planning/**·supabase/functions/!(_shared)/** 제외). supabase/functions/** 로 줄이면 include 의 _shared 항목이 무효화되므로 extglob 유지
 - [Phase 01]: msToNextPhase 는 테스트하지 않는다 — 참조 0건이고 Phase 3 이 lib/phase.ts 를 다시 쓰며 제거할 예정이라 계약 고정이 삭제를 방해한다
+- [Phase 01]: MENU_NAME_MAX_LEN 을 lib/constants.ts(환경변수·supabase·React 의존 0)로 내리고 re-export 를 두지 않았다 — 정의처가 한 곳이어야 import 경로가 갈리지 않는다
+- [Phase 01]: 컴포넌트가 supabase 모듈에서 값을 가져오지 않게 최상위 import type 문으로 낮춘다 — 인라인 type 한정자와 달리 문장이 통째로 지워져 모듈 로드가 사라진다. 컴포넌트 내부 순수 헬퍼 테스트의 표준 경로
+- [Phase 01]: 회귀 spec 의 24자 기대값은 상수 import 대신 리터럴 — 상수를 import 하면 값이 바뀔 때 기대값도 따라가 DB check 제약(char_length 1~24)의 거울이라는 계약이 사라진다
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T06:38:28.732Z
-Stopped at: 01-03 완료: vitest 하네스 + lib/time·phase·errors 회귀 테스트 26건
+Last session: 2026-09-18T06:46:56.045Z
+Stopped at: 01-04 완료: parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (Phase 1 4/4 · 게이트 5종 통과)
 Resume file: None

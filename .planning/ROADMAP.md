@@ -12,7 +12,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: 안전망** - vitest 도입 + 모델과 무관한 선행 수정(next 범프, 읽기 에러 표면화)
+- [x] **Phase 1: 안전망** - vitest 도입 + 모델과 무관한 선행 수정(next 범프, 읽기 에러 표면화) (completed 2026-09-18)
 - [ ] **Phase 2: 데이터 모델** - `restaurants`·`candidates`·`settings` 컷오버 마이그레이션 1파일 + TS 타입
 - [ ] **Phase 3: 순수 로직** - 추첨 시각·쿨다운·KST를 주입 가능한 단일 출처로 모으고 테스트로 고정
 - [ ] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성
@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 01-01-PLAN.md — next·eslint-config-next 16.3.5 범프, audit critical·high 0 (wave 1)
 - [x] 01-02-PLAN.md — 오늘·기록·랭킹 초기 SELECT 에러 배너 + 공용 ErrorBanner (wave 1)
 - [x] 01-03-PLAN.md — vitest 하네스 + lib/time·lib/phase·lib/errors 단위 테스트 (wave 2)
-- [ ] 01-04-PLAN.md — parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (wave 3)
+- [x] 01-04-PLAN.md — parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (wave 3)
 
 ### Phase 2: 데이터 모델
 **Goal**: 매장·후보·설정 스키마를 재실행 가능한 마이그레이션 한 파일과 수동 유지 TS 타입으로 확정한다. 파일만 쓰고 적용은 하지 않는다(적용은 Phase 8).
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 안전망 | 3/4 | In Progress|  |
+| 1. 안전망 | 4/4 | Complete   | 2026-09-18 |
 | 2. 데이터 모델 | 0/TBD | Not started | - |
 | 3. 순수 로직 | 0/TBD | Not started | - |
 | 4. 서버 추첨 | 0/TBD | Not started | - |
