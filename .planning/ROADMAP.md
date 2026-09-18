@@ -33,7 +33,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 오늘·기록·랭킹 3개 페이지에서 초기 SELECT가 실패하면 빈 화면 대신 한국어 에러 배너가 뜬다.
   4. 라이브 DB·Edge Function·`main` 브랜치가 이 페이즈 동안 전혀 바뀌지 않는다.
 **로컬 검증**: `npx tsc --noEmit` · `npm run lint` · `npm test` · `npm run build` · `npm audit`. vitest 설정에도 `design/**`·`supabase/functions/**` 제외를 넣어 인덱서 OOM 전례를 재발시키지 않는다.
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
+- [ ] 01-01-PLAN.md — next·eslint-config-next 16.3.5 범프, audit critical·high 0 (wave 1)
+- [ ] 01-02-PLAN.md — 오늘·기록·랭킹 초기 SELECT 에러 배너 + 공용 ErrorBanner (wave 1)
+- [ ] 01-03-PLAN.md — vitest 하네스 + lib/time·lib/phase·lib/errors 단위 테스트 (wave 2)
+- [ ] 01-04-PLAN.md — parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (wave 3)
 
 ### Phase 2: 데이터 모델
 **Goal**: 매장·후보·설정 스키마를 재실행 가능한 마이그레이션 한 파일과 수동 유지 TS 타입으로 확정한다. 파일만 쓰고 적용은 하지 않는다(적용은 Phase 8).
@@ -135,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 안전망 | 0/TBD | Not started | - |
+| 1. 안전망 | 0/4 | Not started | - |
 | 2. 데이터 모델 | 0/TBD | Not started | - |
 | 3. 순수 로직 | 0/TBD | Not started | - |
 | 4. 서버 추첨 | 0/TBD | Not started | - |
