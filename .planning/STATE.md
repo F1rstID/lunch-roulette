@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "02-01 완료: vitest include 에 supabase/migrations 글롭 추가 (수집 4파일 36건 불변, exclude 무변경)"
-last_updated: "2026-09-18T09:38:59.593Z"
-last_activity: 2026-09-18 -- Phase 2 executing (02-01 complete)
+stopped_at: "02-02 완료: 0005 컷오버 마이그레이션 + 계약 테스트 47건 + 행 타입 3종 (파일만 작성, 적용은 Phase 8)"
+last_updated: "2026-09-18T09:56:15.918Z"
+last_activity: 2026-09-18 -- Phase 2 executing (02-02 complete)
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
   percent: 13
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 ## Current Position
 
 Phase: 2 (데이터 모델) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 2 executing (02-01 complete)
+Last activity: 2026-09-18 -- Phase 2 executing (02-02 complete)
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [███████░░░] 71%
 | Phase 01 P03 | 9min | 3 tasks | 7 files |
 | Phase 01 P04 | 7min | 3 tasks | 5 files |
 | Phase 02 P01 | 2min | 1 tasks | 1 files |
+| Phase 02 P02 | 8min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Progress: [███████░░░] 71%
 - [Phase 01]: 회귀 spec 의 24자 기대값은 상수 import 대신 리터럴 — 상수를 import 하면 값이 바뀔 때 기대값도 따라가 DB check 제약(char_length 1~24)의 거울이라는 계약이 사라진다
 - [Phase 02]: vitest include 글롭을 supabase/migrations/**/*.test.ts 로 한정 (supabase/** 로 넓히지 않음) — exclude 의 extglob supabase/functions/!(_shared)/** 과 겹치는 판정을 만들면 Phase 3 의 _shared 수집 경로가 조용히 깨진다
 - [Phase 02]: 마이그레이션 계약 spec 은 검사 대상 SQL 파일 옆(supabase/migrations/)에 둔다 — 로컬 Supabase 스택이 없어 SQL 을 실행할 수 없고 텍스트 파싱이 유일한 자동 회귀 장치다 (D-15: Docker 드라이런은 Phase 8 선택 항목)
+- [Phase 02]: 0005 의 정책 줄에서 이름 정렬 패딩(0001·0004 습관)을 버리고 단일 공백으로 썼다 — drop/create 정책 쌍의 (테이블,이름) 1:1 검사가 단일 공백 정규식이라 정렬 패딩을 넣으면 9개 중 하나도 매치되지 않아 멱등성 게이트가 조용히 무력화된다
+- [Phase 02]: publication 가드를 테이블별 do 블록 3개가 아니라 배열 루프 1개로 — 대상이 한 줄 리터럴 배열이어야 '세 이름이 전부 있는가'를 집합 비교로 검사할 수 있다
+- [Phase 02]: SQL 문 개수 단언은 주석 제거 사본에서만 센다 — 한글 Why 주석에 create policy 같은 토큰이 섞이면 원본 grep 이 자기 자신을 세어 게이트가 통과해 버린다
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T09:38:52.375Z
-Stopped at: 02-01 완료: vitest include 에 supabase/migrations 글롭 추가 (수집 4파일 36건 불변, exclude 무변경)
+Last session: 2026-09-18T09:56:15.913Z
+Stopped at: 02-02 완료: 0005 컷오버 마이그레이션 + 계약 테스트 47건 + 행 타입 3종 (파일만 작성, 적용은 Phase 8)
 Resume file: None
