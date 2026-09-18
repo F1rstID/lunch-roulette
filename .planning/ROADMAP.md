@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 라이브 DB·Edge Function·`main` 브랜치가 이 페이즈 동안 전혀 바뀌지 않는다.
 **로컬 검증**: `npx tsc --noEmit` · `npm run lint` · `npm test` · `npm run build` · `npm audit`. vitest 설정에도 `design/**`·`supabase/functions/**` 제외를 넣어 인덱서 OOM 전례를 재발시키지 않는다.
 **Plans**: 4 plans (3 waves)
-- [ ] 01-01-PLAN.md — next·eslint-config-next 16.3.5 범프, audit critical·high 0 (wave 1)
+- [x] 01-01-PLAN.md — next·eslint-config-next 16.3.5 범프, audit critical·high 0 (wave 1)
 - [ ] 01-02-PLAN.md — 오늘·기록·랭킹 초기 SELECT 에러 배너 + 공용 ErrorBanner (wave 1)
 - [ ] 01-03-PLAN.md — vitest 하네스 + lib/time·lib/phase·lib/errors 단위 테스트 (wave 2)
 - [ ] 01-04-PLAN.md — parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (wave 3)
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 안전망 | 0/4 | Not started | - |
+| 1. 안전망 | 1/4 | In Progress|  |
 | 2. 데이터 모델 | 0/TBD | Not started | - |
 | 3. 순수 로직 | 0/TBD | Not started | - |
 | 4. 서버 추첨 | 0/TBD | Not started | - |

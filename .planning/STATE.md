@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: ROADMAP.md·STATE.md 작성 완료, REQUIREMENTS.md Traceability 34/34 매핑
-last_updated: "2026-09-18T05:55:57.017Z"
-last_activity: 2026-09-18 -- Phase 1 planning complete
+stopped_at: "01-01 완료: next 16.3.5 범프 + audit fix, critical·high 0"
+last_updated: "2026-09-18T06:04:15.305Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 1 — 안전망 (vitest 도입 + 모델 무관 선행 수정)
+**Current focus:** Phase 1 — 안전망
 
 ## Current Position
 
-Phase: 1 of 8 (안전망)
-Plan: 0 of TBD in current phase
+Phase: 1 (안전망) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 1 planning complete
+Last activity: 2026-09-18
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 - 과거 `results` 60행은 보존하고 집계만 `settings.history_since` 이후로 자른다 — 매핑하지 않는다.
 - 설정은 `settings` 단일행이 유일한 출처. 하드코딩 11:55(8파일 11곳)는 Phase 3·6에서 전부 제거.
 - Edge Function 순수 로직은 `supabase/functions/_shared/`에 Deno import 없이 두어 vitest가 직접 import.
+- [Phase 01]: next·eslint-config-next 16.3.5 범프 + 비-force npm audit fix로 npm audit 9건 → 0건 (앱 소스 무변경) — 범프만으로는 eslint 계열 high 3건이 남아 audit fix가 필수였다. --force·npm update는 선언 범위를 넘기므로 금지 유지
 
 ### Pending Todos
 
@@ -87,6 +89,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18
-Stopped at: ROADMAP.md·STATE.md 작성 완료, REQUIREMENTS.md Traceability 34/34 매핑
+Last session: 2026-09-18T06:04:15.189Z
+Stopped at: 01-01 완료: next 16.3.5 범프 + audit fix, critical·high 0
 Resume file: None
