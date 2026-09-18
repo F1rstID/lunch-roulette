@@ -10,6 +10,7 @@
 - `app/log/page.tsx` — 캘린더 기록. `app/rank/page.tsx` — 랭킹.
 - `lib/supabase/client.ts` — 브라우저용 supabase 클라이언트 + `MenuRow`/`ResultRow` 타입. **DB 타입의 유일한 정의처** (자동 생성 아님, 수동 유지).
 - `lib/time.ts` — KST 변환 전부. `lib/phase.ts` — 시각 → 페이즈(`accepting|spinning|decided`).
+- `lib/constants.ts` — 환경변수 없이 import 되는 순수 상수(`MENU_NAME_MAX_LEN`). 테스트가 `lib/supabase/client.ts`(모듈 로드 시 `createClient`)를 끌어오지 않게 분리한 것. `lib/errors.ts` — 로드 에러 메시지 조립(순수). `components/ErrorBanner.tsx` — `role="alert"` 배너.
 - `supabase/functions/spin-roulette` — pg_cron이 11:55에 호출하는 추첨 함수 (시간 가드 + 멱등). `respin-roulette` — 클라이언트 "다시 돌리기" (가드 없음, upsert).
 
 흐름: 클라이언트는 `menus`/`results`를 직접 SELECT/INSERT/DELETE(anon RLS) → Realtime `postgres_changes`로 동기화. 결과 확정은 **서버(pg_cron → Edge Function → results INSERT)** 만 한다. 클라이언트의 페이즈 계산은 표시용 추정이고, 실제 상태 전환은 results 행 존재 여부가 결정한다.
@@ -23,7 +24,7 @@ npm test           # vitest run (워치 아님). 워치는 npm run test:watch
 npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌드 자체가 실패한다
 ```
 
-테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). 2026-09-15 기준 lint 에러 1건 존재 (`components/Wheel.tsx` `react-hooks/set-state-in-effect`).
+테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). lint는 2026-09-18 기준 에러 0 (`components/Wheel.tsx`는 회전을 props에서 파생하도록 고쳐 `react-hooks/set-state-in-effect` 해결).
 
 ## 코드 컨벤션 (이 레포가 이미 내린 선택 — 따른다)
 
@@ -53,11 +54,11 @@ npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌�
 |---|---|
 | `lib/supabase/client.ts` `ResultRow` | 4개 파일 + 2개 Edge Function이 같은 스키마를 가정. 컬럼 바꾸면 전부 손봐야 하고 타입은 수동 동기화 |
 | `app/page.tsx` realtime 핸들러 | INSERT/UPDATE/DELETE 분기 + `initialLoadedRef`로 초기 로드/실시간 구분. 순서 바꾸면 휠 이중 회전 |
-| `app/log`, `app/rank` realtime | **INSERT만 구독** → 다시 돌리기(UPDATE)가 반영 안 됨, 새로고침 필요 |
+| `app/log`, `app/rank` realtime | INSERT/UPDATE 두 분기 구독. 분기 하나를 지우면 다시 돌리기(UPDATE)가 반영 안 된다 |
 | `components/Wheel.tsx` useEffect | 회전 상태 머신. lint 에러 있는 곳. `lastSpinRef` 가드 제거하면 재회전 루프 |
 | `supabase/migrations/0002_cron.sql` | 프로젝트 ref 하드코딩. 다른 Supabase로 옮기면 치환 필수 (README 참조) |
 | `winnerIndex` (`app/page.tsx`) | `menus`에서 **이름으로** 찾는다. 당첨 메뉴가 삭제되면 -1 → 휠 하이라이트 사라짐. 중복 이름이면 첫 번째 |
-| 클라이언트 쓰기 에러 | `addMenu`/`removeMenu`/`respin`은 supabase 에러를 확인하지 않는다 (조용히 실패) |
+| 클라이언트 에러 표면화 | 쓰기는 `actionError`, 초기 SELECT는 `loadError`(`lib/errors.ts` + `components/ErrorBanner.tsx`)로 배너 표시. 둘을 합치면 쓰기 성공이 읽기 실패 배너를 지운다. Realtime 구독 실패는 여전히 조용함 |
 
 미사용 코드: `lib/phase.ts` `msToNextPhase`, `Wheel` `onSpinCompleteAction` prop (참조 0).
 
