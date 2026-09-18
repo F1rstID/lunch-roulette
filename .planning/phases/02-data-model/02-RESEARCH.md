@@ -621,24 +621,24 @@ comment on column public.settings.history_since is '매장 전환일. 이 날짜
 | A5 | Supabase 대시보드 SQL Editor는 스크립트를 단일 트랜잭션으로 감싸지 않는다(문 단위 자동 커밋) | Pitfall 1 | 중간. 감싼다면 실패 시 전체 롤백이라 오히려 안전하다. 어느 쪽이든 "모든 문 멱등" 요구는 동일 |
 | A6 | 계약 스펙을 `supabase/migrations/*.test.ts`에 두면 tsc·eslint가 자동 포함한다(tsconfig include `**/*.ts`, exclude에 migrations 없음 — 설정 파일로 확인했으나 실제 실행으로는 미검증) | Validation | 낮음. 어긋나면 스펙을 `lib/`로 옮기면 된다 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`cron.job_run_details` 정리 잡을 0005에 넣을 것인가?**
+1. **`cron.job_run_details` 정리 잡을 0005에 넣을 것인가?** — RESOLVED: D-14 (CONTEXT.md) 추가, `30 15 * * *` 7일 보관
    - 알고 있는 것: pg_cron은 자동 정리하지 않는다(README 인용). 매분 폴링은 하루 1,440행을 만든다. 무료 티어 DB는 500MB.
    - 불확실한 것: 실제 행 크기와 Supabase 플랫폼이 별도 정리를 하는지(플랫폼 문서에 언급 없음).
    - 권고: 세 번째 잡 `purge-cron-history`(`10 15 * * *`, 7일 보관)를 **추가할 것을 권한다**. 5줄이고 되돌리기 쉬우며, 방치 시 발견이 몇 달 뒤가 된다. 다만 D-08/D-09는 잡 2개만 승인했으므로 **계획 단계에서 사용자 확인**이 필요하다(추가하지 않기로 하면 Phase 8 롤백/운영 문서에 "주기적 수동 정리" 항목을 남긴다).
 
-2. **`restaurants.name` 24자 제한이 실제 매장명에 충분한가?**
+2. **`restaurants.name` 24자 제한이 실제 매장명에 충분한가?** — RESOLVED: D-16 (CONTEXT.md) 24자 유지
    - 알고 있는 것: D-01이 24자를 잠갔고, 기존 `menus`/`pinned_menus`와 동일한 값이다. CONCERNS [P2]는 "식당 카탈로그 전환 때 24자를 넘길 가능성이 크므로 그 마이그레이션에서 재검토"를 권했다.
    - 불확실한 것: 실제 등록될 매장명 길이 분포("○○식당 강남2호점" 정도는 24자 안이나 프랜차이즈 지점명은 넘길 수 있다).
    - 권고: D-01이 사용자 승인 결정이므로 **그대로 24자로 간다**. 다만 `lib/constants.ts`의 `MENU_NAME_MAX_LEN`(24)과 값이 일치한다는 사실을 마이그레이션 주석에 남겨 두면 나중에 늘릴 때 두 곳을 함께 고친다. 늘리는 변경은 `alter table … drop constraint` + 재추가라 멱등 패턴이 깨지므로 별도 마이그레이션이 맞다.
 
-3. **Docker 드라이런(§Pattern 6)을 이 페이즈 계획에 넣을 것인가?**
+3. **Docker 드라이런(§Pattern 6)을 이 페이즈 계획에 넣을 것인가?** — RESOLVED: D-15 (CONTEXT.md) Phase 8 선택 항목
    - 알고 있는 것: 기술적으로 가능하고 이번 연구에서 검증했다. 이미지는 로컬에 pull되어 있다(415MB).
    - 불확실한 것: CONTEXT의 페이즈 경계가 검증 수단을 "낭독 리뷰 + grep + tsc + test"로 명시했다 — 드라이런 추가는 경계 확장이다.
    - 권고: Phase 2 기본 계획에는 **넣지 않는다**. 대신 Phase 8 컷오버 체크리스트에 "적용 직전 드라이런 1회(선택)" 항목으로 남긴다. 사용자가 원하면 Phase 2 마지막 선택 태스크로 승격.
 
-4. **`candidates`에 `created_at` 인덱스가 실제로 필요한가?**
+4. **`candidates`에 `created_at` 인덱스가 실제로 필요한가?** — RESOLVED: D-17 (CONTEXT.md) 넣되 이름 명시
    - 알고 있는 것: CONTEXT가 Claude 재량으로 남겼다. 후보는 많아야 수십 행이고 `order by created_at`은 시퀀셜 스캔으로 충분하다.
    - 권고: `candidates(created_at)`는 **생략**해도 무방하나, 0001의 `menus(created_at)` 선례와의 대칭성 및 비용이 거의 0인 점을 고려해 **넣는 쪽을 약하게 권한다**. `restaurants(pinned)`는 자정 재시드 쿼리의 술어이므로 넣는다. 어느 쪽이든 **이름을 반드시 붙일 것**(§Pattern 1).
 
