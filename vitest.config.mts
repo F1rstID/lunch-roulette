@@ -21,6 +21,9 @@ export default defineConfig({
       // Phase 3 이 만들 Deno 공유 순수 로직 자리. 지금은 매치되는 파일이 0개이고 그래도 무해하다 —
       // 미리 넣어 두는 이유는 그때 이 설정을 다시 건드리지 않게 하기 위해서다.
       "supabase/functions/_shared/**/*.test.ts",
+      // 로컬에 Supabase 스택이 없어 마이그레이션 SQL 을 실제로 실행해 볼 수 없다. 대신 계약 테스트가
+      // .sql 을 텍스트로 파싱해 검사하므로 spec 이 검사 대상 SQL 파일 옆에 산다 (드라이런은 D-15 로 Phase 8 선택 항목).
+      "supabase/migrations/**/*.test.ts",
     ],
     exclude: [
       "**/node_modules/**",
