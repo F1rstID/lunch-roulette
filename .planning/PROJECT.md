@@ -23,6 +23,9 @@
 - ✓ 쉼표 구분 다중 등록 (`parseMenuInput`) — existing
 - ✓ 클라이언트 쓰기 실패를 배너로 표면화 (`actionError`) — existing
 - ✓ Vercel(main 자동배포) + Supabase 무료 티어 운영 — existing
+- ✓ 3개 페이지 초기 SELECT 실패를 `ErrorBanner`로 표면화(`lib/errors.ts`, `loadError`≠`actionError`) — Phase 1
+- ✓ `next`·`eslint-config-next` 16.3.5 + 비-force `npm audit fix` → audit 0 — Phase 1
+- ✓ vitest 4.1.11 도입(`npm test`), `lib/time`·`lib/phase`·`lib/errors`·`parseMenuInput` 36 tests — Phase 1 (spin_time 파싱·쿨다운 테스트는 Phase 3)
 
 ### Active
 
@@ -40,11 +43,8 @@
 - [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백
 
 **품질·버그**
-- [ ] vitest 도입. `lib/phase.ts`·`lib/time.ts`·후보 필터·쿨다운 등 순수 로직 단위 테스트. 기존 `parseMenuInput` 스크래치 테스트 편입
 - [ ] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정
 - [ ] P2: 자정 `truncate`가 Realtime DELETE를 안 내서 열린 탭에 어제 후보 잔존 → `delete from`으로
-- [ ] `next` 16.3.5 보안 범프 (audit critical 1·high 6)
-- [ ] 3개 페이지 초기 SELECT 에러 표면화 (현재 삼킴)
 
 **문서·전환**
 - [ ] `CLAUDE.md`·`README.md` 현행화 (config.toml 존재, pinned 테이블, lint 해결, 새 컨벤션: settings 단일 소스·`_shared` 모듈)
@@ -98,7 +98,9 @@
 | 전환일도 settings 컬럼 | 동작 파라미터 단일 소스 원칙 유지, 상수 하드코딩 회피 | — Pending |
 | results.menu는 매장명 스냅샷 유지 + restaurant_id nullable FK | 매장 삭제해도 기록 무사, 과거 행과 스키마 공존 | — Pending |
 | cron 매분 폴링 | 정적 스케줄로는 DB 시각 반영 불가. 하루 1440회 무료티어 여유 | — Pending |
-| gsd Interactive / Standard / Parallel | 계획서 승인 게이트 유지, 6페이즈 안팎 | — Pending |
+| gsd Interactive / Standard / Parallel | 계획서 승인 게이트 유지, 8페이즈 | ✓ Good (Phase 1: 4플랜·검증 루프 2회·리뷰 1회로 완료) |
+| vitest 4.1.11 정확 고정, 5.x 보류 | Node 25.6.1·@types/node 20과 engines/peer 불일치 | ✓ Good |
+| 워크트리 격리 끔(순차 실행) | node_modules·.env.local이 워크트리에 없어 build/tsc 불가, 이중 npm install 메모리 위험 | ✓ Good |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
 ## Evolution
@@ -119,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-18 after initialization*
+*Last updated: 2026-09-18 after Phase 1 (안전망) completion*
