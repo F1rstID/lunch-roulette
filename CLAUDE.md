@@ -19,10 +19,11 @@
 ```bash
 npx tsc --noEmit   # 타입
 npm run lint       # eslint (react-hooks 규칙 포함)
+npm test           # vitest run (워치 아님). 워치는 npm run test:watch
 npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌드 자체가 실패한다
 ```
 
-테스트 인프라 없음 (`test` 스크립트·러너·CI 전부 없음). 2026-09-15 기준 lint 에러 1건 존재 (`components/Wheel.tsx` `react-hooks/set-state-in-effect`).
+테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). 2026-09-15 기준 lint 에러 1건 존재 (`components/Wheel.tsx` `react-hooks/set-state-in-effect`).
 
 ## 코드 컨벤션 (이 레포가 이미 내린 선택 — 따른다)
 
