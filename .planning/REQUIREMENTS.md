@@ -96,13 +96,59 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (roadmap 생성 시 채움) | | |
+| CATL-01 | Phase 5 — 매장 탭 | Pending |
+| CATL-02 | Phase 5 — 매장 탭 | Pending |
+| CATL-03 | Phase 5 — 매장 탭 | Pending |
+| CATL-04 | Phase 5 — 매장 탭 | Pending |
+| CATL-05 | Phase 5 — 매장 탭 | Pending |
+| CATL-06 | Phase 5 — 매장 탭 | Pending |
+| CATL-07 | Phase 2 — 데이터 모델 | Pending |
+| CAND-01 | Phase 6 — 오늘 탭 | Pending |
+| CAND-02 | Phase 6 — 오늘 탭 | Pending |
+| CAND-03 | Phase 6 — 오늘 탭 | Pending |
+| CAND-04 | Phase 2 — 데이터 모델 | Pending |
+| CAND-05 | Phase 6 — 오늘 탭 | Pending |
+| SPIN-01 | Phase 4 — 서버 추첨 | Pending |
+| SPIN-02 | Phase 3 — 순수 로직 | Pending |
+| SPIN-03 | Phase 3 — 순수 로직 | Pending |
+| SPIN-04 | Phase 4 — 서버 추첨 | Pending |
+| SPIN-05 | Phase 6 — 오늘 탭 | Pending |
+| SPIN-06 | Phase 6 — 오늘 탭 | Pending |
+| HIST-01 | Phase 7 — 기록·랭킹 | Pending |
+| HIST-02 | Phase 7 — 기록·랭킹 | Pending |
+| HIST-03 | Phase 2 — 데이터 모델 | Pending |
+| SETT-01 | Phase 2 — 데이터 모델 | Pending |
+| SETT-02 | Phase 3 — 순수 로직 | Pending |
+| SETT-03 | Phase 3 — 순수 로직 | Pending |
+| SETT-04 | Phase 4 — 서버 추첨 | Pending |
+| QUAL-01 | Phase 1 — 안전망 | Pending |
+| QUAL-02 | Phase 3 — 순수 로직 | Pending |
+| QUAL-03 | Phase 1 — 안전망 | Pending |
+| QUAL-04 | Phase 1 — 안전망 | Pending |
+| QUAL-05 | Phase 8 — 컷오버 | Pending |
+| SHIP-01 | Phase 2 — 데이터 모델 | Pending |
+| SHIP-02 | Phase 8 — 컷오버 | Pending |
+| SHIP-03 | Phase 8 — 컷오버 | Pending |
+| SHIP-04 | Phase 8 — 컷오버 | Pending |
 
 **Coverage:**
 - v1 requirements: 34 total
-- Mapped to phases: 0
-- Unmapped: 34 ⚠️
+- Mapped to phases: 34 ✓
+- Unmapped: 0
+
+**페이즈별 집계:**
+
+| Phase | Requirements | 개수 |
+|-------|--------------|------|
+| 1 — 안전망 | QUAL-01, QUAL-03, QUAL-04 | 3 |
+| 2 — 데이터 모델 | SHIP-01, SETT-01, CATL-07, CAND-04, HIST-03 | 5 |
+| 3 — 순수 로직 | SETT-02, SETT-03, SPIN-02, SPIN-03, QUAL-02 | 5 |
+| 4 — 서버 추첨 | SPIN-01, SPIN-04, SETT-04 | 3 |
+| 5 — 매장 탭 | CATL-01, CATL-02, CATL-03, CATL-04, CATL-05, CATL-06 | 6 |
+| 6 — 오늘 탭 | CAND-01, CAND-02, CAND-03, CAND-05, SPIN-05, SPIN-06 | 6 |
+| 7 — 기록·랭킹 | HIST-01, HIST-02 | 2 |
+| 8 — 컷오버 | SHIP-02, SHIP-03, SHIP-04, QUAL-05 | 4 |
 
 ---
 *Requirements defined: 2026-09-18*
-*Last updated: 2026-09-18 after initial definition*
+*Last updated: 2026-09-18 after roadmap creation (traceability 34/34)*
