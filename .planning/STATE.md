@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "01-04 완료: parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (Phase 1 4/4 · 게이트 5종 통과)"
-last_updated: "2026-09-18T09:35:11.857Z"
-last_activity: 2026-09-18 -- Phase 2 planning complete
+stopped_at: "02-01 완료: vitest include 에 supabase/migrations 글롭 추가 (수집 4파일 36건 불변, exclude 무변경)"
+last_updated: "2026-09-18T09:38:59.593Z"
+last_activity: 2026-09-18 -- Phase 2 executing (02-01 complete)
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 13
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 2 (데이터 모델) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 2 planning complete
+Last activity: 2026-09-18 -- Phase 2 executing (02-01 complete)
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100%
 | Phase 01 P02 | 6min | 3 tasks | 5 files |
 | Phase 01 P03 | 9min | 3 tasks | 7 files |
 | Phase 01 P04 | 7min | 3 tasks | 5 files |
+| Phase 02 P01 | 2min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Progress: [██████████] 100%
 - [Phase 01]: MENU_NAME_MAX_LEN 을 lib/constants.ts(환경변수·supabase·React 의존 0)로 내리고 re-export 를 두지 않았다 — 정의처가 한 곳이어야 import 경로가 갈리지 않는다
 - [Phase 01]: 컴포넌트가 supabase 모듈에서 값을 가져오지 않게 최상위 import type 문으로 낮춘다 — 인라인 type 한정자와 달리 문장이 통째로 지워져 모듈 로드가 사라진다. 컴포넌트 내부 순수 헬퍼 테스트의 표준 경로
 - [Phase 01]: 회귀 spec 의 24자 기대값은 상수 import 대신 리터럴 — 상수를 import 하면 값이 바뀔 때 기대값도 따라가 DB check 제약(char_length 1~24)의 거울이라는 계약이 사라진다
+- [Phase 02]: vitest include 글롭을 supabase/migrations/**/*.test.ts 로 한정 (supabase/** 로 넓히지 않음) — exclude 의 extglob supabase/functions/!(_shared)/** 과 겹치는 판정을 만들면 Phase 3 의 _shared 수집 경로가 조용히 깨진다
+- [Phase 02]: 마이그레이션 계약 spec 은 검사 대상 SQL 파일 옆(supabase/migrations/)에 둔다 — 로컬 Supabase 스택이 없어 SQL 을 실행할 수 없고 텍스트 파싱이 유일한 자동 회귀 장치다 (D-15: Docker 드라이런은 Phase 8 선택 항목)
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T06:46:56.045Z
-Stopped at: 01-04 완료: parseMenuInput 10케이스 회귀 테스트 + MENU_NAME_MAX_LEN 상수 분리 (Phase 1 4/4 · 게이트 5종 통과)
+Last session: 2026-09-18T09:38:52.375Z
+Stopped at: 02-01 완료: vitest include 에 supabase/migrations 글롭 추가 (수집 4파일 36건 불변, exclude 무변경)
 Resume file: None
