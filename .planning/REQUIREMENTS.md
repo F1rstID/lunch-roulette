@@ -52,7 +52,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **QUAL-01**: `npm test`(vitest)가 있고 순수 로직(`lib/phase.ts`, `lib/time.ts`, spin_time 파싱, 쿨다운 필터, `parseMenuInput`)에 단위 테스트가 있다
 - [ ] **QUAL-02**: Edge Function 순수 로직은 `supabase/functions/_shared/`에 Deno import 없이 두어 vitest로 테스트되고, `kstNow` 복붙이 한 곳으로 합쳐진다
 - [x] **QUAL-03**: `next` 16.3.5로 범프되어 `npm audit`에 critical·high가 0이다
-- [ ] **QUAL-04**: 3개 페이지의 초기 SELECT 에러가 배너로 표면화된다 (현재 삼킴)
+- [x] **QUAL-04**: 3개 페이지의 초기 SELECT 에러가 배너로 표면화된다 (현재 삼킴)
 - [ ] **QUAL-05**: `tsc --noEmit`·`lint`·`test`·`build` 전부 통과한 상태로 PR을 연다
 
 ### 전환·문서 (SHIP)
@@ -124,7 +124,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUAL-01 | Phase 1 — 안전망 (러너·time·phase·parseMenuInput) → Phase 3 — 순수 로직 (spin_time 파싱·쿨다운 필터에서 완료) | Pending |
 | QUAL-02 | Phase 3 — 순수 로직 | Pending |
 | QUAL-03 | Phase 1 — 안전망 | Complete |
-| QUAL-04 | Phase 1 — 안전망 | Pending |
+| QUAL-04 | Phase 1 — 안전망 | Complete |
 | QUAL-05 | Phase 8 — 컷오버 | Pending |
 | SHIP-01 | Phase 2 — 데이터 모델 | Pending |
 | SHIP-02 | Phase 8 — 컷오버 | Pending |

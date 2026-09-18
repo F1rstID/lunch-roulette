@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "01-01 완료: next 16.3.5 범프 + audit fix, critical·high 0"
-last_updated: "2026-09-18T06:04:15.305Z"
+stopped_at: "01-02 완료: 3개 페이지 초기 SELECT 에러 배너 + 공용 ErrorBanner"
+last_updated: "2026-09-18T06:12:53.764Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 ## Current Position
 
 Phase: 1 (안전망) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-09-18
 
-Progress: [███░░░░░░░] 25%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███░░░░░░░] 25%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 8min | 2 tasks | 2 files |
+| Phase 01 P02 | 6min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Progress: [███░░░░░░░] 25%
 - 설정은 `settings` 단일행이 유일한 출처. 하드코딩 11:55(8파일 11곳)는 Phase 3·6에서 전부 제거.
 - Edge Function 순수 로직은 `supabase/functions/_shared/`에 Deno import 없이 두어 vitest가 직접 import.
 - [Phase 01]: next·eslint-config-next 16.3.5 범프 + 비-force npm audit fix로 npm audit 9건 → 0건 (앱 소스 무변경) — 범프만으로는 eslint 계열 high 3건이 남아 audit fix가 필수였다. --force·npm update는 선언 범위를 넘기므로 금지 유지
+- [Phase 01]: 읽기 실패(loadError)와 쓰기 실패(actionError)를 별도 state 로 분리 — 쓰기 성공 시 setActionError(null) 이 호출되므로 합치면 읽기 실패 메시지가 조용히 지워진다
+- [Phase 01]: 에러 문자열 조립을 lib/errors.ts 순수 모듈로 분리 (외부 클라이언트·React·process.env 의존 0) — 01-03 vitest 가 환경변수 없이 그대로 import 한다. 배너는 error.message 만 쓰고 details·hint 는 쓰지 않는다
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T06:04:15.189Z
-Stopped at: 01-01 완료: next 16.3.5 범프 + audit fix, critical·high 0
+Last session: 2026-09-18T06:10:29.842Z
+Stopped at: 01-02 완료: 3개 페이지 초기 SELECT 에러 배너 + 공용 ErrorBanner
 Resume file: None
