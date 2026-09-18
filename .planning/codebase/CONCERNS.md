@@ -249,7 +249,7 @@
 ## Dependencies at Risk
 
 **`next` 16.2.6 — critical 등급 권고 존재:**
-- Risk: `npm audit` 기준 **critical 1 / high 6 / moderate 1 / low 1 (총 9건)**. 직접 의존성 중 `next`가 critical(App Router 미들웨어 우회, Server Actions DoS 등 다수 권고 묶음). 전이 의존성 `postcss`(high), `sharp`(high, libvips/libheif CVE), `brace-expansion`·`browserslist`·`js-yaml`·`nanoid`(각 high)도 모두 `next` 업그레이드로 해소된다.
+- Risk: `npm audit` 기준 **critical 1 / high 6 / moderate 1 / low 1 (총 9건)**. 직접 의존성 중 `next`가 critical(App Router 미들웨어 우회, Server Actions DoS 등 다수 권고 묶음). 전이 의존성 중 `postcss`·`sharp`·`nanoid`는 `next` 업그레이드로 해소되지만, `brace-expansion`·`browserslist`·`js-yaml`(각 high)은 `eslint`·`eslint-plugin-react-hooks→@babel/core` 서브트리에서 오므로 `next` 범프로는 남는다 — `npm audit fix`(비-force, 기존 semver 범위 내 lock 재해상)까지 해야 0건이 된다 (2026-09-18 플랜 검증기 실측).
 - Impact: 이 앱은 미들웨어·Server Actions·이미지 최적화를 쓰지 않아(전부 클라이언트 컴포넌트) 실제 노출면은 좁을 가능성이 높다. 다만 Vercel에서 서버 런타임으로 구동되므로 무시할 근거는 되지 못한다.
 - Migration plan: `next@16.3.5`로 업그레이드(**semver minor, 파괴적 변경 아님**). `eslint-config-next`도 16.2.6에 핀돼 있으므로 함께 올린다. 업그레이드 후 `npx tsc --noEmit` → `npm run lint` → `npm run build` → `rm -rf .next && npm run dev` 순으로 검증. `AGENTS.md` 지시대로 `node_modules/next/dist/docs/`의 변경 사항을 먼저 확인할 것.
 

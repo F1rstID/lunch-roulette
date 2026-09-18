@@ -121,7 +121,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SETT-02 | Phase 3 — 순수 로직 | Pending |
 | SETT-03 | Phase 3 — 순수 로직 | Pending |
 | SETT-04 | Phase 4 — 서버 추첨 | Pending |
-| QUAL-01 | Phase 1 — 안전망 | Pending |
+| QUAL-01 | Phase 1 — 안전망 (러너·time·phase·parseMenuInput) → Phase 3 — 순수 로직 (spin_time 파싱·쿨다운 필터에서 완료) | Pending |
 | QUAL-02 | Phase 3 — 순수 로직 | Pending |
 | QUAL-03 | Phase 1 — 안전망 | Pending |
 | QUAL-04 | Phase 1 — 안전망 | Pending |
