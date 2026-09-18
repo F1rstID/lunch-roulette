@@ -5,7 +5,9 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, type ResultRow } from "@/lib/supabase/client";
 import { formatHhMmSs } from "@/lib/time";
 import { currentPhase } from "@/lib/phase";
+import { formatLoadError } from "@/lib/errors";
 import { TopBar } from "@/components/TopBar";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { RankingView } from "@/components/RankingView";
 
 export default function RankPage() {
@@ -17,15 +19,19 @@ export default function RankPage() {
 
   const phase = currentPhase(now);
   const [results, setResults] = useState<ResultRow[]>([]);
+  // 초기 SELECT 실패 메시지. 실패를 "기록 0건" 랭킹으로 위장하지 않는다.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("results")
         .select("*")
         .order("date", { ascending: false });
-      if (!cancelled && data) setResults(data as ResultRow[]);
+      if (cancelled) return;
+      setLoadError(formatLoadError("랭킹", error));
+      if (data) setResults(data as ResultRow[]);
     })();
     return () => {
       cancelled = true;
@@ -62,6 +68,7 @@ export default function RankPage() {
     <>
       <TopBar active="rank" phase={phase} clockTime={formatHhMmSs(now)} />
       <main className="wrap" style={{ flex: 1 }}>
+        <ErrorBanner message={loadError} onCloseAction={() => setLoadError(null)} />
         <RankingView results={results} />
       </main>
     </>

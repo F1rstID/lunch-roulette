@@ -5,7 +5,9 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, type ResultRow } from "@/lib/supabase/client";
 import { todayKstDate, formatHhMmSs, kstParts } from "@/lib/time";
 import { currentPhase } from "@/lib/phase";
+import { formatLoadError } from "@/lib/errors";
 import { TopBar } from "@/components/TopBar";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { CalendarLog } from "@/components/CalendarLog";
 
 export default function LogPage() {
@@ -25,6 +27,8 @@ export default function LogPage() {
   });
 
   const [results, setResults] = useState<ResultRow[]>([]);
+  // 초기 SELECT 실패 메시지. 실패를 빈 달력으로 위장하지 않는다.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // 월 변경 시 또는 마운트 시 해당 월 데이터 로드 (3개월 윈도우)
   useEffect(() => {
@@ -35,13 +39,16 @@ export default function LogPage() {
       const endYear = calMonth.m >= 11 ? calMonth.y + 1 : calMonth.y;
       const endMonth = ((calMonth.m + 1) % 12) + 1; // current+2
       const end = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("results")
         .select("*")
         .gte("date", start)
         .lt("date", end)
         .order("date", { ascending: true });
-      if (!cancelled && data) setResults(data as ResultRow[]);
+      if (cancelled) return;
+      // 이 effect 는 calMonth 마다 재실행된다. 성공하면 null 이 들어가 이전 달의 실패 배너가 걷힌다.
+      setLoadError(formatLoadError("기록", error));
+      if (data) setResults(data as ResultRow[]);
     })();
     return () => {
       cancelled = true;
@@ -89,6 +96,8 @@ export default function LogPage() {
       <TopBar active="log" phase={phase} clockTime={formatHhMmSs(now)} />
 
       <main className="wrap" style={{ flex: 1 }}>
+        <ErrorBanner message={loadError} onCloseAction={() => setLoadError(null)} />
+
         <div style={head.wrap}>
           <div>
             <div className="micro" style={{ marginBottom: 8 }}>
