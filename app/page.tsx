@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, MENU_NAME_MAX_LEN, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
+import { supabase, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
+import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
 import { formatLoadError, joinLoadErrors } from "@/lib/errors";

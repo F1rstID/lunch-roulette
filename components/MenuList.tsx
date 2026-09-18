@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import { useRef, useState, type CSSProperties } from "react";
-import { MENU_NAME_MAX_LEN, type MenuRow } from "@/lib/supabase/client";
+import { MENU_NAME_MAX_LEN } from "@/lib/constants";
+// 값이 아니라 타입만 쓴다. `import type` 문장은 트랜스파일에서 통째로 지워져 supabase 클라이언트가
+// 로드되지 않는다 — parseMenuInput 을 환경변수 없이 테스트할 수 있는 근거다.
+import type { MenuRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
 import { formatHhMm } from "@/lib/time";
 import type { Phase } from "@/lib/phase";
