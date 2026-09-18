@@ -30,7 +30,7 @@ created: 2026-09-18
 - **After every task commit:** Run `npx vitest run supabase/migrations` (+ 타입을 건드렸으면 `npx tsc --noEmit`)
 - **After every plan wave:** Run `npm test` + `npx tsc --noEmit`
 - **Before `/gsd:verify-work`:** `npx tsc --noEmit && npm run lint && npm test && npm run build` 전부 green
-- **Max feedback latency:** 10 seconds
+- **Max feedback latency:** 10 seconds (페이즈 게이트의 `npm run build` 는 지연 예산 예외)
 
 ---
 
@@ -63,7 +63,7 @@ created: 2026-09-18
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| 마이그레이션 낭독 리뷰 8항목 | SHIP-01 | 로컬 Supabase 스택 없음, SQL 실행 불가 | RESEARCH §Validation Architecture 체크리스트 1~8 (동작 불변 원칙 주석·프로젝트 ref 치환 주석·cron KST 계산식·기본값 문자 일치·cascade/set null 방향·results 문 1개·drop table 최후·Pitfall 6 주석) |
+| 마이그레이션 낭독 리뷰 11항목 | SHIP-01 | 로컬 Supabase 스택 없음, SQL 실행 불가 | RESEARCH §Validation Architecture 체크리스트 1~8 + 02-03 PLAN 추가 9~11 (publication 대상 3개·D-01/D-02 컬럼 문자 대조·drop/create policy 쌍 1:1) |
 | 실제 적용 후 동작 | SHIP-01 | 라이브 적용은 Phase 8(사용자, 대시보드) | Phase 8 체크리스트. 선택: Docker `postgres:17-alpine` 드라이런(D-15) |
 
 ---

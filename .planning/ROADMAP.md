@@ -45,7 +45,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: SHIP-01, SETT-01, CATL-07, CAND-04, HIST-03
 **Success Criteria** (what must be TRUE):
   1. 마이그레이션 파일 1개가 `restaurants`(이름 unique·메뉴·위치·핀 플래그), `candidates`, `settings`(단일행 `id = 1` check, 기본값 `spin_time` 11:55 · `cooldown_days` 0 · `history_since`)를 만들고, RLS(익명 쓰기 개방 / `settings`는 anon select만 / `results`는 service_role만)와 `alter publication supabase_realtime add table` 3건을 함께 건다.
-  2. 같은 파일이 cron 2잡을 "unschedule → 재등록" 패턴으로 교체한다: 추첨은 매분 폴링, 자정 리셋은 `delete from public.candidates` + 핀 매장 재시드 — `truncate`가 파일에 0회 등장한다.
+  2. 같은 파일이 cron 잡을 "unschedule → 재등록" 패턴으로 교체한다(3잡: 추첨 매분 폴링, 자정 리셋 `delete from public.candidates` + 핀 매장 재시드, `purge-cron-history` 7일 보관 정리 — D-14) — `truncate`가 파일에 0회 등장한다.
   3. 파일 어디에도 `results` 기존 행을 삭제·변환하는 문장이 없고, 구 테이블(`menus`·`pinned_menus`) 제거는 파일의 마지막 단계에 온다.
   4. `lib/supabase/client.ts`의 행 타입이 새 스키마를 반영하고(`RestaurantRow`·`CandidateRow`·`SettingsRow`, `ResultRow.restaurant_id` nullable FK, `results.menu`는 매장명 스냅샷 유지) `npx tsc --noEmit`이 통과한다.
   5. 마이그레이션을 두 번 실행해도 안전하다 — 모든 문이 `if not exists` / `drop ... if exists` / unschedule 후 재등록 중 하나를 쓴다.
@@ -53,7 +53,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans (3 waves)
 - [ ] 02-01-PLAN.md — vitest 수집 경계에 마이그레이션 계약 스펙 추가 (wave 1)
 - [ ] 02-02-PLAN.md — 계약 스펙 RED → 0005 마이그레이션 + 행 타입 GREEN (wave 2)
-- [ ] 02-03-PLAN.md — 낭독 리뷰 8항목·검증 맵·게이트 5종·사용자 승인 (wave 3)
+- [ ] 02-03-PLAN.md — 낭독 리뷰 11항목·검증 맵·게이트 5종·사용자 승인 (wave 3)
 
 ### Phase 3: 순수 로직
 **Goal**: 추첨 시각 판정·쿨다운 필터·KST 변환을 주입 가능한 순수 함수 한 곳으로 모으고, 테스트로 계약을 고정한다. 하드코딩 상수와 복붙을 이 페이즈에서 끝낸다.
