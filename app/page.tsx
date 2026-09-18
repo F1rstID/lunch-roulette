@@ -5,8 +5,10 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, MENU_NAME_MAX_LEN, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
+import { formatLoadError, joinLoadErrors } from "@/lib/errors";
 import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
 import { MenuList } from "@/components/MenuList";
 import { ResultBlock } from "@/components/ResultBlock";
@@ -30,6 +32,9 @@ export default function TodayPage() {
   const [respinning, setRespinning] = useState(false);
   // 마지막 쓰기(메뉴 추가·삭제·고정·다시 돌리기) 실패 메시지. 성공하면 지운다.
   const [actionError, setActionError] = useState<string | null>(null);
+  // 초기 로드(SELECT) 실패 메시지. actionError 와 한 state 로 합치지 않는다 — 쓰기가 성공할 때마다
+  // setActionError(null) 이 불리므로, 합치면 읽기 실패 메시지가 사용자 모르게 지워진다.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // 고정된 메뉴 이름 집합. 파생 표시(핀 아이콘 상태)에 O(1) 멤버십으로 쓴다.
   const [pinnedNames, setPinnedNames] = useState<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
@@ -44,6 +49,16 @@ export default function TodayPage() {
         supabase.from("pinned_menus").select("name"),
       ]);
       if (cancelled) return;
+      // 세 쿼리를 한 배너로 합친다. 전부 성공하면 null 이 들어가 배너가 사라진다.
+      // results 는 maybeSingle 이라 "오늘 결과 없음"이 error 가 아니라 data: null 로 오므로,
+      // 결과가 아직 없는 정상 상태에서는 배너가 뜨지 않는다.
+      setLoadError(
+        joinLoadErrors([
+          formatLoadError("메뉴 목록", menuRes.error),
+          formatLoadError("오늘 결과", todayRes.error),
+          formatLoadError("고정 메뉴", pinRes.error),
+        ]),
+      );
       if (menuRes.data) setMenus(menuRes.data as MenuRow[]);
       setTodayResult(todayRes.data ? (todayRes.data as ResultRow) : null);
       if (pinRes.data) setPinnedNames(new Set((pinRes.data as { name: string }[]).map((p) => p.name)));
@@ -233,19 +248,8 @@ export default function TodayPage() {
           <PhaseTimeline current={resolvedPhase} />
         </div>
 
-        {actionError && (
-          <div role="alert" style={alertStyles.wrap}>
-            <span>{actionError}</span>
-            <button
-              type="button"
-              onClick={() => setActionError(null)}
-              style={alertStyles.close}
-              aria-label="닫기"
-            >
-              ×
-            </button>
-          </div>
-        )}
+        <ErrorBanner message={loadError} onCloseAction={() => setLoadError(null)} />
+        <ErrorBanner message={actionError} onCloseAction={() => setActionError(null)} />
 
         <div style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
@@ -420,32 +424,6 @@ const respinStyles = {
     cursor: "pointer",
   },
   hint: { color: "var(--muted)", fontSize: 12.5 },
-} satisfies Record<string, CSSProperties>;
-
-const alertStyles = {
-  wrap: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-    padding: "10px 14px",
-    border: "1px solid var(--red)",
-    borderRadius: "var(--radius)",
-    background: "var(--panel)",
-    color: "var(--red)",
-    fontSize: 13,
-  },
-  close: {
-    appearance: "none",
-    border: "none",
-    background: "transparent",
-    color: "inherit",
-    cursor: "pointer",
-    fontSize: 16,
-    lineHeight: 1,
-    padding: "0 4px",
-  },
 } satisfies Record<string, CSSProperties>;
 
 const footerStyles = {
