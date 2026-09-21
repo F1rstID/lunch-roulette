@@ -33,12 +33,13 @@ export default function LogPage() {
   // 추첨 시각은 settings 가 정한다. 로드 전·실패 시에도 기본값(11:55)으로 계속 동작한다(SETT-03).
   const { settings, error: settingsError, warning: settingsWarning } = useSettings();
 
-  // 이미 로드한 results 에서 오늘 결과 여부를 파생한다. 다른 달을 보고 있으면 오늘 행이 로드 범위
-  // 밖이라 상단 뱃지가 부정확할 수 있다 — 이 페이지는 뱃지 외에 phase 를 쓰지 않아 기능 영향은 0이고,
-  // 오늘 결과를 따로 조회하는 것은 이 페이지를 다시 쓰는 뒤쪽 페이즈로 미룬다.
+  // 이미 로드한 results 에서 오늘 결과 여부를 파생한다. 로드 창이 [보는 달 1일, 두 달 뒤 1일) — 즉 보는
+  // 달과 그 다음 달 — 이라, 이번 달이나 지난달을 보는 동안에는 오늘 행이 창 안에 있어 정확하다. 그보다
+  // 과거로 가거나 미래 달로 넘길 때만 오늘 행이 빠져 상단 뱃지가 부정확해진다 — 이 페이지는 뱃지 외에
+  // phase 를 쓰지 않아 기능 영향은 0이고, 오늘 결과를 따로 조회하는 것은 뒤쪽 페이즈로 미룬다.
   const phase = currentPhase(now, settings.spinTime, results.some((r) => r.date === todayKey));
 
-  // 월 변경 시 또는 마운트 시 해당 월 데이터 로드 (3개월 윈도우)
+  // 월 변경 시 또는 마운트 시 해당 월 데이터 로드 (보는 달 + 다음 달 = 2개월 창)
   useEffect(() => {
     let cancelled = false;
     (async () => {

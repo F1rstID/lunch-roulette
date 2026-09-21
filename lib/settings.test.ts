@@ -7,7 +7,9 @@
 // 일부러 안 하는 것 ①: 행 타입(SettingsRow)을 import 하지 않고 리터럴 픽스처로 만든다 — 그 모듈은 로드
 // 시점에 supabase 클라이언트를 만들어 환경변수를 요구하므로, spec 이 묶이면 러너에서 즉사한다(리서치 §Q7).
 // 일부러 안 하는 것 ②: useSettings 훅은 테스트하지 않는다 — 렌더 하네스(DOM 구현 + 렌더 테스트 라이브러리)
-// 3개를 들이는 비용 대비 훅 본문에 분기가 0이다(리서치 §Q7). 판단은 전부 이 파일이 검사하는 리듀서에 있다.
+// 3개를 들이는 비용 대비 훅 본문이 거의 배관뿐이다(리서치 §Q7). 판단은 전부 이 파일이 검사하는 리듀서에
+// 있고, 훅에 남은 분기 2개(에러/0행, DELETE/그 외)만 낭독으로 검증한다 — 그 둘을 리듀서로 내리는 일은
+// .planning/todos/pending/in-03-usesettings-branches-to-reducer.md 에 있다.
 
 import { describe, it, expect } from "vitest";
 import {

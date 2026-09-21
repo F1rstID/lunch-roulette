@@ -38,6 +38,9 @@ findings:
   info: 7
   total: 8
 status: issues_found
+fixed: 6
+deferred: 2
+fixed_at: 2026-09-21T05:45:00Z
 ---
 
 # Phase 3: Code Review Report
@@ -194,6 +197,26 @@ export function todayKstDate(now: Date = new Date()): string {
 ```
 `lib/settings.test.ts:10` 은 IN-03 을 적용하면 참이 되고, 적용하지 않으면 "훅 본문의 분기 2개(에러/0행, DELETE/그 외)는 낭독으로만 검증한다" 로 고친다.
 
+## Fix Log (2026-09-21, `f231bd3` 기준)
+
+8건 중 **6건 수정 · 2건 이월**. 수정은 finding 단위로 커밋했고, 이월 2건은 `.planning/todos/pending/` 에 Phase 6 으로 적재했다(코드는 건드리지 않았다).
+
+| ID | 결과 | 커밋 / 이월처 |
+|---|---|---|
+| WR-01 | Fixed | `0cd4fb2` — 모듈 카운터로 훅 인스턴스마다 토픽(`settings-changes-<n>`). `CONVENTIONS.md` 채널 규칙을 "구독 인스턴스마다 고유" 로 교체, `CLAUDE.md:13` 도 갱신 |
+| IN-01 | Fixed | `57b61fd` — `loaded`·`failed` 가 `state.loaded` 를 읽어, Realtime 이 앞선 경우 늦게 온 초기 조회를 버린다. 순서 뒤집힘 3건 spec 추가, 기존 #16 은 "이미 로드된 뒤의 failed 는 무시된다" 로 재조준 |
+| IN-02 | Deferred | `.planning/todos/pending/in-02-settings-loaded-first-paint.md` (resolves_phase: 6) |
+| IN-03 | Deferred | `.planning/todos/pending/in-03-usesettings-branches-to-reducer.md` (resolves_phase: 6) |
+| IN-04 | Fixed | `8941ee9` — `cooldownWindowStart` 가 날짜꼴·정수 검사를 먼저 하고 오염 입력은 `null`, `applyCooldown([], …)` 은 `fellBack: false`, `settingsFromRow` 는 `history_since ?? null`. spec 5건 추가 |
+| IN-05 | Fixed | `e33efa8` — `#7a`·`#16a` 로 두 `index.ts` 의 진입점 개수를 먼저 단언(파일을 옮겨 실제로 빨갛게 되는 것까지 확인) |
+| IN-06 | Fixed | `63f9ea5` — `todayKstDate` 가 `kstParts(now).date` 를 돌려준다. `lib/time.test.ts` 무변경 통과 |
+| IN-07 | Fixed | `docs(03): correct CLAUDE.md statements and record review outcomes` (이 표를 담은 커밋) — `CLAUDE.md:13`(값 import 문면)·`:14`(계약 범위는 세 모듈, spec 은 예외)·`:38`(존재하지 않는 "단수" 규칙) 정정. `lib/settings.test.ts:10` 은 IN-03 을 이월했으므로 "훅에 남은 분기 2개는 낭독으로 검증한다" 로 고쳤다 |
+
+**리뷰 문면 정정 1건(IN-07 적용 중 발견):** 이 리포트 `:54` 가 `app/log/page.tsx` 의 로드 창을 "3개월(`[calMonth, calMonth+2]`) … 직전 두 달은 정확하다" 라고 적었지만, 실제 쿼리는 `.gte(date, 보는 달 1일).lt(date, 두 달 뒤 1일)` 이라 **보는 달 + 다음 달 2개월**이다(12개월 전부 계산해 확인). 따라서 오늘 행이 창 안에 있는 것은 **이번 달·지난달**을 볼 때뿐이다. 주석은 실제 동작대로 고쳤고, 같은 이유로 잘못돼 있던 effect 머리의 `(3개월 윈도우)` 라벨도 함께 고쳤다.
+
+**SETT-02 재확인 필요:** WR-01 수정으로 라우트 전환 뒤에도 구독이 살아 있는 것이 **구성상** 보장되지만(토픽이 겹치지 않으므로 dedup 자체가 일어나지 않는다), 레포에 렌더 하네스가 없고 라이브 `settings` 테이블은 컷오버(Phase 8) 전이라 **브라우저 실증은 불가능**하다. 회귀 게이트는 `grep -c 'channel("settings-changes")' lib/useSettings.ts` → `0`.
+
 ---
 
 _Reviewed: 2026-09-21T05:25:00Z · Depth: standard · diff_base: 68eedb8_
+_Fixed: 2026-09-21 · 6 fixed / 2 deferred · fix base: f231bd3_
