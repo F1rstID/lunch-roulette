@@ -161,7 +161,7 @@
   }, [dep]);
   ```
   (`app/page.tsx:37-55`, `app/log/page.tsx:30-49`, `app/rank/page.tsx:21-33`). 병렬 쿼리는 `Promise.all`로 묶는다(`app/page.tsx:41-45`).
-- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 이름은 페이지마다 고유: `"lunch-realtime"`, `"log-results"`, `"rank-results"`.
+- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 페이지 채널 3개(`"lunch-realtime"`, `"log-results"`, `"rank-results"`)는 이름으로, 공용 훅(`useSettings`)은 `settings-changes-<n>` 카운터로. 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다.
 - Realtime payload는 제네릭이라 **행 타입으로 단언한다**: `payload.new as ResultRow`. DELETE는 부분 행만 오므로 `payload.old as Partial<MenuRow>`로 받고 키 존재를 확인한 뒤 쓴다(`app/page.tsx:84-85,110-111`).
 - 상태 갱신은 항상 함수형 업데이터 + 멱등 처리. INSERT 이벤트는 중복 삽입을 막는다: `prev.some((m) => m.id === row.id) ? prev : [...prev, row]` (`app/page.tsx:75-77`, `app/log/page.tsx:60`).
 - **낙관적 업데이트를 하지 않는다.** 쓰기는 supabase에 보내고, 화면 갱신은 realtime 이벤트가 돌아올 때 일어난다. 근거 주석: `app/page.tsx:172-173`.

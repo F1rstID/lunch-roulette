@@ -10,7 +10,7 @@
 - `app/log/page.tsx` — 캘린더 기록. `app/rank/page.tsx` — 랭킹.
 - `lib/supabase/client.ts` — 브라우저용 supabase 클라이언트 + `MenuRow`/`ResultRow` 타입. **DB 타입의 유일한 정의처** (자동 생성 아님, 수동 유지).
 - `lib/time.ts` — KST 포맷터 + `_shared/kst` 재수출. `lib/phase.ts` — 시각·추첨 시각·결과 유무 → 페이즈(`accepting|spinning|decided|stalled`). `stalled` = 추첨 시각은 지났는데 결과 행이 없는 구간이고, 이때 후보 목록을 잠그지 않는다.
-- `lib/settings.ts` — `settings` 행 → 앱 도메인 변환 + Realtime 병합 리듀서(순수, 값 import 0개). `lib/useSettings.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `settings-changes` 구독). 추첨 시각·쿨다운의 단일 출처.
+- `lib/settings.ts` — `settings` 행 → 앱 도메인 변환 + Realtime 병합 리듀서(순수, 값 import 0개). `lib/useSettings.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `settings-changes-<n>` 구독 — 토픽은 구독 인스턴스마다 유일해야 한다). 추첨 시각·쿨다운의 단일 출처.
 - `supabase/functions/_shared/` — Deno 함수와 클라이언트가 **같은 파일로** 공유하는 순수 로직(`kst.ts`·`spinTime.ts`·`cooldown.ts`). import 를 하나도 하지 않는 것이 이 디렉터리의 계약이다 (Deno 는 `.ts` 확장자를 요구하고 tsc 는 거부한다).
 - `lib/constants.ts` — 환경변수 없이 import 되는 순수 상수(`MENU_NAME_MAX_LEN`). 테스트가 `lib/supabase/client.ts`(모듈 로드 시 `createClient`)를 끌어오지 않게 분리한 것. `lib/errors.ts` — 로드 에러 메시지 조립(순수). `components/ErrorBanner.tsx` — `role="alert"` 배너.
 - `supabase/functions/spin-roulette` — pg_cron이 11:55에 호출하는 추첨 함수 (시간 가드 + 멱등). `respin-roulette` — 클라이언트 "다시 돌리기" (가드 없음, upsert).
