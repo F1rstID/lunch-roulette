@@ -28,6 +28,10 @@
 - ✓ vitest 4.1.11 도입(`npm test`), `lib/time`·`lib/phase`·`lib/errors`·`parseMenuInput` 36 tests — Phase 1 (spin_time 파싱·쿨다운 테스트는 Phase 3)
 - ✓ 컷오버 마이그레이션 `0005_restaurants_settings.sql` 작성(restaurants·candidates·settings, RLS, publication 3, cron 3잡, results.restaurant_id, 구 테이블 drop) + 계약 테스트 53건 + 행 타입 — Phase 2 (적용은 Phase 8)
 - ✓ `settings` 단일행 스키마(spin_time 11:55·cooldown_days 0·history_since KST 적용일, anon select-only) — Phase 2
+- ✓ `supabase/functions/_shared/{kst,spinTime,cooldown}.ts` 순수 모듈(import 0개, Deno·vitest·Next 삼중 호환) + 계약 테스트 62건, `kstNow` 단일 정의, 두 Edge Function 복붙 제거 — Phase 3 (QUAL-02)
+- ✓ `lib/phase.ts` 추첨 시각 주입 + 4번째 상태 `stalled`(시각 경과·결과 없음 → UI 잠기지 않음, P1 클라이언트 반) + 소비처 9곳 `switch`+`never` — Phase 3 (SPIN-03)
+- ✓ `settings` 로딩: `lib/settings.ts` 순수 리듀서(기본값 11:55·쿨다운 0, 로드 실패 `error`·파싱 실패 `warning` 분리) + `lib/useSettings.ts` 훅(인스턴스별 채널 토픽) 세 페이지 배선 — Phase 3 (SETT-02·03)
+- ✓ tsc·eslint가 `_shared/` 포함(함수 디렉터리 2개만 제외), CLAUDE.md 7+1·CONVENTIONS.md 8줄 현행화 — Phase 3
 
 ### Active
 
@@ -40,14 +44,14 @@
 
 **설정 테이블**
 - [ ] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정. 하드코딩 11:55(11곳/8파일) 전부 제거
-- [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백
+- [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백 — 순수 필터 `_shared/cooldown.ts`(창 = 오늘 제외 `[today−N, today−1]`) Phase 3 완료, Edge 배선은 Phase 4
 
 **품질·버그**
-- [ ] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정
+- [ ] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정 — 클라이언트 반(`stalled`) Phase 3 완료, 서버 반(결과 없음 → 다음 폴링 추첨) Phase 4
 - [ ] P2: 자정 `truncate`가 Realtime DELETE를 안 내서 열린 탭에 어제 후보 잔존 → `delete from`으로
 
 **문서·전환**
-- [ ] `CLAUDE.md`·`README.md` 현행화 (config.toml 존재, pinned 테이블, lint 해결, 새 컨벤션: settings 단일 소스·`_shared` 모듈)
+- [ ] `CLAUDE.md`·`README.md` 현행화 (config.toml 존재, pinned 테이블, lint 해결, 새 컨벤션: settings 단일 소스·`_shared` 모듈) — CLAUDE.md의 `_shared`·훅·검증 범위 항목은 Phase 3에서 반영, README·GSD 블록 잔여는 Phase 8
 - [ ] 컷오버 1회: 마이그레이션(사용자가 대시보드 실행) → Edge Function 2개 배포 → PR 머지 → Vercel. 롤백 절차 문서화
 
 ### Out of Scope
@@ -78,7 +82,7 @@
 - **Compatibility**: 앱은 매일 쓰이는 라이브. 컷오버 전까지 라이브 DB·함수·main 불변. 작업은 브랜치 `feat/restaurant-roulette`. 컷오버 마이그레이션은 하위호환 순서(새 테이블 생성 → 데이터 이관 없음 → 구 테이블 제거)로 한 파일
 - **Deploy**: 프로덕션 배포는 사용자 명시 지시 때만. DB 마이그레이션은 Claude가 원격 실행 못 함(보안 차단) → 사용자가 대시보드 SQL Editor. Edge Function은 git과 별개로 `npx supabase@2.117.0 functions deploy <name> --project-ref swxiqytyxjlcgubqlozk`. main 직접 푸시 금지, PR 경유
 - **Security**: RLS는 익명 개방(menus 계열·restaurants·candidates 누구나 쓰기), `results` 쓰기 service_role만, `settings` anon select-only. 브라우저 호출 Edge Function은 CORS+OPTIONS 단락 필수(게이트웨이 미주입)
-- **Testing**: vitest. Edge Function 순수 로직은 Deno import 없는 `supabase/functions/_shared/`에 두어 vitest가 직접 import. tsc/eslint는 `supabase/functions/**` 제외 유지
+- **Testing**: vitest. Edge Function 순수 로직은 Deno import 없는 `supabase/functions/_shared/`에 두어 vitest가 직접 import. tsc/eslint는 함수 디렉터리 2개(`spin-roulette/**`·`respin-roulette/**`)만 제외하고 `_shared/`는 포함(Phase 3 D-12)
 - **Dev**: `npm run dev`는 가드런처로만(과거 커널 패닉). 브라우저 실등록 테스트는 라이브 오염이라 생략
 - **Commit**: 커밋·PR에 AI 표기 금지. `.serena/project.yml` 커밋 금지
 
@@ -102,6 +106,12 @@
 | cron 매분 폴링 | 정적 스케줄로는 DB 시각 반영 불가. 하루 1440회 무료티어 여유 | — Pending |
 | gsd Interactive / Standard / Parallel | 계획서 승인 게이트 유지, 8페이즈 | ✓ Good (Phase 1: 4플랜·검증 루프 2회·리뷰 1회로 완료) |
 | vitest 4.1.11 정확 고정, 5.x 보류 | Node 25.6.1·@types/node 20과 engines/peer 불일치 | ✓ Good |
+| `_shared` 모듈은 import 0개(type import 포함) | Deno는 상대 import에 `.ts` 확장자 요구, tsc(bundler)는 거부 — 서로 안 부르면 양쪽에서 컴파일. 게이트는 `edgeImports.test.ts` | ✓ Good (Phase 3, 실측) |
+| `Phase`에 `stalled` 추가, `hasResult`가 시각보다 우선 | 시각만으로 decided 판정하면 후보 0개일 때 UI가 잠김(P1). 결과 행 존재가 진실 | ✓ Good (Phase 3) |
+| 쿨다운 창 = 오늘 제외 `[today−N, today−1]`, 키는 `restaurant_id`(null 무시), 비면 전체 폴백 | 다시 돌리기가 오늘 당첨을 다시 뽑을 수 있음(현 동작 유지). 레거시 행은 매칭 불가 | — Pending (Phase 4 배선) |
+| settings 상태 `error`(로드 실패)·`warning`(spin_time 파싱 실패) 분리 | 파싱 경고를 "불러오기 실패" 접두로 내보내면 거짓 문장. 배너는 완성 문장 그대로 | ✓ Good (Phase 3 리뷰 W-10) |
+| Realtime 채널 토픽은 구독 인스턴스마다 고유(`settings-changes-<n>`) | realtime-js가 토픽으로 dedup + leave는 서버 ack까지 지연 → 라우트 전환 시 새 구독이 옛 인스턴스에 붙어 조용히 죽음 | ✓ Good (Phase 3 리뷰 WR-01, 소스 추적) |
+| 컷오버 전 개발 중 "설정 불러오기 실패" 배너 상시 표시 = 정상 | 라이브에 `settings` 없음(PGRST205). 기본값으로 동작하며 에러는 삼키지 않음 | ✓ Good (Phase 3) |
 | 워크트리 격리 끔(순차 실행) | node_modules·.env.local이 워크트리에 없어 build/tsc 불가, 이중 npm install 메모리 위험 | ✓ Good |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
@@ -123,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-21 after Phase 2 (데이터 모델) completion*
+*Last updated: 2026-09-21 after Phase 3 (순수 로직) completion*
