@@ -43,7 +43,7 @@ npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌�
 ## 비표준 규약·함정
 
 - `design/`은 React CDN 프로토타입 + PNG. **빌드 대상 아님**, 시각 참조용. 인덱서 OOM 전례 때문에 tsconfig/eslint/vscode/Tailwind `@source` 네 군데에서 제외돼 있다. 제외를 풀지 말 것. 컴포넌트를 새로 포팅할 때만 열어본다.
-- `supabase/functions/` 는 **함수 디렉터리 2개만** 제외다 (Deno 전역·`jsr:` import 때문이고, OOM 근거는 `design/` 쪽이다). `_shared/` 는 제외하지 않는다 — 좁힌 제외를 다시 넓히지 말 것. Edge Function 배포 플래그(`verify_jwt: false`)는 **레포에 없다** (config.toml 없음). 함수를 재배포하면 `--no-verify-jwt`를 잊지 말 것 — `respin-roulette`도 anon publishable key로 호출되므로 동일.
+- `supabase/functions/` 는 **함수 디렉터리 2개만** 제외다 (Deno 전역·`jsr:` import 때문이고, OOM 근거는 `design/` 쪽이다). `_shared/` 는 제외하지 않는다 — 좁힌 제외를 다시 넓히지 말 것. Edge Function 배포 플래그는 `supabase/config.toml`의 `[functions.*] verify_jwt = false`에 고정돼 있다(63fae89) — 두 함수 모두 anon(pg_cron·publishable key) 호출이라 true로 배포되면 401로 추첨이 조용히 멈춘다. 재배포 시 CLI가 이 파일을 읽지만 `--no-verify-jwt`를 같이 주면 이중 안전.
 - 추첨 시각의 코드상 정의처는 `supabase/functions/_shared/spinTime.ts` 의 `DEFAULT_SPIN_TIME` **한 곳**이고, 런타임 값은 `settings.spin_time`(대시보드 편집)이 이긴다. 아직 남은 중복은 두 갈래다: 화면 하드코딩 문구 "11:55"(Phase 6 에서 `settings` 로 교체), `supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`와 `0005` 의 기본값(DB 쪽 기본값).
 - `kstNow()`·`kstParts()` 는 `supabase/functions/_shared/kst.ts` **한 곳**에 있다. Deno 는 `../_shared/kst.ts`(확장자 포함), 클라이언트는 `@/supabase/functions/_shared/kst`(확장자 없이)로 같은 파일을 본다. `lib/time.ts` 는 그 위의 얇은 재수출 + 포맷터다.
 - RLS는 의도적으로 열려 있다: 누구나 menus insert/delete 가능, results는 service_role만 쓰기. `respin-roulette`는 인증·레이트리밋 없음 — 익명 서비스 설계상 수용한 것.
