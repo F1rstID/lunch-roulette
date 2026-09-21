@@ -244,3 +244,21 @@ None — 이 플랜은 문서만 썼다. 다만 **Phase 8 에서 사용자가 �
 - `.planning/REQUIREMENTS.md` — FOUND (5건 `[x]` + 추적 표 Complete)
 - commit `1a22ef3` (docs, Task 1 낭독 리뷰) — FOUND
 - commit `7d31b89` (docs, Task 2 검증 맵·게이트) — FOUND
+
+## Post-review fixes
+
+`02-REVIEW.md`(deep, 2026-09-21 — critical 0 / warning 4 / info 6) 지적에 대한 후속 조치. 사용자 결정은 같은 날 받았다.
+
+| 항목 | 조치 | 결과 |
+|---|---|---|
+| WR-01 "동작 불변" 헤더 | `0005_…sql` 2~6행을 조건부 문장으로 다시 씀 — Phase 4·6·7 코드가 배포된 뒤라야 동작이 불변이고 그 전에는 `drop table` 이 구 코드를 깬다. 컷오버 순서(12:00 KST 이후 SQL → 함수 배포 → PR 머지)를 명시 | SQL 수정 + todo `wr-01-cutover-window.md`(Phase 8) |
+| WR-02 재시드 `created_at` 동률 | SQL 은 그대로 둔다(D-02 원문 유지). 정렬은 읽는 쪽 책임 — 후보 목록을 `candidates.created_at, restaurants.created_at` 조인 정렬로 | todo `wr-02-pinned-reseed-order.md`(Phase 6) |
+| WR-03 자유 텍스트 무제한 | **D-19** 로 승인 — `name` btrim·개행 금지, `location <= 200`, `menus` 30개·빈 원소 금지·원소 24자(immutable 함수 `public.text_array_max_len`) | SQL 수정 + 스펙 #48~#52 |
+| WR-04 #13 회귀 가드 구멍 | `for all`·`for` 절 생략까지 잡도록 정규식 확장 + `create policy … on public.settings` 총수 1 단언 추가 | 스펙 수정 |
+| IN-01 cron 본문 한글 주석 | `$cmd$` 밖으로 이동 — `cron.job.command` 와 `job_run_details` 에 매분 복제되지 않게 | SQL 수정 |
+| IN-02 #6 `^alter publication` | `^\s*alter publication` + `m` 플래그로 들여쓴 맨 alter 도 잡는다 | 스펙 수정 |
+| IN-04 `clientSrc` 로드 실패 위장 | #53 "client.ts 를 읽었다" 단언 추가(`typeFields` 의 키워드 필터는 손대지 않음) | 스펙 수정 |
+| IN-05 전환일 당일 legacy 행 | 읽는 쪽 처리(A) vs `history_since + 1`(B) 중 선택을 이월 | todo `in-05-history-since-same-day.md`(Phase 7) |
+| IN-03 / IN-06 | 적용하지 않음 — #21·#10 보강과 4행 주석 문안은 현재 게이트를 깨지 않고, 리뷰 드라이런이 "대시보드는 전체를 한 트랜잭션으로 돌린다" 를 이미 기록해 뒀다 | 보류 |
+
+**검증(수정 후):** `npx vitest run supabase/migrations` → **`Tests 53 passed (53)`** (47 → +6, #48~#53). `npm test` → `Test Files 5 passed (5)` / **`Tests 89 passed (89)`** (83 → +6). `npx tsc --noEmit` exit 0. `npm run lint` 출력 없음. `grep -ci truncate` = 0, 주석 제거 사본의 `create policy` 9건 = `drop policy if exists` 9건, 파일 최후미 두 문은 여전히 `drop table if exists` 2줄, `create table` 3건(새 `create or replace function` 은 그 카운트에 잡히지 않는다).

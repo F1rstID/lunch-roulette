@@ -43,6 +43,11 @@
 - **D-17** `candidates(created_at)` 인덱스는 넣되 **이름 명시** `create index if not exists candidates_created_at_idx on public.candidates (created_at)`. 무명 `create index`는 재실행 시 중복 생성되므로 파일 전체에서 금지.
 - **D-18** (리서치 확정 사항의 반영) `cron.unschedule`은 jobid 루프(0002 패턴)로만 — 이름 인자 형태 금지. `alter publication` 은 `pg_publication_tables` 가드 필수. `create policy if not exists` 문법 없음 → `drop policy if exists`+`create policy`. `net.http_post` 에 `timeout_milliseconds := 5000` 명시. 매장 삭제 시 `results.restaurant_id` set null UPDATE 가 Realtime 으로 나가 휠 재회전을 유발할 수 있음 → 마이그레이션 주석으로 남기고 가드는 Phase 6.
 
+### 리서치·리뷰 후 추가 결정 (사용자 승인 2026-09-21, `02-REVIEW.md` WR-03)
+- **D-19** `restaurants` DB 상한: anon 이 PostgREST 로 직접 쓰는 자유 텍스트 컬럼의 경계를 DB 가 든다(클라이언트 검증은 보조 — RESEARCH §Security V5). `name` 은 기존 `char_length(name) between 1 and 24` 에 더해 `btrim(name) <> ''`(공백만 이름 금지)와 `position(E'\n' in name) = 0`(개행 금지). `location` 은 null 허용이되 있으면 `char_length(location) <= 200`. `menus` 는 `cardinality(menus) <= 30`, `array_position(menus, '') is null`(빈 원소 금지), 원소 길이 24자 이하. 원소 길이 검사는 check 가 서브쿼리를 허용하지 않으므로 `create or replace function public.text_array_max_len(arr text[]) returns int`(`language sql immutable strict`)로 빼고 `check (coalesce(public.text_array_max_len(menus), 0) <= 24)` 로 건다. 제약은 전부 컬럼 인라인, 함수는 `create or replace` 라 D-10 의 재실행 안전 원칙이 그대로 유지된다.
+  - **근거:** 세 테이블이 모두 Realtime publication 에 있어 거대한 행 하나가 열린 탭 전부로 방송되고 목록 쿼리마다 실려 온다. 리뷰 드라이런 실측에서 anon 롤로 `name = '   '`, 10만자 `location`, 1,000원소 × 1,000자 `menus` 삽입이 전부 성공했다. 구 모델이 `name` 을 24자로 묶은 이유가 정확히 이것인데 새로 생긴 두 자유 텍스트 컬럼만 무제한이었다.
+  - **Phase 5 후속(이 페이즈에서는 하지 않는다):** 클라이언트 검증이 같은 숫자를 거울처럼 복제해야 한다 — `lib/constants.ts` 에 `RESTAURANT_LOCATION_MAX_LEN = 200`, `RESTAURANT_MENUS_MAX = 30` 을 추가하고 메뉴 원소 길이는 기존 `MENU_NAME_MAX_LEN = 24` 를 재사용한다. 숫자를 바꿀 때는 DB check 와 이 상수를 함께 고친다.
+
 ### Claude's Discretion
 - 마이그레이션 파일명(`0005_restaurants_settings.sql` 권장), 주석 문안(한글 Why), 인덱스(`candidates(created_at)`, `restaurants(pinned)` 정도), `settings` seed 방식, publication 가드 함수 형태.
 - `history_since` 기본값 표현식의 정확한 형태(KST 기준 오늘이면 됨).
