@@ -864,7 +864,7 @@ describe.each(Object.entries(files))("%s/index.ts", (_name, src) => {
 | A5 | `settings` 구독 실패가 다른 채널(`lunch-realtime`)에 영향을 주지 않는다 | §Q4-d, §Pattern 4 | 별도 채널을 쓰는 것이 이 가정의 완화책 자체다. 프로토콜 문서는 "채널을 닫지 않는다"고만 말한다 |
 | A6 | `hasResult`를 log·rank 페이지에서 `results.some(r => r.date === todayKey)`로 파생해도 실용상 충분하다 | D-08 | log 페이지에서 다른 달을 보면 부정확 → 뱃지만 틀린다(기능 영향 0). CONTEXT가 Phase 7로 deferred |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 > **RESOLVED (사용자 승인 2026-09-21, → 03-CONTEXT.md D-14~D-17):** Q-1 객체형 `{ picked, fellBack }` · Q-2 `date` 포함 + `lib/time.test.ts` 1줄 수정 · Q-3 낡은 진술 3건도 이 페이즈에서 정정(리서처 권고와 반대, 사용자 선택) · Q-4 `spinTime.ts` 유지 + 로컬 구조 타입.
 

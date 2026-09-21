@@ -48,7 +48,7 @@
 | `components/PhaseTimeline.tsx` | component | `stalled` → `accepting` 매핑 | 자기 자신 `:15-17` | exact (self) |
 | `tsconfig.json` | config | `exclude` 좁히기 | 자기 자신 `:33` | exact (self) |
 | `eslint.config.mjs` | config | `globalIgnores` 좁히기 | 자기 자신 `:9-18` | exact (self) |
-| `CLAUDE.md` | docs | 낡은 진술 5건 정정 + 훅 컨벤션 1줄 | 자기 자신(문체) | exact (self) |
+| `CLAUDE.md` | docs | 낡은 진술 7건 정정 + 훅 컨벤션 1줄 추가 (정본은 03-03 T4 의 16줄 목록 — 이 표의 15행은 초안) | 자기 자신(문체) | exact (self) |
 | `.planning/codebase/CONVENTIONS.md` | docs | 낡은 진술 3건 정정 | 자기 자신(문체) | exact (self) |
 
 ---
