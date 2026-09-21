@@ -78,6 +78,14 @@ describe("SHARED/QUAL-02 — _shared 3파일은 import 문이 0개다", () => {
 });
 
 describe("EDGE/QUAL-02 — spin-roulette 의 복붙이 _shared 로 합쳐졌다", () => {
+  // 존재를 먼저 못 박는다(_shared 3파일의 #1~#3 과 같은 이유). readOrEmpty 가 읽기 실패를 "" 로 흡수하므로
+  // 파일이 이동·개명되면 "복붙이 없다" 쪽 단언은 빈 문자열에서 전부 초록이 되고, 실패는 다른 단언에서
+  // "0 이 아니라 1" 로만 나타나 "파일이 없다" 인지 "import 가 빠졌다" 인지 구분되지 않는다.
+  // 진입점 개수로 세는 이유: 파일을 읽었다는 사실과 "핸들러가 하나뿐" 이라는 형태를 한 번에 고정한다.
+  it("spin-roulette/index.ts 를 읽었고 진입점이 하나다 (#7a)", () => {
+    expect(count(spin, /Deno\.serve\(/g)).toBe(1);
+  });
+
   it('_shared/kst.ts 를 확장자와 함께 import 한다 — Deno 요구사항 (#7)', () => {
     expect(count(spin, /from "\.\.\/_shared\/kst\.ts"/g)).toBe(1);
   });
@@ -117,6 +125,11 @@ describe("EDGE/QUAL-02 — spin-roulette 의 복붙이 _shared 로 합쳐졌다"
 });
 
 describe("EDGE/QUAL-02 — respin-roulette 의 복붙이 _shared 로 합쳐졌다", () => {
+  // #7a 와 같은 이유 — 이 파일이 사라지면 아래 부재 단언들이 빈 문자열에서 조용히 초록이 된다.
+  it("respin-roulette/index.ts 를 읽었고 진입점이 하나다 (#16a)", () => {
+    expect(count(respin, /Deno\.serve\(/g)).toBe(1);
+  });
+
   it("_shared/kst.ts 를 확장자와 함께 import 한다 (#16)", () => {
     expect(count(respin, /from "\.\.\/_shared\/kst\.ts"/g)).toBe(1);
   });
