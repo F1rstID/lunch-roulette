@@ -110,9 +110,9 @@ describe("settingsReducer — 로드 경로 (SETT-03)", () => {
     });
   });
 
-  it("파싱 경고가 있던 상태에 failed 가 와도 경고가 error 채널로 새지 않는다", () => {
+  it("이미 로드가 끝난 상태에 온 failed 는 무시된다 (훅은 조회 결과를 한 번만 보낸다)", () => {
     const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_BROKEN });
-    expect(settingsReducer(warned, { type: "failed", message: "boom" }).warning).toBeNull();
+    expect(settingsReducer(warned, { type: "failed", message: "boom" })).toBe(warned);
   });
 
   it("잘못된 spin_time 행을 읽으면 기본 시각 + warning 이고 error 는 null 이다 (불러오기는 성공했다)", () => {
@@ -166,5 +166,36 @@ describe("settingsReducer — Realtime 병합 (SETT-02)", () => {
   it("리듀서는 넘겨받은 state 를 변형하지 않는다", () => {
     settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_1230 });
     expect(INITIAL_SETTINGS_STATE.loaded).toBe(false);
+  });
+});
+
+// 초기 SELECT 가 왕복하는 수백 ms 사이에 대시보드 편집이 도착하면 두 갈래가 순서를 바꿔 들어온다.
+// 리듀서는 "더 새 값이 이긴다" 를 시간이 아니라 loaded 플래그로 판정한다 — 훅이 조회 결과를 정확히
+// 한 번만 보내므로, 도착 시점에 loaded 가 이미 참이면 Realtime 이 앞섰다는 뜻이기 때문이다.
+describe("settingsReducer — 이벤트 순서가 뒤집혀도 더 새 값이 이긴다 (SETT-02)", () => {
+  it("UPDATE 뒤에 늦게 도착한 초기 조회 결과는 옛 행으로 되돌리지 못한다", () => {
+    const updated = settingsReducer(INITIAL_SETTINGS_STATE, { type: "changed", event: "UPDATE", row: ROW_1230 });
+    expect(settingsReducer(updated, { type: "loaded", row: ROW_DEFAULT }).settings.spinTime).toEqual({
+      hh: 12,
+      mm: 30,
+    });
+  });
+
+  it("UPDATE 뒤에 늦게 도착한 조회 실패는 배너를 띄우지 않고 받은 행을 유지한다", () => {
+    const updated = settingsReducer(INITIAL_SETTINGS_STATE, { type: "changed", event: "UPDATE", row: ROW_1230 });
+    const next = settingsReducer(updated, { type: "failed", message: "boom" });
+    expect({ error: next.error, spinTime: next.settings.spinTime }).toEqual({
+      error: null,
+      spinTime: { hh: 12, mm: 30 },
+    });
+  });
+
+  it("DELETE 뒤에 늦게 도착한 조회 결과도 지워진 행을 되살리지 못한다", () => {
+    const deleted = settingsReducer(INITIAL_SETTINGS_STATE, { type: "changed", event: "DELETE", row: null });
+    const next = settingsReducer(deleted, { type: "loaded", row: ROW_1230 });
+    expect({ settings: next.settings, loaded: next.loaded }).toEqual({
+      settings: DEFAULT_SETTINGS,
+      loaded: true,
+    });
   });
 });

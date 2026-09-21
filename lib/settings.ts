@@ -72,15 +72,24 @@ export function settingsFromRow(row: SettingsRow): { settings: Settings; warning
 export function settingsReducer(state: SettingsState, action: SettingsAction): SettingsState {
   switch (action.type) {
     case "loaded": {
+      // 훅은 초기 조회 결과를 정확히 한 번 보낸다. 그런데도 도착 시점에 loaded 가 이미 참이면 그 사이
+      // Realtime 이벤트가 먼저 들어왔다는 뜻이고, 그쪽이 더 새 값이다 — 늦게 온 조회 응답이 앱을
+      // 옛 행으로 되돌리지 않게 버린다(changed 가 loaded 를 참으로 올리는 것이 이 판정의 근거다).
+      if (state.loaded) return state;
       // row === null 은 0행(아직 시드 안 됨)이고 에러가 아니다 — 배너를 띄우지 않는다.
       if (!action.row) return { settings: DEFAULT_SETTINGS, loaded: true, error: null, warning: null };
       const { settings, warning } = settingsFromRow(action.row);
       return { settings, loaded: true, error: null, warning };
     }
     case "failed":
+      // loaded 와 같은 이유로 무시한다. 방금 Realtime 으로 살아 있는 행을 받았는데 뒤늦은 조회 실패가
+      // 그 값을 기본값 + 실패 배너로 덮으면, 화면이 사실과 반대되는 상태를 말하게 된다.
+      if (state.loaded) return state;
       // 기본값으로 계속 동작하되 실패를 숨기지 않는다(SETT-03). 파싱 경고와는 다른 채널이라 warning 은 비운다.
       return { settings: DEFAULT_SETTINGS, loaded: true, error: action.message, warning: null };
     case "changed": {
+      // 두 갈래 모두 loaded 를 참으로 올린다 — 이벤트가 왔다는 것은 현재 상태를 알게 됐다는 뜻이고,
+      // 위 두 가드가 "초기 조회보다 앞섰다" 를 판정하는 근거가 바로 이 값이다.
       // DELETE 의 payload.old 는 PK 만 오므로 행을 재구성할 수 없다 → 기본값 복귀가 유일한 처리다.
       if (action.event === "DELETE" || !action.row) {
         return { settings: DEFAULT_SETTINGS, loaded: true, error: null, warning: null };
