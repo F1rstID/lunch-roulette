@@ -41,6 +41,23 @@
 - **D-12 검증 범위 확장.** `tsconfig.json`·`eslint.config.mjs`의 `supabase/functions/**` 제외를 `supabase/functions/spin-roulette/**`·`supabase/functions/respin-roulette/**`로 좁혀 `_shared/`가 tsc·eslint 대상이 되게 한다(제외 이유였던 Deno 전역·인덱서 OOM은 `_shared`에 해당 없음). Edge Function 두 파일에는 Phase 2식 텍스트 계약 테스트를 둔다: `from "../_shared/kst.ts"` 존재, `function kstNow`·`function pickRandom`·`const SPIN_HH` 부재. 위치는 `supabase/functions/_shared/edgeImports.test.ts`(vitest include 범위 안).
 - **D-13 테스트 목록(계약).** `_shared/kst.test.ts`: UTC 14:59:59/15:00:00 경계, 자정 `00`(24 아님), 연 경계, 요일. `_shared/spinTime.test.ts`: `"11:55"`·`"11:55:00"`·`"09:05:30"` 파싱, `"25:00"`·`"11:60"`·`""`·`"1155"` → null, `isAfterSpinTime` 직전/정각/직후. `_shared/cooldown.test.ts`: days 0 → 필터 없음, 제외 후 남음, 제외하면 0개 → 전체 폴백, `null` id 무시, 창 시작 월·연 경계(`2026-03-01` − 1 = `2026-02-28`, `2026-01-01` − 1 = `2025-12-31`). `lib/phase.test.ts` 재작성: 기존 6경계 × `hasResult=false`, `hasResult=true`면 어느 시각이든 decided, 사용자 지정 시각(12:30) 주입, 11:55:05 → stalled. `lib/settings.test.ts`: 초기 기본값, `loaded` 행 파싱(`"11:55:00"` → 11:55), 잘못된 `spin_time` → 기본 + warning, `failed` → 기본 + error, `changed UPDATE` 병합, `DELETE` 복귀, `loaded(null)`. 기존 `lib/time.test.ts`는 `kstParts` `toEqual` 기대 객체에 `date` 1줄을 더해 통과시킨다(D-15 — 잉여 키 거부, 리서치 실측).
 
+### 리서치 후 추가 결정 (사용자 승인 2026-09-21, `03-RESEARCH.md` Open Questions Q-1~Q-4 + Pitfalls)
+- **D-14** `applyCooldown` 반환형은 **객체** `{ picked: T[]; fellBack: boolean }`(Q-1). Phase 4가 응답 JSON에 `cooldown_fallback: true`를 실을 수 있고, 폴백 여부가 테스트 단언으로 고정된다. D-01의 `T[]` 문면은 이 결정으로 대체.
+- **D-15** `kstParts`는 `date: "yyyy-mm-dd"`를 **포함**한다(Q-2, D-01 문면 유지). 그 대가로 Phase 1의 `lib/time.test.ts` `kstParts` 기대 객체(`:58-66`)에 `date` 한 줄을 더한다 — 계획에 **명시 태스크**로 둔다(안 그러면 Wave 중간에 빨간 줄). 그 외 `lib/time.test.ts` 단언 9개는 무변경이어야 한다(D-04 `hourCycle` 전환은 포맷 결과 동일 — 리서치 실측).
+- **D-16** 문서 현행화는 **이 페이즈에서** 한다(Q-3, 사용자: "낡은 진술도 이 페이즈에서 정정"). 코드와 같은 플랜에서: CLAUDE.md의 "추첨 시각 11:55는 네 곳에 흩어져 있다" 문단 → `_shared/spinTime.ts` `DEFAULT_SPIN_TIME`이 정의처이고 UI 문구는 Phase 6에서 `settings`로 교체됨을 반영, "`kstNow()`는 두 Edge Function에 복붙" 문단 → `_shared/kst.ts` 단일 정의로 정정, "Edge Function은 … 타입체크·lint가 안 돈다" 문장 → `_shared/`는 tsc·eslint 대상, 함수 디렉터리 2개만 제외로 정정, 검증 명령의 vitest 수집 대상 문구, 엔트리포인트 목록에 `lib/settings.ts`·`lib/useSettings.ts`·`_shared/` 추가, 공용 훅 컨벤션 1줄(D-11). `.planning/codebase/CONVENTIONS.md`의 "`globalIgnores` 풀지 말 것" 진술도 같은 커밋에서 정정. Phase 8 SHIP-03은 남은 항목만.
+- **D-17** `secondsOfDay`·`isAfterSpinTime`은 `spinTime.ts`에 두고 로컬 구조 타입 `TimeParts`를 선언한다(Q-4). `import type { KstParts } from "./kst"`는 Deno에서, `"./kst.ts"`는 tsc/빌드에서 실패함이 실측됐으므로 **`_shared` 파일 간 type import도 금지**(D-02 강화). `kst.ts`는 순수 변환기로 유지.
+- **D-18** 리서치 Pitfall 반영(계획 필수 항목):
+  - **D-12를 첫 태스크(Wave 0)로** — tsconfig·eslint 제외를 좁히기 전에는 `_shared`에 명백한 타입 에러가 있어도 `tsc --noEmit`이 exit 0(실측). 좁힌 뒤에는 `_shared` 상호 `.ts` import가 `TS5097`로 잡혀 D-02·D-17을 컴파일러가 강제한다.
+  - `Phase`에 `"stalled"`를 더해도 tsc 에러 0건(소비처 9곳이 전부 if-체인+fallback, RESEARCH §Pitfall 1 표). 특히 `components/MenuList.tsx:49` `readOnly = phase !== "accepting"`이 `stalled`에서 `true`로 남아 SPIN-03이 조용히 미완성된다. 유니온 확장과 **같은 커밋**에서 9곳을 `switch`+`never` 가드(또는 명시 분기)로 바꾼다. `readOnly` 계산은 순수 헬퍼(`isCandidateListLocked(phase)` 류)로 뽑아 단위 테스트한다.
+  - `components/ResultBlock.tsx:105`의 `decided && !winner` 분기는 D-07 이후 도달 불가 — 그 문구를 `stalled` 분기로 옮기고 도달 불가 분기는 삭제.
+  - `cooldown.test.ts`에 윤년 경계(`2024-03-01` − 1 = `2024-02-29`) 추가. 산술은 `Date.UTC(y, m-1, d-days)` + `getUTC*`.
+  - `parseSpinTime`은 소수 초(`"11:55:30.5"`)를 **허용하되 무시**한다(PostgREST `time` 직렬화가 낼 수 있음). 정규식 `^(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$` + 범위 검사.
+  - `DEFAULT_SETTINGS`는 `parseSpinTime(...)!` 대신 `_shared/spinTime.ts`의 `DEFAULT_SPIN_TIME: SpinTime = { hh: 11, mm: 55 }` 상수를 쓴다(비-null 단언 제거). `DEFAULT_SPIN_TIME_TEXT`는 유지(Edge·문구용).
+  - `lib/time.ts` 재수출은 `export { kstParts } from …` / `export type { KstParts } from …`로 분리(`isolatedModules: true`). `hour12` 옵션은 **삭제**(있으면 `hourCycle`이 무시됨 — 실측).
+  - `lib/settings.ts`는 `lib/supabase/client.ts`에서 **`import type` 문장**으로만 가져온다(값 import 시 vitest가 `supabaseUrl is required.`로 즉사 — 실측).
+  - `pickRandom([])`은 `undefined`를 돌려주며 타입은 `T` — 전제조건(비어 있지 않은 배열)을 주석으로 명시, 동작 변경 없음.
+  - 컷오버 전 개발 중 `settings` 조회는 `PGRST205`/404로 실패하고 구독은 5~10초마다 재시도한다 — "설정 불러오기 실패" 배너가 **항상 뜨는 것이 정상**(SETT-03 경로). 실행자가 버그로 오인하지 않게 플랜에 명시.
+
 ### Claude's Discretion
 - 파일 내부 함수 이름·주석 문안(한글 Why), `stalled` 문구, 리듀서 action 표기, `_shared` 테스트 파일 분할.
 - `restaurants(pinned)` 같은 무관 항목 없음. 계획 분할 권장: 03-01 `_shared` 3모듈+테스트+Edge import 교체+검증 범위 확장 / 03-02 `lib/phase.ts`+`lib/time.ts`+호출처·컴포넌트 `stalled` / 03-03 `lib/settings.ts`+`useSettings`+페이지 배선+CLAUDE.md.
