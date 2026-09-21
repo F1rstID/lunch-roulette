@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
-stopped_at: "Phase 3 계획 완료(3플랜·3웨이브, 체커 3회 반복 후 승인) — 실행 대기"
-last_updated: "2026-09-21T03:41:45.976Z"
-last_activity: 2026-09-21 -- Phase 3 planning complete
+status: executing
+stopped_at: "03-01 완료: _shared 순수 모듈 3개 + Edge import 교체, 게이트 4종 초록 (9파일 145건)"
+last_updated: "2026-09-21T04:42:24.120Z"
+last_activity: 2026-09-21 -- 03-01 완료 (_shared 순수 모듈 3개 + Edge import 교체)
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
-  percent: 25
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-21 -- Phase 3 planning complete
+Phase: 3 (순수 로직) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 3 (03-02 대기)
+Last activity: 2026-09-21 -- 03-01 완료 (_shared 순수 모듈 3개 + Edge import 교체)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [██████████] 100%
 | Phase 02 P01 | 2min | 1 tasks | 1 files |
 | Phase 02 P02 | 8min | 3 tasks | 3 files |
 | Phase 02 P03 | 11min | 3 tasks | 3 files |
+| Phase 03 P01 | 10min | 4 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,10 @@ Progress: [██████████] 100%
 - [Phase 02]: 낭독 리뷰 11항목은 '통과' 판정이 아니라 파일:줄 인용과 함께 기록한다 — 판정만 남은 기록은 Phase 8 컷오버에서 재검증 비용을 그대로 되돌려준다 (T-02-11)
 - [Phase 02]: 계약 테스트가 덮지 못하는 지점을 기록에 명시했다 — cascade/set null 방향은 자동 단언 0건, settings 기본값은 기대값 출처가 스펙 리터럴이라 CONTEXT 원문 대조가 아니며, 컬럼 정의는 8줄 중 3줄만 자동이다
 - [Phase 02]: 요구사항 완료 마킹은 페이즈 안에서 검증을 닫는 플랜 하나만 한다 — 파일을 만든 02-02 가 아니라 사람 승인을 받은 02-03 이 SHIP-01·SETT-01·CATL-07·CAND-04·HIST-03 을 찍었다
+- [Phase 3]: _shared/*.ts 세 파일은 import 0개 — Deno 는 상대 import 에 .ts 확장자를 요구하고 tsc(bundler)는 거부한다. 서로 import 하지 않아야 Deno·tsc·Turbopack·vitest 네 곳에서 모두 컴파일된다. 교차 타입은 로컬 구조 타입으로 받는다
+- [Phase 3]: tsc·eslint 제외 좁히기(D-12)를 첫 커밋으로 올렸다 — 좁히기 전에는 _shared 의 타입 에러가 tsc --noEmit exit 0 으로 지나간다. RED 의 TS2307 3건이 좁히기가 켜졌다는 증거다
+- [Phase 3]: 게이트용 금지 토큰(hour12·SPIN_HH·function kstNow)을 소스 주석에 쓰지 않는다 — 주석이 자기 자신을 세면 게이트가 무력화된다. 계약 spec 의 정규식 리터럴까지 세는 레포 전역 grep 은 --include='index.ts' 로 범위를 좁혀 측정한다
+- [Phase 3]: spin-roulette 는 DEFAULT_SPIN_TIME 상수를 그대로 넘기고 respin-roulette 는 spinTime.ts 를 끌어오지 않는다 — 시간 가드가 없는 함수에 불필요한 의존을 만들지 않는다 (edgeImports #17 이 부재를 단언)
 
 ### Pending Todos
 
@@ -112,6 +117,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-21T00:22:06.960Z
-Stopped at: 02-03 완료: 낭독 리뷰 11항목 + 게이트 6종 + 사용자 승인(2026-09-21) — Phase 2 종료, 검증 대기
+Last session: 2026-09-21T04:42:05.084Z
+Stopped at: 03-01 완료: _shared 순수 모듈 3개 + Edge import 교체, 게이트 4종 초록 (9파일 145건)
 Resume file: None

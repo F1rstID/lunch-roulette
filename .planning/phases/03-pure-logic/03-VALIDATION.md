@@ -3,7 +3,7 @@ phase: 3
 slug: pure-logic
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-09-21
 updated: 2026-09-21
 ---
@@ -49,13 +49,13 @@ updated: 2026-09-21
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 03-01-T1 | 01 | 1 (W0) | QUAL-02 | T-03-01 | `_shared` 가 tsc·eslint 대상이 된다. 함수 디렉터리 2개만 제외, `design/**`·`vitest.config.mts` 무변경 (D-12) | static | `npx tsc --noEmit && npm run lint && npm test` | ✅ (설정 2파일) | ⬜ pending |
-| 03-01-T2 | 01 | 1 | QUAL-02, SPIN-02, SETT-02 | T-03-01 | spec 4개가 RED 로 선다. `edgeImports` 는 로드 실패가 아니라 **단언 실패**여야 한다(`readOrEmpty` 폴백) | unit+contract (RED) | `npx vitest run supabase/functions/_shared` → exit 1, `npx tsc --noEmit \| grep -c TS2307` = 3 | ❌ W0 | ⬜ pending |
-| 03-01-T3 | 01 | 1 | QUAL-02 | T-03-01, T-03-04, T-03-05, T-03-07 | `kstParts` UTC 14:59:59/15:00:00·자정 `00`·연 경계·요일·`date` 포함; `kstNow` 키 집합; `pickRandom` 멤버십 | unit | `npx vitest run supabase/functions/_shared/kst.test.ts` (9건) | ❌ W0 | ⬜ pending |
-| 03-01-T3 | 01 | 1 | QUAL-02, SETT-02 | T-03-13 | `parseSpinTime` `"11:55"`·`"11:55:00"`·`"09:05:30"`·소수 초 허용 무시, `"25:00"`·`"11:60"`·`""`·`"1155"` → `null`; `DEFAULT_SPIN_TIME` 리터럴; `isAfterSpinTime` 직전/정각/직후 + 12:30 주입 | unit | `npx vitest run supabase/functions/_shared/spinTime.test.ts` (15건) | ❌ W0 | ⬜ pending |
-| 03-01-T3 | 01 | 1 | SPIN-02 | T-03-06 | `days <= 0` → `null`; 월·연·**윤년** 경계; 필터 없음 / 제외 후 남음 / 0개 → 전체 폴백 `fellBack: true` / `null` id 무시 | unit | `npx vitest run supabase/functions/_shared/cooldown.test.ts` (10건) | ❌ W0 | ⬜ pending |
-| 03-01-T4 | 01 | 1 | QUAL-02 | T-03-01, T-03-02, T-03-03 | 두 `index.ts` 에 `function kstNow`·`function pickRandom`·`const SPIN_HH` 부재, `from "../_shared/kst.ts"` 존재; `_shared/*.ts` import 0개; OPTIONS 단락·`23505` 보존 | contract | `npx vitest run supabase/functions/_shared/edgeImports.test.ts` (22건) | ❌ W0 | ⬜ pending |
-| 03-01-T4 | 01 | 1 | QUAL-02 | — | `kstNow` 정의가 레포 전체에 1곳 | grep | `grep -rn 'function kstNow' . --include='*.ts' --exclude-dir=node_modules --exclude-dir=.next \| wc -l` = 1 | ✅ | ⬜ pending |
+| 03-01-T1 | 01 | 1 (W0) | QUAL-02 | T-03-01 | `_shared` 가 tsc·eslint 대상이 된다. 함수 디렉터리 2개만 제외, `design/**`·`vitest.config.mts` 무변경 (D-12) | static | `npx tsc --noEmit && npm run lint && npm test` | ✅ (설정 2파일) | ✅ green |
+| 03-01-T2 | 01 | 1 | QUAL-02, SPIN-02, SETT-02 | T-03-01 | spec 4개가 RED 로 선다. `edgeImports` 는 로드 실패가 아니라 **단언 실패**여야 한다(`readOrEmpty` 폴백) | unit+contract (RED) | `npx vitest run supabase/functions/_shared` → exit 1, `npx tsc --noEmit \| grep -c TS2307` = 3 | ❌ W0 | ✅ green |
+| 03-01-T3 | 01 | 1 | QUAL-02 | T-03-01, T-03-04, T-03-05, T-03-07 | `kstParts` UTC 14:59:59/15:00:00·자정 `00`·연 경계·요일·`date` 포함; `kstNow` 키 집합; `pickRandom` 멤버십 | unit | `npx vitest run supabase/functions/_shared/kst.test.ts` (9건) | ❌ W0 | ✅ green |
+| 03-01-T3 | 01 | 1 | QUAL-02, SETT-02 | T-03-13 | `parseSpinTime` `"11:55"`·`"11:55:00"`·`"09:05:30"`·소수 초 허용 무시, `"25:00"`·`"11:60"`·`""`·`"1155"` → `null`; `DEFAULT_SPIN_TIME` 리터럴; `isAfterSpinTime` 직전/정각/직후 + 12:30 주입 | unit | `npx vitest run supabase/functions/_shared/spinTime.test.ts` (15건) | ❌ W0 | ✅ green |
+| 03-01-T3 | 01 | 1 | SPIN-02 | T-03-06 | `days <= 0` → `null`; 월·연·**윤년** 경계; 필터 없음 / 제외 후 남음 / 0개 → 전체 폴백 `fellBack: true` / `null` id 무시 | unit | `npx vitest run supabase/functions/_shared/cooldown.test.ts` (10건) | ❌ W0 | ✅ green |
+| 03-01-T4 | 01 | 1 | QUAL-02 | T-03-01, T-03-02, T-03-03 | 두 `index.ts` 에 `function kstNow`·`function pickRandom`·`const SPIN_HH` 부재, `from "../_shared/kst.ts"` 존재; `_shared/*.ts` import 0개; OPTIONS 단락·`23505` 보존 | contract | `npx vitest run supabase/functions/_shared/edgeImports.test.ts` (22건) | ❌ W0 | ✅ green |
+| 03-01-T4 | 01 | 1 | QUAL-02 | — | `kstNow` 정의가 레포 전체에 1곳 | grep | `grep -rn 'function kstNow' . --include='*.ts' --exclude-dir=node_modules --exclude-dir=.next \| wc -l` = 1 | ✅ | ✅ green |
 | 03-02-T1 | 02 | 2 | QUAL-02 | — | `lib/time.ts` 재수출 후에도 포맷 계약 유지. `kstParts` 기대 객체에 `date` 1줄 (D-15) | unit | `npx vitest run lib/time.test.ts` (13건) | ⚠️ 1줄 수정 | ⬜ pending |
 | 03-02-T1 | 02 | 2 | QUAL-02 | — | `hour12` 0건, 포맷터 2개가 `hourCycle: "h23"` (D-04 / todo IN-04) | grep | `grep -rn hour12 lib \| wc -l` = 0 | ✅ | ⬜ pending |
 | 03-02-T1 | 02 | 2 | QUAL-02 | — | Turbopack 이 `@/supabase/functions/_shared/*` alias import 를 실제로 번들한다 | static | `npm run build` → exit 0 | ✅ | ⬜ pending |

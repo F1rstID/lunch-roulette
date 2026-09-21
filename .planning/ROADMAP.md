@@ -66,7 +66,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 설정 로딩 헬퍼가 로드 전·실패 시 기본값(11:55, 쿨다운 0)을 돌려주고, `settings` UPDATE 이벤트를 상태에 병합하는 순수 리듀서에 테스트가 있다.
 **로컬 검증**: `npm test`(위 4개 영역 전부) · `npx tsc --noEmit` · `npm run lint`. `_shared/`는 tsc/eslint 제외 경로 안에 있으므로 vitest include에만 명시적으로 넣는다.
 **Plans**: 3 plans (3 waves)
-- [ ] 03-01-PLAN.md — D-12 제외 좁히기 + `_shared` 순수 모듈 3종·spec 4개 + Edge Function import 교체 (wave 1)
+- [x] 03-01-PLAN.md — D-12 제외 좁히기 + `_shared` 순수 모듈 3종·spec 4개 + Edge Function import 교체 (wave 1)
 - [ ] 03-02-PLAN.md — `lib/time.ts` 재수출·`hourCycle` + `lib/phase.ts` 4상태 재작성 + `Phase` 소비처 9곳 전환 (wave 2)
 - [ ] 03-03-PLAN.md — `lib/settings.ts` 리듀서 + `useSettings` 훅 + 세 페이지 배선 + D-16 문서 현행화 (wave 3)
 
@@ -147,7 +147,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
 | 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
-| 3. 순수 로직 | 0/3 | Not started | - |
+| 3. 순수 로직 | 1/3 | In Progress | - |
 | 4. 서버 추첨 | 0/TBD | Not started | - |
 | 5. 매장 탭 | 0/TBD | Not started | - |
 | 6. 오늘 탭 | 0/TBD | Not started | - |
