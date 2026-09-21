@@ -10,7 +10,8 @@
 
 **Files:**
 - 컴포넌트 파일은 PascalCase, **파일명 = export 하는 컴포넌트명**: `components/Wheel.tsx` → `Wheel`, `components/CalendarLog.tsx` → `CalendarLog`. 예외 없음(7개 파일 전부).
-- `lib/` 모듈은 소문자 단수 명사: `lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`, `lib/supabase/client.ts`.
+- `lib/` 모듈은 소문자 단수 명사: `lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`, `lib/settings.ts`, `lib/supabase/client.ts`.
+- **예외 1곳: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅). 같은 도메인의 순수 모듈(`lib/settings.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
 - 페이지는 App Router 규약대로 `app/page.tsx`, `app/log/page.tsx`, `app/rank/page.tsx`.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql` (4자리 zero-pad + snake_case 영문 설명): `0001_init.sql`, `0002_cron.sql`, `0003_reseed_menus.sql`, `0004_pinned_menus.sql`.
 - Edge Function은 kebab-case 디렉터리 + `index.ts`: `supabase/functions/spin-roulette/index.ts`, `supabase/functions/respin-roulette/index.ts`.
@@ -22,7 +23,7 @@
 - 로컬 축약 헬퍼 허용: `pad2`, `fmtDate` (`components/CalendarLog.tsx:10,13`).
 
 **Variables:**
-- camelCase. 모듈 스코프 상수는 SCREAMING_SNAKE_CASE: `SPIN_HH`/`SPIN_MM`/`SPIN_ANIM_SEC`(`lib/phase.ts:14-16`), `SPIN_TURNS`/`SPIN_MS`/`SPIN_EASING`(`components/Wheel.tsx:19-21`), `MENU_NAME_MAX_LEN`(`lib/supabase/client.ts:13`), `INPUT_MAX_LEN`(`components/MenuList.tsx:26`), `SLICE_COLORS`(`lib/colors.ts:2`), `KST_TZ`(`lib/time.ts:4`), `WEEKDAYS`/`STEPS`.
+- camelCase. 모듈 스코프 상수는 SCREAMING_SNAKE_CASE: `SPIN_ANIM_SEC`(`lib/phase.ts:18`), `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`(`supabase/functions/_shared/spinTime.ts:9-11` — 추첨 시각의 코드상 정의처), `DEFAULT_SETTINGS`/`INITIAL_SETTINGS_STATE`(`lib/settings.ts:28,42`), `SPIN_TURNS`/`SPIN_MS`/`SPIN_EASING`(`components/Wheel.tsx:19-21`), `MENU_NAME_MAX_LEN`(`lib/supabase/client.ts:13`), `INPUT_MAX_LEN`(`components/MenuList.tsx:26`), `SLICE_COLORS`(`lib/colors.ts:2`), `KST_TZ`(`lib/time.ts:4`), `WEEKDAYS`/`STEPS`.
 - ref는 `~Ref` 접미어: `initialLoadedRef`(`app/page.tsx:35`), `inputRef`(`components/MenuList.tsx:45`).
 - DB 컬럼에서 온 값은 snake_case를 그대로 쓴다(변환하지 않음): `created_at`, `spun_at`, `candidate_count`.
 
@@ -31,7 +32,7 @@
 - DB 행 타입은 `~Row` 접미어: `MenuRow`, `ResultRow`, `PinnedMenuRow` (`lib/supabase/client.ts:15,21,30`).
 - 컴포넌트 props 타입은 파일 내부에서 `type Props = {...}` 로 고정 명명하고 export 하지 않는다(`components/MenuList.tsx:10`, `components/TopBar.tsx:9`, `components/Wheel.tsx:11`, `components/PhaseTimeline.tsx:6`, `components/ResultBlock.tsx:6`, `components/CalendarLog.tsx:43`).
 - props가 1~2개로 단순하면 타입 선언 없이 인라인으로 쓴다: `export function RankingView({ results }: { results: ResultRow[] })` (`components/RankingView.tsx:28`).
-- 상태 유니온은 리터럴 유니온 타입: `Phase = "accepting" | "spinning" | "decided"`(`lib/phase.ts:12`), `WheelPhase = "idle" | "spinning" | "decided"`(`components/Wheel.tsx:7`), `Tab = "today" | "log" | "rank"`(`components/TopBar.tsx:7`).
+- 상태 유니온은 리터럴 유니온 타입: `Phase = "accepting" | "spinning" | "decided" | "stalled"`(`lib/phase.ts:16`), `WheelPhase = "idle" | "spinning" | "decided"`(`components/Wheel.tsx:7`), `Tab = "today" | "log" | "rank"`(`components/TopBar.tsx:7`).
 
 ## Code Style
 
@@ -47,11 +48,11 @@
   - `react-hooks/purity` → 렌더 중 `Math.random()` 금지. `components/Wheel.tsx:25-28`의 `spinJitter`는 난수 대신 당첨 index에 황금비를 곱한 **결정적 지터**를 쓴다.
   - `react-hooks/set-state-in-effect` → effect에서 setState 금지. `components/Wheel.tsx:55-63`은 회전 각도를 state+effect가 아니라 `phase` 파생값으로 계산한다.
   - `react-hooks/preserve-manual-memoization` → async 핸들러를 `useCallback`으로 감싸면 에러. 그래서 `app/page.tsx`의 쓰기 핸들러 4개(`addMenus`, `removeMenu`, `togglePin`, `respin`)는 **의도적으로 memo 하지 않는다**. 근거 주석이 `app/page.tsx:142-144`에 있다.
-- `globalIgnores`로 `design/**`, `supabase/functions/**`를 제외한다(`eslint.config.mjs:11-19`). 인덱서 OOM 방지 목적이며 **풀지 말 것**.
+- `globalIgnores`로 `design/**` 와 **함수 디렉터리 2개**(`supabase/functions/spin-roulette/**`, `supabase/functions/respin-roulette/**`)를 제외한다(`eslint.config.mjs:9-21`). 근거가 서로 다르다: `design/**` 은 인덱서 OOM 방지라 **풀지 말 것**이고, 함수 2개는 Deno 전역(`Deno.serve`)·`jsr:` import 때문이다. `supabase/functions/_shared/**` 는 import 를 하나도 하지 않는 순수 TS 라 **제외 대상이 아니다** — 린트를 받는다. 이 제외를 `supabase/functions/**` 로 다시 넓히지 말 것(Phase 3 이 좁혔다).
 
 **TypeScript:**
 - `tsconfig.json`: `strict: true`, `noEmit: true`, `isolatedModules: true`, `moduleResolution: "bundler"`, target ES2017.
-- `exclude`에 `supabase/functions/**`, `design/**`. → **Edge Function은 타입체크가 돌지 않는다.** 수정 후 직접 확인해야 한다.
+- `exclude`에 `design/**` 와 함수 디렉터리 2개(`supabase/functions/spin-roulette/**`, `supabase/functions/respin-roulette/**`)(`tsconfig.json:33`). → **두 `index.ts` 본문만 타입체크가 돌지 않는다**(수정 후 직접 확인). `supabase/functions/_shared/**` 는 tsc·eslint·vitest 3중 검사를 받고, `lib/` 이 `@/supabase/functions/_shared/*` 로 같은 파일을 **확장자 없이** 가져온다(`.ts` 를 붙이면 `TS5097`).
 - **`any` 사용 0건.** 타입이 불확실한 지점은 `as` 단언으로 좁힌다(아래 Realtime 패턴 참조).
 
 ## Import Organization
@@ -67,7 +68,7 @@
 그룹 사이에 빈 줄을 넣지 않는다. import 블록은 한 덩어리고, 그 아래에 빈 줄 하나 두고 코드가 시작된다.
 
 **Path Aliases:**
-- `@/*` → 레포 루트 (`tsconfig.json` `paths`). **상대 경로 `../`를 쓰지 않는다.** `lib/phase.ts:10`의 `from "./time"`만 예외(같은 디렉터리 형제 모듈).
+- `@/*` → 레포 루트 (`tsconfig.json` `paths`). **상대 경로 `../`를 쓰지 않는다.** 예외 3종(전부 같은 디렉터리 형제 모듈이거나 Deno 제약): `lib/phase.ts:13`의 `from "./time"`, `supabase/functions/_shared/*.test.ts`의 `from "./kst"`, 그리고 두 Edge Function 의 `from "../_shared/kst.ts"` — **Deno 만 확장자를 요구한다**(tsc 는 거부하므로 `lib/` 쪽은 확장자 없이 쓴다).
 
 **Type-only imports:**
 - `isolatedModules: true`라 타입은 반드시 `type` 키워드로 표시한다.
@@ -141,10 +142,11 @@
 
 - **KST 변환은 전부 `lib/time.ts`를 경유한다.** 비즈니스 로직에서 `Date`의 로컬 메서드(`getHours` 등)를 직접 쓰지 않는다.
 - `lib/time.ts`는 `Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" })`로 구현한다. `en-CA` 로케일이 `yyyy-mm-dd`를 내주기 때문. 오프셋 산술을 직접 하지 않는다.
-- **모든 시간 함수는 `now: Date = new Date()`를 기본 인자로 받는다**(`lib/time.ts:10,15,20,30,68`, `lib/phase.ts:18,29`). 호출부는 보통 생략하지만 테스트에서 고정 시각을 주입할 수 있다 — 의도된 seam이다.
+- **`lib/time.ts`의 포맷터는 `now: Date = new Date()`를 기본 인자로 받는다**(`lib/time.ts:17,22,31`). 호출부는 보통 생략하지만 테스트에서 고정 시각을 주입할 수 있다 — 의도된 seam이다.
+- **예외 2곳(기본 인자를 일부러 버렸다):** `currentPhase(now, spinTime, hasResult)`(`lib/phase.ts:22`)와 `kstParts(now)`(`supabase/functions/_shared/kst.ts`)는 시각을 **반드시 주입받는다**. 기본값을 두면 설정(`settings.spin_time`)에서 온 추첨 시각이 다시 모듈 안에 숨고, `decided` 를 결정하는 것이 결과 행의 존재라는 사실도 시그니처에서 사라진다.
 - 날짜 키는 `"yyyy-mm-dd"` KST 문자열이고 `results.date`와 문자열 그대로 비교한다(`app/page.tsx:60`, `app/log/page.tsx:84`).
 - **허용된 예외 1곳:** `components/CalendarLog.tsx:18-21,222`는 `new Date(year, month-1, 1).getDay()` 등 로컬 `Date` 메서드로 달력 그리드를 만든다. 명시적 y/m/d 숫자로부터 요일·일수를 계산하는 순수 캘린더 산술이고 "현재 시각"에 의존하지 않으므로 타임존 버그가 나지 않는다. **"지금"을 다루는 코드는 반드시 `lib/time.ts`로.**
-- 추첨 시각 11:55는 **네 곳에 중복**돼 있다: `lib/phase.ts:14-15`, `supabase/functions/spin-roulette/index.ts:12-13`, `supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`, UI 문구(`components/Wheel.tsx:258`, `components/ResultBlock.tsx:13` 기본값 `"11:55"`, `app/page.tsx:340-341`). 바꾸려면 전부 손봐야 한다.
+- 추첨 시각의 **코드상 정의처는 한 곳**이다: `supabase/functions/_shared/spinTime.ts:9-11`의 `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`. 런타임 값은 `settings.spin_time`(대시보드 편집)이 이기고, 세 페이지는 `useSettings()` → `currentPhase(now, settings.spinTime, …)` 로 그 값을 받는다. 남은 중복 2갈래: 화면 하드코딩 문구(`components/Wheel.tsx`, `components/ResultBlock.tsx:13` 기본 prop `"11:55"`, `app/page.tsx`의 `phaseSubhead`) — **Phase 6 / SPIN-06 소관**, 그리고 DB 쪽 기본값(`supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`, `0005`의 `spin_time` 기본값).
 
 ## Data Access
 

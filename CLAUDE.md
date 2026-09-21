@@ -9,7 +9,9 @@
 - `app/page.tsx` — 오늘 탭. 메뉴 CRUD + 룰렛 + 결과. 앱의 중심.
 - `app/log/page.tsx` — 캘린더 기록. `app/rank/page.tsx` — 랭킹.
 - `lib/supabase/client.ts` — 브라우저용 supabase 클라이언트 + `MenuRow`/`ResultRow` 타입. **DB 타입의 유일한 정의처** (자동 생성 아님, 수동 유지).
-- `lib/time.ts` — KST 변환 전부. `lib/phase.ts` — 시각 → 페이즈(`accepting|spinning|decided`).
+- `lib/time.ts` — KST 포맷터 + `_shared/kst` 재수출. `lib/phase.ts` — 시각·추첨 시각·결과 유무 → 페이즈(`accepting|spinning|decided|stalled`). `stalled` = 추첨 시각은 지났는데 결과 행이 없는 구간이고, 이때 후보 목록을 잠그지 않는다.
+- `lib/settings.ts` — `settings` 행 → 앱 도메인 변환 + Realtime 병합 리듀서(순수, 값 import 0개). `lib/useSettings.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `settings-changes` 구독). 추첨 시각·쿨다운의 단일 출처.
+- `supabase/functions/_shared/` — Deno 함수와 클라이언트가 **같은 파일로** 공유하는 순수 로직(`kst.ts`·`spinTime.ts`·`cooldown.ts`). import 를 하나도 하지 않는 것이 이 디렉터리의 계약이다 (Deno 는 `.ts` 확장자를 요구하고 tsc 는 거부한다).
 - `lib/constants.ts` — 환경변수 없이 import 되는 순수 상수(`MENU_NAME_MAX_LEN`). 테스트가 `lib/supabase/client.ts`(모듈 로드 시 `createClient`)를 끌어오지 않게 분리한 것. `lib/errors.ts` — 로드 에러 메시지 조립(순수). `components/ErrorBanner.tsx` — `role="alert"` 배너.
 - `supabase/functions/spin-roulette` — pg_cron이 11:55에 호출하는 추첨 함수 (시간 가드 + 멱등). `respin-roulette` — 클라이언트 "다시 돌리기" (가드 없음, upsert).
 
@@ -24,7 +26,7 @@ npm test           # vitest run (워치 아님). 워치는 npm run test:watch
 npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌드 자체가 실패한다
 ```
 
-테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). lint는 2026-09-18 기준 에러 0 (`components/Wheel.tsx`는 회전을 props에서 파생하도록 고쳐 `react-hooks/set-state-in-effect` 해결).
+테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**`·`supabase/migrations/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). `_shared/**`·`migrations/**` 는 각각 Phase 3·2 가 실제 파일을 채웠다 — 마이그레이션 spec 은 SQL 을 실행하지 않고 텍스트로 파싱해 계약을 검사한다. lint는 2026-09-18 기준 에러 0 (`components/Wheel.tsx`는 회전을 props에서 파생하도록 고쳐 `react-hooks/set-state-in-effect` 해결).
 
 ## 코드 컨벤션 (이 레포가 이미 내린 선택 — 따른다)
 
@@ -33,16 +35,17 @@ npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌�
 - **콜백 prop 이름은 `~Action` 접미사** (`onAddAction`, `onRemoveAction`, `onChangeMonthAction`). Next.js 클라이언트 경계의 직렬화 lint를 통과시키기 위한 규약이다. `onX`로 지으면 lint가 잡는다.
 - **시간은 항상 `lib/time.ts` 경유.** `Date`의 로컬 메서드(`getHours` 등)를 비즈니스 로직에 직접 쓰지 않는다. 날짜 키는 `"yyyy-mm-dd"` KST 문자열이고 `results.date`와 그대로 비교한다.
 - 컴포넌트는 named export, 파일명 = 컴포넌트명 (`components/Wheel.tsx`). 페이지 전용 소형 컴포넌트는 페이지 파일 안에 둔다.
+- **공용 훅은 `lib/useX.ts`, `use` 접두** (`lib/useSettings.ts`). `lib/` 의 소문자 단수 명사 규칙에 대한 유일한 예외다. 훅에는 I/O 만 두고 판단은 같은 이름의 순수 모듈(`lib/settings.ts`)로 내린다 — 레포에 React 렌더 하네스가 없어서 훅 안의 분기는 테스트되지 않는다.
 - 주석은 한글, Why만. 파일 머리에 역할·제약을 블록 주석으로.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql`, cron 등록은 "기존 잡 unschedule → 재등록" 패턴으로 재실행 가능하게.
-- Edge Function은 Deno + `jsr:` import. `tsconfig`·eslint에서 제외돼 있으므로 **타입체크·lint가 안 돈다** — 수정 후 직접 확인.
+- Edge Function은 Deno + `jsr:` import. `tsconfig`·eslint 제외는 **함수 디렉터리 2개(`spin-roulette/**`·`respin-roulette/**`)뿐**이고 `_shared/**` 는 tsc·eslint·vitest 3중 검사를 받는다. 두 `index.ts` 본문은 여전히 사각지대 — `_shared/edgeImports.test.ts` 의 텍스트 계약 + 낭독으로만 검증되므로 수정 후 직접 확인.
 
 ## 비표준 규약·함정
 
 - `design/`은 React CDN 프로토타입 + PNG. **빌드 대상 아님**, 시각 참조용. 인덱서 OOM 전례 때문에 tsconfig/eslint/vscode/Tailwind `@source` 네 군데에서 제외돼 있다. 제외를 풀지 말 것. 컴포넌트를 새로 포팅할 때만 열어본다.
-- `supabase/functions/`도 같은 이유로 제외. Edge Function 배포 플래그(`verify_jwt: false`)는 **레포에 없다** (config.toml 없음). 함수를 재배포하면 `--no-verify-jwt`를 잊지 말 것 — `respin-roulette`도 anon publishable key로 호출되므로 동일.
-- 추첨 시각 11:55는 **네 곳에 흩어져 있다**: `lib/phase.ts`(SPIN_HH/MM), `supabase/functions/spin-roulette/index.ts`(SPIN_HH/MM), `supabase/migrations/0002_cron.sql`(`55 2 * * *`), UI 문구(`app/page.tsx` "11:55", README). 시각 바꾸면 전부.
-- `kstNow()`는 두 Edge Function에 복붙돼 있다 (Deno라 `lib/time.ts` 공유 불가).
+- `supabase/functions/` 는 **함수 디렉터리 2개만** 제외다 (Deno 전역·`jsr:` import 때문이고, OOM 근거는 `design/` 쪽이다). `_shared/` 는 제외하지 않는다 — 좁힌 제외를 다시 넓히지 말 것. Edge Function 배포 플래그(`verify_jwt: false`)는 **레포에 없다** (config.toml 없음). 함수를 재배포하면 `--no-verify-jwt`를 잊지 말 것 — `respin-roulette`도 anon publishable key로 호출되므로 동일.
+- 추첨 시각의 코드상 정의처는 `supabase/functions/_shared/spinTime.ts` 의 `DEFAULT_SPIN_TIME` **한 곳**이고, 런타임 값은 `settings.spin_time`(대시보드 편집)이 이긴다. 아직 남은 중복은 두 갈래다: 화면 하드코딩 문구 "11:55"(Phase 6 에서 `settings` 로 교체), `supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`와 `0005` 의 기본값(DB 쪽 기본값).
+- `kstNow()`·`kstParts()` 는 `supabase/functions/_shared/kst.ts` **한 곳**에 있다. Deno 는 `../_shared/kst.ts`(확장자 포함), 클라이언트는 `@/supabase/functions/_shared/kst`(확장자 없이)로 같은 파일을 본다. `lib/time.ts` 는 그 위의 얇은 재수출 + 포맷터다.
 - RLS는 의도적으로 열려 있다: 누구나 menus insert/delete 가능, results는 service_role만 쓰기. `respin-roulette`는 인증·레이트리밋 없음 — 익명 서비스 설계상 수용한 것.
 - 3개 페이지 모두 1초 `setInterval`로 `now`를 갱신해 리렌더한다. 페이즈 전환 감지 목적. 무거운 계산은 `useMemo`로 감쌀 것.
 - `.serena/project.yml`은 serena가 켤 때마다 재포맷한다 — diff에 떠도 커밋 대상 아님.
@@ -60,7 +63,7 @@ npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌�
 | `winnerIndex` (`app/page.tsx`) | `menus`에서 **이름으로** 찾는다. 당첨 메뉴가 삭제되면 -1 → 휠 하이라이트 사라짐. 중복 이름이면 첫 번째 |
 | 클라이언트 에러 표면화 | 쓰기는 `actionError`, 초기 SELECT는 `loadError`(`lib/errors.ts` + `components/ErrorBanner.tsx`)로 배너 표시. 둘을 합치면 쓰기 성공이 읽기 실패 배너를 지운다. Realtime 구독 실패는 여전히 조용함 |
 
-미사용 코드: `lib/phase.ts` `msToNextPhase`, `Wheel` `onSpinCompleteAction` prop (참조 0).
+미사용 코드: `Wheel` `onSpinCompleteAction` prop (참조 0).
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
