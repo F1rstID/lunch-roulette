@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "03-01 완료: _shared 순수 모듈 3개 + Edge import 교체, 게이트 4종 초록 (9파일 145건)"
-last_updated: "2026-09-21T04:42:24.120Z"
-last_activity: 2026-09-21 -- 03-01 완료 (_shared 순수 모듈 3개 + Edge import 교체)
+stopped_at: "03-02 완료: 시각 주입 + stalled 4상태, 소비처 9곳 전환 (9파일 155건)"
+last_updated: "2026-09-21T04:54:48.298Z"
+last_activity: 2026-09-21 -- 03-02 완료 (시각 주입 + stalled 4상태, 소비처 9곳 전환)
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 ## Current Position
 
 Phase: 3 (순수 로직) — EXECUTING
-Plan: 2 of 3
-Status: Executing Phase 3 (03-02 대기)
-Last activity: 2026-09-21 -- 03-01 완료 (_shared 순수 모듈 3개 + Edge import 교체)
+Plan: 3 of 3
+Status: Executing Phase 3 (03-03 대기)
+Last activity: 2026-09-21 -- 03-02 완료 (시각 주입 + stalled 4상태, 소비처 9곳 전환)
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 80%
 | Phase 02 P02 | 8min | 3 tasks | 3 files |
 | Phase 02 P03 | 11min | 3 tasks | 3 files |
 | Phase 03 P01 | 10min | 4 tasks | 11 files |
+| Phase 03 P02 | 8min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ Progress: [████████░░] 80%
 - [Phase 3]: tsc·eslint 제외 좁히기(D-12)를 첫 커밋으로 올렸다 — 좁히기 전에는 _shared 의 타입 에러가 tsc --noEmit exit 0 으로 지나간다. RED 의 TS2307 3건이 좁히기가 켜졌다는 증거다
 - [Phase 3]: 게이트용 금지 토큰(hour12·SPIN_HH·function kstNow)을 소스 주석에 쓰지 않는다 — 주석이 자기 자신을 세면 게이트가 무력화된다. 계약 spec 의 정규식 리터럴까지 세는 레포 전역 grep 은 --include='index.ts' 로 범위를 좁혀 측정한다
 - [Phase 3]: spin-roulette 는 DEFAULT_SPIN_TIME 상수를 그대로 넘기고 respin-roulette 는 spinTime.ts 를 끌어오지 않는다 — 시간 가드가 없는 함수에 불필요한 의존을 만들지 않는다 (edgeImports #17 이 부재를 단언)
+- [Phase 3]: Phase 유니온 확장과 소비처 9곳 전환을 한 커밋에 넣었다 — 소비처가 전부 if-체인 + fallback 이라 유니온을 넓혀도 tsc 에러가 0건이고, 커밋을 나누면 그 사이가 MenuList 만 조용히 틀린 '초록인데 틀린' 상태가 된다
+- [Phase 3]: currentPhase 에서 기본 인자를 버리고 hasResult 를 시그니처에 박았다 — decided 를 결정하는 것은 시각이 아니라 results 행의 존재이고, 추첨 시각이 지났는데 결과가 없으면 stalled 로 떨어져 후보 목록이 잠기지 않는다 (SPIN-03)
+- [Phase 3]: lib/** 의 '함수가 아직 없다' RED 는 수집 실패가 아니라 단언 실패로 나타난다 — vitest 는 없는 named export 를 undefined 로 바인딩한다. RED 판정을 Failed Suites 로 하면 놓치므로 exit code 와 tsc TS2305/TS2554 로 본다
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-21T04:42:05.084Z
-Stopped at: 03-01 완료: _shared 순수 모듈 3개 + Edge import 교체, 게이트 4종 초록 (9파일 145건)
+Last session: 2026-09-21T04:54:39.945Z
+Stopped at: 03-02 완료: 시각 주입 + stalled 4상태, 소비처 9곳 전환 (9파일 155건)
 Resume file: None

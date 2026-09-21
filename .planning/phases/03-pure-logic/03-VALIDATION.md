@@ -56,13 +56,13 @@ updated: 2026-09-21
 | 03-01-T3 | 01 | 1 | SPIN-02 | T-03-06 | `days <= 0` → `null`; 월·연·**윤년** 경계; 필터 없음 / 제외 후 남음 / 0개 → 전체 폴백 `fellBack: true` / `null` id 무시 | unit | `npx vitest run supabase/functions/_shared/cooldown.test.ts` (10건) | ❌ W0 | ✅ green |
 | 03-01-T4 | 01 | 1 | QUAL-02 | T-03-01, T-03-02, T-03-03 | 두 `index.ts` 에 `function kstNow`·`function pickRandom`·`const SPIN_HH` 부재, `from "../_shared/kst.ts"` 존재; `_shared/*.ts` import 0개; OPTIONS 단락·`23505` 보존 | contract | `npx vitest run supabase/functions/_shared/edgeImports.test.ts` (22건) | ❌ W0 | ✅ green |
 | 03-01-T4 | 01 | 1 | QUAL-02 | — | `kstNow` 정의가 레포 전체에 1곳 | grep | `grep -rn 'function kstNow' . --include='*.ts' --exclude-dir=node_modules --exclude-dir=.next \| wc -l` = 1 | ✅ | ✅ green |
-| 03-02-T1 | 02 | 2 | QUAL-02 | — | `lib/time.ts` 재수출 후에도 포맷 계약 유지. `kstParts` 기대 객체에 `date` 1줄 (D-15) | unit | `npx vitest run lib/time.test.ts` (13건) | ⚠️ 1줄 수정 | ⬜ pending |
-| 03-02-T1 | 02 | 2 | QUAL-02 | — | `hour12` 0건, 포맷터 2개가 `hourCycle: "h23"` (D-04 / todo IN-04) | grep | `grep -rn hour12 lib \| wc -l` = 0 | ✅ | ⬜ pending |
-| 03-02-T1 | 02 | 2 | QUAL-02 | — | Turbopack 이 `@/supabase/functions/_shared/*` alias import 를 실제로 번들한다 | static | `npm run build` → exit 0 | ✅ | ⬜ pending |
-| 03-02-T2 | 02 | 2 | SPIN-03 | T-03-08, T-03-10 | spec 16건이 3인자 `currentPhase` + `isCandidateListLocked` 를 부르며 RED 로 선다 | unit (RED) | `npx vitest run lib/phase.test.ts` → exit 1, `tsc` 에 `TS2305`·`TS2554` | ⚠️ 재작성 | ⬜ pending |
-| 03-02-T3 | 02 | 2 | SPIN-03 | T-03-10 | 11:55:05 결과 없음 → `stalled`(≠ `decided`); 경계 6종 × `hasResult=false`; `hasResult=true` 면 어느 시각이든 `decided`; 12:30 주입이 경계를 옮긴다 | unit | `npx vitest run lib/phase.test.ts` (16건) | ⚠️ 재작성 | ⬜ pending |
-| 03-02-T3 | 02 | 2 | SPIN-03 | T-03-08 | `isCandidateListLocked("stalled") === false` — 후보 0개로 추첨이 건너뛰어진 날 목록이 잠기지 않는다 | unit | `npx vitest run lib/phase.test.ts` (동 파일 #13~#16) | ❌ W0 | ⬜ pending |
-| 03-02-T3 | 02 | 2 | SPIN-03 | T-03-09, T-03-11 | 소비처 9곳이 **한 커밋**에서 전환됨. `switch`+`never` 3곳, `resolvedPhase`·`msToNextPhase` 0건, `ResultBlock` 죽은 분기 0건 | grep | `grep -rn ': never' lib/phase.ts components/TopBar.tsx app/page.tsx \| wc -l` ≥ 3 · `grep -c resolvedPhase app/page.tsx` = 0 · `grep -rn 'msToNextPhase' lib app components --include='*.ts' --include='*.tsx' \| grep -v '\.test\.' \| wc -l` = 0 (spec 제외 — `lib/phase.test.ts` 머리 주석의 1건은 03-02-T2 가 `→ 1` 로 고정한 의도된 잔존) | ✅ | ⬜ pending |
+| 03-02-T1 | 02 | 2 | QUAL-02 | — | `lib/time.ts` 재수출 후에도 포맷 계약 유지. `kstParts` 기대 객체에 `date` 1줄 (D-15) | unit | `npx vitest run lib/time.test.ts` (13건) | ⚠️ 1줄 수정 | ✅ green |
+| 03-02-T1 | 02 | 2 | QUAL-02 | — | `hour12` 0건, 포맷터 2개가 `hourCycle: "h23"` (D-04 / todo IN-04) | grep | `grep -rn hour12 lib \| wc -l` = 0 | ✅ | ✅ green |
+| 03-02-T1 | 02 | 2 | QUAL-02 | — | Turbopack 이 `@/supabase/functions/_shared/*` alias import 를 실제로 번들한다 | static | `npm run build` → exit 0 | ✅ | ✅ green |
+| 03-02-T2 | 02 | 2 | SPIN-03 | T-03-08, T-03-10 | spec 16건이 3인자 `currentPhase` + `isCandidateListLocked` 를 부르며 RED 로 선다 | unit (RED) | `npx vitest run lib/phase.test.ts` → exit 1, `tsc` 에 `TS2305`·`TS2554` | ⚠️ 재작성 | ✅ green |
+| 03-02-T3 | 02 | 2 | SPIN-03 | T-03-10 | 11:55:05 결과 없음 → `stalled`(≠ `decided`); 경계 6종 × `hasResult=false`; `hasResult=true` 면 어느 시각이든 `decided`; 12:30 주입이 경계를 옮긴다 | unit | `npx vitest run lib/phase.test.ts` (16건) | ⚠️ 재작성 | ✅ green |
+| 03-02-T3 | 02 | 2 | SPIN-03 | T-03-08 | `isCandidateListLocked("stalled") === false` — 후보 0개로 추첨이 건너뛰어진 날 목록이 잠기지 않는다 | unit | `npx vitest run lib/phase.test.ts` (동 파일 #13~#16) | ❌ W0 | ✅ green |
+| 03-02-T3 | 02 | 2 | SPIN-03 | T-03-09, T-03-11 | 소비처 9곳이 **한 커밋**에서 전환됨. `switch`+`never` 3곳, `resolvedPhase`·`msToNextPhase` 0건, `ResultBlock` 죽은 분기 0건 | grep | `grep -rn ': never' lib/phase.ts components/TopBar.tsx app/page.tsx \| wc -l` ≥ 3 · `grep -c resolvedPhase app/page.tsx` = 0 · `grep -rn 'msToNextPhase' lib app components --include='*.ts' --include='*.tsx' \| grep -v '\.test\.' \| wc -l` = 0 (spec 제외 — `lib/phase.test.ts` 머리 주석의 1건은 03-02-T2 가 `→ 1` 로 고정한 의도된 잔존) | ✅ | ✅ green |
 | 03-03-T1 | 03 | 3 | SETT-02, SETT-03 | T-03-13, T-03-18 | spec 24건이 `@/lib/settings` 계약을 부르며 RED 로 선다. supabase 값/타입 import 0건 | unit (RED) | `npx vitest run lib/settings.test.ts` → exit 1, `tsc` 에 `TS2307` 1건 | ❌ W0 | ⬜ pending |
 | 03-03-T2 | 03 | 3 | SETT-03 | T-03-13, T-03-18 | 로드 전 `DEFAULT_SETTINGS`(11:55·0·`null`); `failed` → 기본값 + `error`; `loaded(null)` → 기본값 + `loaded` + **error 없음**; 잘못된 `spin_time` → 기본 시각 + `warning` 이고 `error` 는 `null`(예외 금지, W-10) | unit | `npx vitest run lib/settings.test.ts` (24건) | ❌ W0 | ⬜ pending |
 | 03-03-T2 | 03 | 3 | SETT-02 | T-03-15 | `changed("UPDATE", row)` 가 `spinTime`·`cooldownDays` 를 통째 교체; `changed("INSERT")` 동일; 정상 행이 `warning` 을 지운다(W-10); `changed("DELETE", null)` → 기본값 복귀 + `error`·`warning` 둘 다 `null`; 리듀서 불변성 | unit | `npx vitest run lib/settings.test.ts` (동 파일 #18~#24) | ❌ W0 | ⬜ pending |
@@ -88,8 +88,8 @@ updated: 2026-09-21
 - [ ] `supabase/functions/_shared/spinTime.test.ts` — QUAL-02 · SETT-02(파싱) (`03-01-T2`)
 - [ ] `supabase/functions/_shared/cooldown.test.ts` — SPIN-02 (`03-01-T2`)
 - [ ] `supabase/functions/_shared/edgeImports.test.ts` — QUAL-02(복붙 제거·import 0개 계약) (`03-01-T2`)
-- [ ] `lib/time.test.ts:58-66` 기대 객체에 `date` 한 줄 (D-15) (`03-02-T1`)
-- [ ] `lib/phase.test.ts` 재작성 — SPIN-03 (`03-02-T2`)
+- [x] `lib/time.test.ts:58-66` 기대 객체에 `date` 한 줄 (D-15) (`03-02-T1`)
+- [x] `lib/phase.test.ts` 재작성 — SPIN-03 (`03-02-T2`)
 - [ ] `lib/settings.test.ts` (24건) — SETT-02 · SETT-03 (`03-03-T1`)
 - 프레임워크 설치 불필요 · `vitest.config.mts` 변경 불필요 · 공용 픽스처 불필요 · **jsdom·`@testing-library/react` 도입 금지**(§Q7)
 
