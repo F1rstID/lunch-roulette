@@ -15,14 +15,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CATL-04**: 사용자는 매장을 핀/해제할 수 있고, 핀 매장은 매일 자정 자동으로 오늘 후보에 담긴다
 - [ ] **CATL-05**: 매장 등록·수정·삭제·핀 변경이 모든 접속자 화면에 Realtime으로 반영된다
 - [ ] **CATL-06**: 메뉴 목록은 쉼표 구분 입력으로 여러 개를 한 번에 넣을 수 있다 (기존 `parseMenuInput` 재활용)
-- [ ] **CATL-07**: 같은 이름의 매장은 중복 등록되지 않는다 (DB unique)
+- [x] **CATL-07**: 같은 이름의 매장은 중복 등록되지 않는다 (DB unique)
 
 ### 오늘 후보 (CAND)
 
 - [ ] **CAND-01**: 사용자는 오늘 탭에서 카탈로그 전체 목록을 보고 토글로 오늘 후보에 담고 뺄 수 있다
 - [ ] **CAND-02**: 사용자는 이름 필터로 카탈로그 목록을 좁힐 수 있다
 - [ ] **CAND-03**: 후보 담기·빼기가 모든 접속자에게 Realtime으로 반영된다
-- [ ] **CAND-04**: 자정(KST 00:00)에 오늘 후보가 비워지고 핀 매장만 다시 담긴다. 열린 탭에도 비워짐이 반영된다 (`truncate` → `delete from`)
+- [x] **CAND-04**: 자정(KST 00:00)에 오늘 후보가 비워지고 핀 매장만 다시 담긴다. 열린 탭에도 비워짐이 반영된다 (`truncate` → `delete from`)
 - [ ] **CAND-05**: 오늘 결과가 확정된 뒤에는 후보 토글이 잠긴다 (기존 readOnly 동작 유지)
 
 ### 추첨 (SPIN)
@@ -38,11 +38,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **HIST-01**: 기록 캘린더는 전환일(`settings.history_since`) 이후 결과만 매장명으로 표시한다
 - [ ] **HIST-02**: 랭킹은 전환일 이후 결과만 매장 기준으로 집계한다
-- [ ] **HIST-03**: 전환 이전 `results` 60행은 DB에 그대로 보존된다 (삭제·변환 없음)
+- [x] **HIST-03**: 전환 이전 `results` 60행은 DB에 그대로 보존된다 (삭제·변환 없음)
 
 ### 설정 (SETT)
 
-- [ ] **SETT-01**: `settings` 단일행(`spin_time`, `cooldown_days`, `history_since`)이 존재하고 anon은 읽기만, 편집은 대시보드에서만 가능하다
+- [x] **SETT-01**: `settings` 단일행(`spin_time`, `cooldown_days`, `history_since`)이 존재하고 anon은 읽기만, 편집은 대시보드에서만 가능하다
 - [ ] **SETT-02**: 대시보드에서 설정을 바꾸면 열린 탭에 Realtime으로 즉시 반영된다 (새로고침 불필요)
 - [ ] **SETT-03**: 설정 로드 전 또는 실패 시 기본값(11:55, 쿨다운 0)으로 동작한다
 - [ ] **SETT-04**: 마이그레이션 직후(기본값) 동작은 현재와 동일하다 — 11:55 추첨, 쿨다운 없음
@@ -57,7 +57,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### 전환·문서 (SHIP)
 
-- [ ] **SHIP-01**: 컷오버 마이그레이션 1개: `restaurants`·`candidates`·`settings` 생성, RLS·Realtime 등록, cron 교체(spin 매분 폴링, reset은 `delete from` + 핀 재시드), `menus`·`pinned_menus` 제거. 재실행 가능
+- [x] **SHIP-01**: 컷오버 마이그레이션 1개: `restaurants`·`candidates`·`settings` 생성, RLS·Realtime 등록, cron 교체(spin 매분 폴링, reset은 `delete from` + 핀 재시드), `menus`·`pinned_menus` 제거. 재실행 가능
 - [ ] **SHIP-02**: 롤백 절차가 문서화된다 (구 테이블·구 cron 복원 SQL 포함)
 - [ ] **SHIP-03**: `CLAUDE.md`·`README.md`가 현행화된다 (낡은 항목 4건 수정 + 새 컨벤션: settings 단일 소스, `_shared` 모듈, 마이그레이션 동작불변 원칙)
 - [ ] **SHIP-04**: 배포 체크리스트가 문서화된다: 마이그레이션(사용자, 대시보드) → Edge Function 2개 deploy → PR 머지 → 라이브 확인
@@ -102,11 +102,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CATL-04 | Phase 5 — 매장 탭 | Pending |
 | CATL-05 | Phase 5 — 매장 탭 | Pending |
 | CATL-06 | Phase 5 — 매장 탭 | Pending |
-| CATL-07 | Phase 2 — 데이터 모델 | Pending |
+| CATL-07 | Phase 2 — 데이터 모델 | Complete |
 | CAND-01 | Phase 6 — 오늘 탭 | Pending |
 | CAND-02 | Phase 6 — 오늘 탭 | Pending |
 | CAND-03 | Phase 6 — 오늘 탭 | Pending |
-| CAND-04 | Phase 2 — 데이터 모델 | Pending |
+| CAND-04 | Phase 2 — 데이터 모델 | Complete |
 | CAND-05 | Phase 6 — 오늘 탭 | Pending |
 | SPIN-01 | Phase 4 — 서버 추첨 | Pending |
 | SPIN-02 | Phase 3 — 순수 로직 | Pending |
@@ -116,8 +116,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPIN-06 | Phase 6 — 오늘 탭 | Pending |
 | HIST-01 | Phase 7 — 기록·랭킹 | Pending |
 | HIST-02 | Phase 7 — 기록·랭킹 | Pending |
-| HIST-03 | Phase 2 — 데이터 모델 | Pending |
-| SETT-01 | Phase 2 — 데이터 모델 | Pending |
+| HIST-03 | Phase 2 — 데이터 모델 | Complete |
+| SETT-01 | Phase 2 — 데이터 모델 | Complete |
 | SETT-02 | Phase 3 — 순수 로직 | Pending |
 | SETT-03 | Phase 3 — 순수 로직 | Pending |
 | SETT-04 | Phase 4 — 서버 추첨 | Pending |
@@ -126,7 +126,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUAL-03 | Phase 1 — 안전망 | Complete |
 | QUAL-04 | Phase 1 — 안전망 | Complete |
 | QUAL-05 | Phase 8 — 컷오버 | Pending |
-| SHIP-01 | Phase 2 — 데이터 모델 | Pending |
+| SHIP-01 | Phase 2 — 데이터 모델 | Complete |
 | SHIP-02 | Phase 8 — 컷오버 | Pending |
 | SHIP-03 | Phase 8 — 컷오버 | Pending |
 | SHIP-04 | Phase 8 — 컷오버 | Pending |
