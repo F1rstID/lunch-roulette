@@ -13,7 +13,7 @@
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: 안전망** - vitest 도입 + 모델과 무관한 선행 수정(next 범프, 읽기 에러 표면화) (completed 2026-09-18)
-- [ ] **Phase 2: 데이터 모델** - `restaurants`·`candidates`·`settings` 컷오버 마이그레이션 1파일 + TS 타입
+- [x] **Phase 2: 데이터 모델** - `restaurants`·`candidates`·`settings` 컷오버 마이그레이션 1파일 + TS 타입 (completed 2026-09-21)
 - [ ] **Phase 3: 순수 로직** - 추첨 시각·쿨다운·KST를 주입 가능한 단일 출처로 모으고 테스트로 고정
 - [ ] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성
 - [ ] **Phase 5: 매장 탭** - 카탈로그 등록·수정·삭제·핀 UI
@@ -53,7 +53,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans (3 waves)
 - [x] 02-01-PLAN.md — vitest 수집 경계에 마이그레이션 계약 스펙 추가 (wave 1)
 - [x] 02-02-PLAN.md — 계약 스펙 RED → 0005 마이그레이션 + 행 타입 GREEN (wave 2)
-- [ ] 02-03-PLAN.md — 낭독 리뷰 11항목·검증 맵·게이트 5종·사용자 승인 (wave 3)
+- [x] 02-03-PLAN.md — 낭독 리뷰 11항목·검증 맵·게이트 5종·사용자 승인 (wave 3)
 
 ### Phase 3: 순수 로직
 **Goal**: 추첨 시각 판정·쿨다운 필터·KST 변환을 주입 가능한 순수 함수 한 곳으로 모으고, 테스트로 계약을 고정한다. 하드코딩 상수와 복붙을 이 페이즈에서 끝낸다.
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
-| 2. 데이터 모델 | 2/3 | In Progress | - |
+| 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
 | 3. 순수 로직 | 0/TBD | Not started | - |
 | 4. 서버 추첨 | 0/TBD | Not started | - |
 | 5. 매장 탭 | 0/TBD | Not started | - |

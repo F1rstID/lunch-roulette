@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "02-02 완료: 0005 컷오버 마이그레이션 + 계약 테스트 47건 + 행 타입 3종 (파일만 작성, 적용은 Phase 8)"
-last_updated: "2026-09-18T09:56:15.918Z"
-last_activity: 2026-09-18 -- Phase 2 executing (02-02 complete)
+status: verifying
+stopped_at: "02-03 완료: 낭독 리뷰 11항목 + 게이트 6종 + 사용자 승인(2026-09-21) — Phase 2 종료, 검증 대기"
+last_updated: "2026-09-21T00:22:06.965Z"
+last_activity: 2026-09-21 -- Phase 2 complete (02-03 approved, ready for verification)
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
-  percent: 13
+  completed_plans: 7
+  percent: 25
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 
 ## Current Position
 
-Phase: 2 (데이터 모델) — EXECUTING
+Phase: 2 (데이터 모델) — COMPLETE (검증 대기)
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-09-18 -- Phase 2 executing (02-02 complete)
+Status: Phase complete — ready for verification
+Last activity: 2026-09-21 -- Phase 2 complete (02-03 approved, ready for verification)
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████████░] 86%
 | Phase 01 P04 | 7min | 3 tasks | 5 files |
 | Phase 02 P01 | 2min | 1 tasks | 1 files |
 | Phase 02 P02 | 8min | 3 tasks | 3 files |
+| Phase 02 P03 | 11min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Progress: [█████████░] 86%
 - [Phase 02]: 0005 의 정책 줄에서 이름 정렬 패딩(0001·0004 습관)을 버리고 단일 공백으로 썼다 — drop/create 정책 쌍의 (테이블,이름) 1:1 검사가 단일 공백 정규식이라 정렬 패딩을 넣으면 9개 중 하나도 매치되지 않아 멱등성 게이트가 조용히 무력화된다
 - [Phase 02]: publication 가드를 테이블별 do 블록 3개가 아니라 배열 루프 1개로 — 대상이 한 줄 리터럴 배열이어야 '세 이름이 전부 있는가'를 집합 비교로 검사할 수 있다
 - [Phase 02]: SQL 문 개수 단언은 주석 제거 사본에서만 센다 — 한글 Why 주석에 create policy 같은 토큰이 섞이면 원본 grep 이 자기 자신을 세어 게이트가 통과해 버린다
+- [Phase 02]: 낭독 리뷰 11항목은 '통과' 판정이 아니라 파일:줄 인용과 함께 기록한다 — 판정만 남은 기록은 Phase 8 컷오버에서 재검증 비용을 그대로 되돌려준다 (T-02-11)
+- [Phase 02]: 계약 테스트가 덮지 못하는 지점을 기록에 명시했다 — cascade/set null 방향은 자동 단언 0건, settings 기본값은 기대값 출처가 스펙 리터럴이라 CONTEXT 원문 대조가 아니며, 컬럼 정의는 8줄 중 3줄만 자동이다
+- [Phase 02]: 요구사항 완료 마킹은 페이즈 안에서 검증을 닫는 플랜 하나만 한다 — 파일을 만든 02-02 가 아니라 사람 승인을 받은 02-03 이 SHIP-01·SETT-01·CATL-07·CAND-04·HIST-03 을 찍었다
 
 ### Pending Todos
 
@@ -107,6 +111,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T09:56:15.913Z
-Stopped at: 02-02 완료: 0005 컷오버 마이그레이션 + 계약 테스트 47건 + 행 타입 3종 (파일만 작성, 적용은 Phase 8)
+Last session: 2026-09-21T00:22:06.960Z
+Stopped at: 02-03 완료: 낭독 리뷰 11항목 + 게이트 6종 + 사용자 승인(2026-09-21) — Phase 2 종료, 검증 대기
 Resume file: None

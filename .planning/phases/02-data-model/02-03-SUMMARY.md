@@ -158,14 +158,18 @@ Task 2(2026-09-18) 기록과 페이즈 클로즈 재실행 결과가 **전부 �
 
 ### Auto-fixed Issues
 
-**1. [Rule 1 - Bug] GSD SDK 생성 문자열 형식 교정 (3번째 재발 — 02-01·02-02 와 동일)**
+**1. [Rule 1 - Bug] GSD SDK 생성 문자열 형식 교정 (3번째 재발 — 02-01·02-02 와 동일 계열)**
 
 - **Found during:** 상태 갱신 단계(SUMMARY 커밋 직후)
-- **Issue:** 알려진 3건. (a) `state.add-decision` 이 `- [Phase ?]: [Phase 02]: …` 로 접두사를 이중 출력 — 기존 로그는 전부 `- [Phase 0N]: …`. (b) `roadmap.update-plan-progress` 가 표 셀을 `| In Progress|  |` 로 써 파이프 앞 공백 누락 + Completed 열 공백. (c) `state.record-session` 이 `last_activity` 의 서술 접미사를 날려 날짜만 남김.
-- **Fix:** 02-01·02-02 와 동일하게 손으로 정규화했다(의미 변경 0, 형식만 기존 관례에 정렬).
-- **Files modified:** `.planning/STATE.md`, `.planning/ROADMAP.md`
+- **Issue:** 실측 3건 + 신규 1건.
+  - (a) `state.add-decision` 이 결정 3줄을 **`- [Phase ?]:`** 플레이스홀더로 썼다. 기존 로그는 전부 `- [Phase 0N]: …`. (02-02 는 문자열에 `[Phase 02]:` 를 직접 넣어 **이중 접두사**가 됐었다 — 같은 버그의 다른 얼굴이다. 이번엔 접두사를 넣지 않았더니 `?` 가 그대로 남았다. 호출자가 어느 쪽을 택해도 손질이 필요하다.)
+  - (b) `roadmap.update-plan-progress` 가 Status 셀을 `| Complete   |`(패딩 3칸)로 써 같은 표의 Phase 1 행 `| Complete    |`(4칸, `Not started` 열폭 기준)과 **한 칸 어긋났다**.
+  - (c) `state.record-session` 이 `last_activity` 의 서술 접미사를 날려 `2026-09-21` 날짜만 남겼다.
+  - (d) **신규:** `state.record-metric` · `state.add-decision` 이 `QUERY-HANDLERS.md` 문서대로의 **위치 인자를 거부**했다(`{"error":"phase, plan, and duration required"}` · `{"error":"summary required"}`). `--phase/--plan/--duration/--tasks/--files` · `--summary` 명명 플래그로 바꾸니 통과했다 — 문서와 구현이 어긋나 있다.
+- **Fix:** (a) 3줄을 `- [Phase 02]:` 로 정규화. (b) 패딩 1칸 보정. (c) `2026-09-21 -- Phase 2 complete (02-03 approved, ready for verification)` 로 복원(frontmatter·본문 2곳). 덧붙여 SDK 가 갱신하지 않은 본문 머리줄 `Phase: 2 (데이터 모델) — EXECUTING` 을 `— COMPLETE (검증 대기)` 로 맞췄다(frontmatter `status: verifying` 과 어긋나 있었다). (d) 호출을 명명 플래그로 바꿔 실행.
+- **Files modified:** `.planning/STATE.md`, `.planning/ROADMAP.md` — 의미 변경 0, 형식만 기존 관례에 정렬
 - **Committed in:** 상태 갱신 docs 커밋
-- **에스컬레이션:** **3개 플랜 연속 동일 재발 = SDK 쪽 버그로 확정**한다. 매 플랜마다 손으로 고치는 비용이 페이즈당 3건씩 쌓인다. 02-02-SUMMARY 가 "02-03 또는 페이즈 게이트에서 한 번 보고할 항목"으로 미뤘으므로, **이 SUMMARY 가 그 보고다** — Phase 3 이후로 넘기지 말고 GSD 툴체인 쪽에 올릴 것.
+- **에스컬레이션:** **3개 플랜 연속 재발 = SDK 쪽 버그로 확정.** 02-02-SUMMARY 가 "02-03 또는 페이즈 게이트에서 한 번 보고할 항목"으로 미뤘으므로 **이 SUMMARY 가 그 보고다.** 핸들러 4개(`state.add-decision` · `state.record-metric` · `state.record-session` · `roadmap.update-plan-progress`)가 모두 관련돼 있고, (d)는 문서-구현 불일치라 다음 실행자가 같은 시행착오를 반복한다. Phase 3 이후로 넘기지 말고 GSD 툴체인 쪽에 올릴 것.
 
 ---
 
