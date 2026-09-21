@@ -5,50 +5,18 @@
 // - 안전장치 1: KST 시각이 11:55 이전이면 거부 (조기 트리거 방지)
 // - 안전장치 2: 같은 날짜의 results row가 이미 있으면 즉시 종료 (멱등성)
 // - DB 접근은 SUPABASE_SERVICE_ROLE_KEY로 service_role 권한 사용
+// - KST 변환·시각 판정·난수 선택은 _shared/ 한 곳으로 합쳤다 (respin-roulette 와의 복붙 제거)
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const SPIN_HH = 11;
-const SPIN_MM = 55;
-
-type KstParts = { date: string; hour: number; minute: number; second: number };
-
-function kstNow(): KstParts {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const date = `${get("year")}-${get("month")}-${get("day")}`;
-  const hour = Number(get("hour")) % 24;
-  const minute = Number(get("minute"));
-  const second = Number(get("second"));
-  return { date, hour, minute, second };
-}
-
-function isAfterSpinTime(p: KstParts): boolean {
-  const total = p.hour * 3600 + p.minute * 60 + p.second;
-  return total >= SPIN_HH * 3600 + SPIN_MM * 60;
-}
-
-function pickRandom<T>(arr: T[]): T {
-  const u = new Uint32Array(1);
-  crypto.getRandomValues(u);
-  return arr[u[0] % arr.length];
-}
+import { kstNow, pickRandom } from "../_shared/kst.ts";
+import { DEFAULT_SPIN_TIME, isAfterSpinTime } from "../_shared/spinTime.ts";
 
 Deno.serve(async () => {
   const now = kstNow();
 
-  if (!isAfterSpinTime(now)) {
+  // settings.spin_time 읽기는 Phase 4 다. 지금은 기본 시각(11:55)으로 판정한다 — 동작 불변.
+  if (!isAfterSpinTime(now, DEFAULT_SPIN_TIME)) {
     return new Response(
       JSON.stringify({ skipped: "before_spin_time", kst: now }),
       { headers: { "Content-Type": "application/json" } },

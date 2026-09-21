@@ -17,6 +17,9 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// KST 변환·난수 선택은 _shared/ 한 곳으로 합쳤다 (spin-roulette 와의 복붙 제거).
+// 시간 가드가 없는 함수라 spinTime.ts 는 끌어오지 않는다.
+import { kstNow, pickRandom } from "../_shared/kst.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,34 +33,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-type KstParts = { date: string; hour: number; minute: number; second: number };
-
-function kstNow(): KstParts {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const date = `${get("year")}-${get("month")}-${get("day")}`;
-  const hour = Number(get("hour")) % 24;
-  const minute = Number(get("minute"));
-  const second = Number(get("second"));
-  return { date, hour, minute, second };
-}
-
-function pickRandom<T>(arr: T[]): T {
-  const u = new Uint32Array(1);
-  crypto.getRandomValues(u);
-  return arr[u[0] % arr.length];
 }
 
 Deno.serve(async (req) => {
