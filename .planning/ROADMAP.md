@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: 안전망** - vitest 도입 + 모델과 무관한 선행 수정(next 범프, 읽기 에러 표면화) (completed 2026-09-18)
 - [x] **Phase 2: 데이터 모델** - `restaurants`·`candidates`·`settings` 컷오버 마이그레이션 1파일 + TS 타입 (completed 2026-09-21)
-- [ ] **Phase 3: 순수 로직** - 추첨 시각·쿨다운·KST를 주입 가능한 단일 출처로 모으고 테스트로 고정
+- [x] **Phase 3: 순수 로직** - 추첨 시각·쿨다운·KST를 주입 가능한 단일 출처로 모으고 테스트로 고정 (completed 2026-09-21)
 - [ ] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성
 - [ ] **Phase 5: 매장 탭** - 카탈로그 등록·수정·삭제·핀 UI
 - [ ] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시
@@ -68,7 +68,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans (3 waves)
 - [x] 03-01-PLAN.md — D-12 제외 좁히기 + `_shared` 순수 모듈 3종·spec 4개 + Edge Function import 교체 (wave 1)
 - [x] 03-02-PLAN.md — `lib/time.ts` 재수출·`hourCycle` + `lib/phase.ts` 4상태 재작성 + `Phase` 소비처 9곳 전환 (wave 2)
-- [ ] 03-03-PLAN.md — `lib/settings.ts` 리듀서 + `useSettings` 훅 + 세 페이지 배선 + D-16 문서 현행화 (wave 3)
+- [x] 03-03-PLAN.md — `lib/settings.ts` 리듀서 + `useSettings` 훅 + 세 페이지 배선 + D-16 문서 현행화 (wave 3)
 
 ### Phase 4: 서버 추첨
 **Goal**: 두 Edge Function이 새 스키마·`settings`·쿨다운 위에서 결과를 확정하도록 재작성한다. 배포는 하지 않는다(Phase 8).
@@ -147,7 +147,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
 | 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
-| 3. 순수 로직 | 2/3 | In Progress | |
+| 3. 순수 로직 | 3/3 | Complete    | 2026-09-21 |
 | 4. 서버 추첨 | 0/TBD | Not started | - |
 | 5. 매장 탭 | 0/TBD | Not started | - |
 | 6. 오늘 탭 | 0/TBD | Not started | - |

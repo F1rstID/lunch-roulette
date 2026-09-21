@@ -29,7 +29,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **SPIN-01**: 설정된 추첨 시각 이후 첫 폴링(매분)에서 오늘 후보 중 매장 하나가 자동 확정된다. 하루 1회 멱등
 - [ ] **SPIN-02**: `cooldown_days` > 0이면 최근 N일 당첨 매장은 후보에서 제외한다. 제외 후 후보가 비면 전체 후보로 폴백한다
-- [ ] **SPIN-03**: 추첨 시각에 후보가 0개면 결과가 생기지 않고 UI는 잠기지 않는다. 이후 후보를 담으면 다음 폴링에서 추첨된다
+- [x] **SPIN-03**: 추첨 시각에 후보가 0개면 결과가 생기지 않고 UI는 잠기지 않는다. 이후 후보를 담으면 다음 폴링에서 추첨된다
 - [ ] **SPIN-04**: 다시 돌리기는 오늘 후보에서 다시 뽑아(쿨다운 적용) 결과를 덮어쓴다. 횟수 무제한
 - [ ] **SPIN-05**: 결과 화면에 당첨 매장명과, 있으면 그 매장의 메뉴 목록·위치를 참고로 표시한다
 - [ ] **SPIN-06**: 휠·페이즈·타임라인·안내 문구가 설정된 추첨 시각을 따른다. 코드에 하드코딩된 "11:55"가 0곳
@@ -43,14 +43,14 @@ Requirements for initial release. Each maps to roadmap phases.
 ### 설정 (SETT)
 
 - [x] **SETT-01**: `settings` 단일행(`spin_time`, `cooldown_days`, `history_since`)이 존재하고 anon은 읽기만, 편집은 대시보드에서만 가능하다
-- [ ] **SETT-02**: 대시보드에서 설정을 바꾸면 열린 탭에 Realtime으로 즉시 반영된다 (새로고침 불필요)
-- [ ] **SETT-03**: 설정 로드 전 또는 실패 시 기본값(11:55, 쿨다운 0)으로 동작한다
+- [x] **SETT-02**: 대시보드에서 설정을 바꾸면 열린 탭에 Realtime으로 즉시 반영된다 (새로고침 불필요)
+- [x] **SETT-03**: 설정 로드 전 또는 실패 시 기본값(11:55, 쿨다운 0)으로 동작한다
 - [ ] **SETT-04**: 마이그레이션 직후(기본값) 동작은 현재와 동일하다 — 11:55 추첨, 쿨다운 없음
 
 ### 품질 (QUAL)
 
 - [x] **QUAL-01**: `npm test`(vitest)가 있고 순수 로직(`lib/phase.ts`, `lib/time.ts`, spin_time 파싱, 쿨다운 필터, `parseMenuInput`)에 단위 테스트가 있다
-- [ ] **QUAL-02**: Edge Function 순수 로직은 `supabase/functions/_shared/`에 Deno import 없이 두어 vitest로 테스트되고, `kstNow` 복붙이 한 곳으로 합쳐진다
+- [x] **QUAL-02**: Edge Function 순수 로직은 `supabase/functions/_shared/`에 Deno import 없이 두어 vitest로 테스트되고, `kstNow` 복붙이 한 곳으로 합쳐진다
 - [x] **QUAL-03**: `next` 16.3.5로 범프되어 `npm audit`에 critical·high가 0이다
 - [x] **QUAL-04**: 3개 페이지의 초기 SELECT 에러가 배너로 표면화된다 (현재 삼킴)
 - [ ] **QUAL-05**: `tsc --noEmit`·`lint`·`test`·`build` 전부 통과한 상태로 PR을 연다
@@ -110,7 +110,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAND-05 | Phase 6 — 오늘 탭 | Pending |
 | SPIN-01 | Phase 4 — 서버 추첨 | Pending |
 | SPIN-02 | Phase 3 — 순수 로직 | Pending |
-| SPIN-03 | Phase 3 — 순수 로직 | Pending |
+| SPIN-03 | Phase 3 — 순수 로직 | Complete |
 | SPIN-04 | Phase 4 — 서버 추첨 | Pending |
 | SPIN-05 | Phase 6 — 오늘 탭 | Pending |
 | SPIN-06 | Phase 6 — 오늘 탭 | Pending |
@@ -118,11 +118,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIST-02 | Phase 7 — 기록·랭킹 | Pending |
 | HIST-03 | Phase 2 — 데이터 모델 | Complete |
 | SETT-01 | Phase 2 — 데이터 모델 | Complete |
-| SETT-02 | Phase 3 — 순수 로직 | Pending |
-| SETT-03 | Phase 3 — 순수 로직 | Pending |
+| SETT-02 | Phase 3 — 순수 로직 | Complete |
+| SETT-03 | Phase 3 — 순수 로직 | Complete |
 | SETT-04 | Phase 4 — 서버 추첨 | Pending |
 | QUAL-01 | Phase 1 — 안전망 (러너·time·phase·parseMenuInput) → Phase 3 — 순수 로직 (spin_time 파싱·쿨다운 필터에서 완료) | Complete |
-| QUAL-02 | Phase 3 — 순수 로직 | Pending |
+| QUAL-02 | Phase 3 — 순수 로직 | Complete |
 | QUAL-03 | Phase 1 — 안전망 | Complete |
 | QUAL-04 | Phase 1 — 안전망 | Complete |
 | QUAL-05 | Phase 8 — 컷오버 | Pending |
