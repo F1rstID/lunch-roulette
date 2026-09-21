@@ -109,7 +109,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAND-04 | Phase 2 — 데이터 모델 | Complete |
 | CAND-05 | Phase 6 — 오늘 탭 | Pending |
 | SPIN-01 | Phase 4 — 서버 추첨 | Pending |
-| SPIN-02 | Phase 3 — 순수 로직 | Pending |
+| SPIN-02 | Phase 3 — 순수 로직 (순수 필터 `_shared/cooldown.ts` + 테스트) → Phase 4 — 서버 추첨 (Edge Function 배선에서 완료) | Pending |
 | SPIN-03 | Phase 3 — 순수 로직 | Complete |
 | SPIN-04 | Phase 4 — 서버 추첨 | Pending |
 | SPIN-05 | Phase 6 — 오늘 탭 | Pending |
