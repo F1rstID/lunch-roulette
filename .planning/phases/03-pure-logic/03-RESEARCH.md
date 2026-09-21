@@ -866,6 +866,8 @@ describe.each(Object.entries(files))("%s/index.ts", (_name, src) => {
 
 ## Open Questions
 
+> **RESOLVED (사용자 승인 2026-09-21, → 03-CONTEXT.md D-14~D-17):** Q-1 객체형 `{ picked, fellBack }` · Q-2 `date` 포함 + `lib/time.test.ts` 1줄 수정 · Q-3 낡은 진술 3건도 이 페이즈에서 정정(리서처 권고와 반대, 사용자 선택) · Q-4 `spinTime.ts` 유지 + 로컬 구조 타입.
+
 1. **Q-1: `applyCooldown` 반환형 — `T[]`(D-01) vs `{ picked, fellBack }`(Specific Ideas)**
    - 알고 있는 것: D-01 문면은 `T[]`, CONTEXT의 Specific Ideas는 Phase 4가 `cooldown_fallback: true`를 응답에 싣게 객체형을 제안한다.
    - 불확실한 것: 사용자가 Phase 4의 응답 JSON에 폴백 여부를 노출하길 원하는지.
