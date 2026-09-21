@@ -26,6 +26,8 @@
 - ✓ 3개 페이지 초기 SELECT 실패를 `ErrorBanner`로 표면화(`lib/errors.ts`, `loadError`≠`actionError`) — Phase 1
 - ✓ `next`·`eslint-config-next` 16.3.5 + 비-force `npm audit fix` → audit 0 — Phase 1
 - ✓ vitest 4.1.11 도입(`npm test`), `lib/time`·`lib/phase`·`lib/errors`·`parseMenuInput` 36 tests — Phase 1 (spin_time 파싱·쿨다운 테스트는 Phase 3)
+- ✓ 컷오버 마이그레이션 `0005_restaurants_settings.sql` 작성(restaurants·candidates·settings, RLS, publication 3, cron 3잡, results.restaurant_id, 구 테이블 drop) + 계약 테스트 53건 + 행 타입 — Phase 2 (적용은 Phase 8)
+- ✓ `settings` 단일행 스키마(spin_time 11:55·cooldown_days 0·history_since KST 적용일, anon select-only) — Phase 2
 
 ### Active
 
@@ -35,10 +37,8 @@
 - [ ] 오늘 후보(`candidates`)는 카탈로그 목록에서 토글로 담고 뺌. 이름 필터. 핀 매장은 자정에 자동 후보
 - [ ] 룰렛은 매장을 뽑는다. 결과 아래 그 매장의 메뉴 목록을 참고로 표시
 - [ ] 기록·랭킹은 매장 기준. 집계는 **전환일 이후** 결과만. 과거 60행은 보존
-- [ ] `menus`·`pinned_menus` 테이블과 자유입력 UI 제거 (컷오버 시)
 
 **설정 테이블**
-- [ ] `settings` 단일행: `spin_time`(기본 11:55), `cooldown_days`(기본 0=끔), 전환일. 대시보드에서만 편집(anon read-only RLS), 클라이언트는 Realtime으로 즉시 반영
 - [ ] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정. 하드코딩 11:55(11곳/8파일) 전부 제거
 - [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백
 
@@ -95,7 +95,9 @@
 | 후보 선택 = 카탈로그 목록 토글 + 이름 필터 | 카탈로그 규모 작음. 검색 UI는 과함 | — Pending |
 | 컷오버 1회, 페이즈별 배포 없음 | 사용자 선택. 라이브는 매일 사용 중 | — Pending |
 | settings 단일행 타입 컬럼(`id=1 check`) | CHECK 제약·타입 안전·SELECT 1회·realtime 1행. key-value·env 기각 | — Pending |
-| 전환일도 settings 컬럼 | 동작 파라미터 단일 소스 원칙 유지, 상수 하드코딩 회피 | — Pending |
+| 전환일도 settings 컬럼 | 동작 파라미터 단일 소스 원칙 유지, 상수 하드코딩 회피 | ✓ Good (0005 `history_since`) |
+| restaurants DB 상한(D-19): name btrim·개행 금지, location ≤200, menus ≤30·원소 ≤24 | 리뷰 실측: anon 무제한 입력이 Realtime으로 전 탭 방송 | ✓ Good |
+| 컷오버 창: 그날 결과 확정 후 SQL→함수 배포→PR 머지 연속 | 구 코드가 menus를 읽는 동안 SQL 적용 시 42P01·매분 500 | — Pending (Phase 8) |
 | results.menu는 매장명 스냅샷 유지 + restaurant_id nullable FK | 매장 삭제해도 기록 무사, 과거 행과 스키마 공존 | — Pending |
 | cron 매분 폴링 | 정적 스케줄로는 DB 시각 반영 불가. 하루 1440회 무료티어 여유 | — Pending |
 | gsd Interactive / Standard / Parallel | 계획서 승인 게이트 유지, 8페이즈 | ✓ Good (Phase 1: 4플랜·검증 루프 2회·리뷰 1회로 완료) |
@@ -121,4 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-18 after Phase 1 (안전망) completion*
+*Last updated: 2026-09-21 after Phase 2 (데이터 모델) completion*
