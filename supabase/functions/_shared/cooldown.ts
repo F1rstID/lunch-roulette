@@ -10,9 +10,14 @@
 // 이미 같은 예외를 문서화했고, 여기는 "현재 시각" 에 의존하지 않고 주어진 y/m/d 숫자만 다루는 순수 캘린더
 // 산술이라 타임존 버그가 날 자리 자체가 없다.
 export function cooldownWindowStart(today: string, days: number): string | null {
-  if (days <= 0) return null;
-  const [y, m, d] = today.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d - days)); // 달·연·윤년 이월을 생성자가 알아서 한다
+  // 오염 입력은 "창 없음" 으로 착지시킨다. days 는 Phase 4 가 DB 에서 직접 읽어 넣고 today 도 호출자가
+  // 만드는 값이라, 여기서 좁히지 않으면 "NaN-NaN-NaN" 같은 문자열이 그대로 .gte("date", …) 로 흘러
+  // PostgREST 가 date 파싱 에러로 500 을 내고 그날 추첨이 통째로 빠진다. 필터를 끄는 쪽이 훨씬 싸다.
+  if (!Number.isInteger(days) || days <= 0) return null; // NaN·Infinity·소수도 여기서 걸린다
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(today);
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d - days)); // 달·연·윤년 이월을 생성자가 알아서 한다
   const pad = (n: number) => String(n).padStart(2, "0");
   const year = dt.getUTCFullYear();
   const month = pad(dt.getUTCMonth() + 1);
@@ -28,6 +33,9 @@ export function applyCooldown<T extends { restaurant_id: string }>(
   candidates: T[],
   recentWinnerIds: Iterable<string | null>,
 ): { picked: T[]; fellBack: boolean } {
+  // 후보가 0개면 뺄 것도, 되돌릴 것도 없다. 여기서 fellBack: true 를 보고하면 Phase 4 응답이
+  // "쿨다운 때문에 폴백했다" 고 말하면서 후보 없음을 함께 실어 원인 진단을 어긋나게 한다.
+  if (candidates.length === 0) return { picked: candidates, fellBack: false };
   // null 은 전환 이전 레거시 results 행이다 — 매칭 키가 없으므로 무시한다.
   const blocked = new Set<string>();
   for (const id of recentWinnerIds) if (id) blocked.add(id);

@@ -31,6 +31,20 @@ describe("COOLDOWN/SPIN-02 — 창 시작 날짜 산술은 타임존에 의존�
   it("7일 창은 일주일 전 날짜에서 시작한다 (#6)", () => {
     expect(cooldownWindowStart("2026-09-21", 7)).toBe("2026-09-14");
   });
+
+  // 아래 3건은 "오염 입력이면 창을 끈다" 는 계약이다. 날짜꼴이 아닌 문자열을 돌려주면 Phase 4 의
+  // 날짜 필터가 조회 단계에서 터져 그날 추첨이 통째로 빠진다 — 필터를 끄는 쪽이 훨씬 싼 실패다.
+  it("날짜꼴이 아닌 today 는 창을 만들지 않는다 (#6a)", () => {
+    expect(cooldownWindowStart("", 1)).toBeNull();
+  });
+
+  it("숫자가 아닌 days 는 창을 만들지 않는다 (#6b)", () => {
+    expect(cooldownWindowStart("2026-09-21", Number.NaN)).toBeNull();
+  });
+
+  it("소수 days 도 창을 만들지 않는다 — 달력 일수만 받는다 (#6c)", () => {
+    expect(cooldownWindowStart("2026-09-21", 1.5)).toBeNull();
+  });
 });
 
 describe("COOLDOWN/SPIN-02 — 최근 당첨 매장을 빼되 전멸시키지 않는다", () => {
@@ -53,6 +67,10 @@ describe("COOLDOWN/SPIN-02 — 최근 당첨 매장을 빼되 전멸시키지 �
       picked: [{ restaurant_id: "r1" }],
       fellBack: true,
     });
+  });
+
+  it("후보가 0개면 폴백했다고 보고하지 않는다 — 되돌릴 후보가 애초에 없다 (#9a)", () => {
+    expect(applyCooldown<{ restaurant_id: string }>([], ["r1"])).toEqual({ picked: [], fellBack: false });
   });
 
   it("null 승자 id 는 무시한다 — 전환 이전 레거시 results 행이다 (#10)", () => {

@@ -24,6 +24,9 @@ const ROW_1230 = { id: 1 as const, spin_time: "12:30:00", cooldown_days: 3, hist
 // 사람이 대시보드에서 초·콜론을 빠뜨린 형태. 파서가 읽지 못하는 값의 대표다.
 const ROW_BROKEN = { id: 1 as const, spin_time: "1155", cooldown_days: 0, history_since: "2026-09-21" };
 const ROW_NEGATIVE = { id: 1 as const, spin_time: "11:55:00", cooldown_days: -1, history_since: "2026-09-21" };
+// history_since 키가 통째로 빠진 페이로드. 행 타입은 이 형태를 표현하지 못해 타입을 우회해 넣는다 —
+// Realtime payload 는 DB 를 거치지 않은 형태로도 온다고 가정하는 것이 이 모듈의 방어선이다.
+const ROW_NO_HISTORY = { id: 1 as const, spin_time: "11:55:00", cooldown_days: 0 } as unknown as typeof ROW_DEFAULT;
 
 describe("DEFAULT_SETTINGS — 로드 전에도 앱은 11:55 · 쿨다운 0 으로 돈다 (SETT-03)", () => {
   it("기본 추첨 시각이 11시 55분이다", () => {
@@ -79,6 +82,10 @@ describe("settingsFromRow — 예외를 던지지 않는 총 함수다 (SETT-03)
 
   it("history_since 문자열이 그대로 historySince 에 실린다", () => {
     expect(settingsFromRow(ROW_DEFAULT).settings.historySince).toBe("2026-09-21");
+  });
+
+  it("history_since 키가 없는 행도 undefined 가 아니라 null 로 착지한다 (=== null 검사가 성립한다)", () => {
+    expect(settingsFromRow(ROW_NO_HISTORY).settings.historySince).toBeNull();
   });
 });
 

@@ -60,7 +60,10 @@ export function settingsFromRow(row: SettingsRow): { settings: Settings; warning
       // 음수·NaN 방어: DB check 가 이미 >= 0 을 보장하지만 Realtime 페이로드는 DB 를 거치지 않은
       // 형태로 올 수도 있다고 가정하고 읽는 쪽에서 한 번 더 좁힌다.
       cooldownDays: Number.isFinite(row.cooldown_days) && row.cooldown_days > 0 ? row.cooldown_days : 0,
-      historySince: row.history_since,
+      // 키가 통째로 빠진 페이로드에서 undefined 가 새어 나가지 않게 null 로 못 박는다. 타입은 이미
+      // string | null 이지만 Realtime payload 는 DB 를 거치지 않은 형태로도 오고, Phase 7 이 "전환일
+      // 미확정" 을 === null 로 판정하면 undefined 는 그 검사를 통과해 조회 필터로 흘러든다.
+      historySince: row.history_since ?? null,
     },
     // 실패를 삼키지 않는다. 이 문장은 접두 없이 배너에 실리므로 단독으로 읽히는 형태여야 한다.
     warning: parsed
