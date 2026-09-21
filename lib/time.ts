@@ -15,9 +15,12 @@ const KST_TZ = "Asia/Seoul";
 const formatter = (opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: KST_TZ, ...opts });
 
-/** "yyyy-mm-dd" (KST 기준) */
+/** "yyyy-mm-dd" (KST 기준). results.date 와 같은 코드 경로(_shared/kst)에서 만든다 */
+// 포맷터로 따로 만들지 않는 이유: 이 값은 results.date 와 직접 비교되는 키이고, 그 행을 **쓰는** 쪽은
+// Edge Function 의 kstNow().date 다. 두 Intl 경로가 우연히 같은 문자열을 내는 데 기대면, ICU 가 로케일의
+// 기본 날짜 패턴을 바꾸는 날 클라이언트만 다른 키를 만들어 "오늘 결과 없음" 이 된다. 출력은 동일하다.
 export function todayKstDate(now: Date = new Date()): string {
-  return formatter({ year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return kstParts(now).date;
 }
 
 /** "HH:mm" (KST 24시간제) */
