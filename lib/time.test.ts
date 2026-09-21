@@ -1,6 +1,7 @@
 // lib/time.ts 의 KST 변환·포맷 계약을 실행 가능한 형태로 못 박는다.
 // 고정 시각은 전부 UTC 문자열로 만든다 — 로컬 타임존 메서드를 쓰면 실행 환경에 따라 결과가 흔들린다 (KST = UTC+9).
 // todayKstDate 의 반환값은 results.date 와 직접 비교되는 날짜 키라, 자정·연 경계가 이 앱에서 가장 비싼 버그 영역이다.
+// kstParts 분해에 date 가 들어 있는 것은 Edge Function 이 그 값을 그대로 results.date 키로 쓰기 때문이다.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -56,6 +57,7 @@ describe("formatHhMmSs", () => {
 describe("kstParts", () => {
   it("UTC 시각을 KST 벽시계 컴포넌트로 분해한다", () => {
     expect(kstParts(new Date("2026-09-18T02:55:04Z"))).toEqual({
+      date: "2026-09-18",
       year: 2026,
       month: 9,
       day: 18,
