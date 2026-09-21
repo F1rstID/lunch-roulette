@@ -113,7 +113,9 @@ describe("SQL/SHIP-01 — 모든 문이 재실행 안전형이다", () => {
   });
 
   it("publication 추가가 맨 alter 가 아니라 pg_publication_tables 가드 안에 있다 (#6)", () => {
-    expect(count(sql, /^alter publication/gm)).toBe(0);
+    // ^ 만 쓰면 들여쓴 맨 alter 문을 놓친다(뮤테이션으로 확인). 가드 안의 execute format( 문자열은
+    // 'alter publication 으로 시작해 따옴표가 앞에 붙으므로 ^\s* 로도 여전히 매치되지 않는다.
+    expect(count(sql, /^\s*alter publication/gm)).toBe(0);
     expect(count(sql, /pg_publication_tables/g)).toBeGreaterThan(0);
   });
 
@@ -164,7 +166,10 @@ describe("SQL/SETT-01 — settings 는 anon 읽기 전용이다", () => {
 
   it("settings 에 쓰기 정책이 0건이다 (#13)", () => {
     // 정책 부재 = 기본 거부. 이 페이즈 최대 보안 리스크(settings_write 추가)의 회귀 가드다.
-    expect(count(sql, /on public\.settings for (insert|update|delete)/g)).toBe(0);
+    // 세 동사만 세면 for all 과 for 절 생략(= 기본 ALL)이 통과한다. 지금은 #4 의 [9, 9] 가 우연히 막아 주지만
+    // 누가 그 숫자를 [10, 10] 으로 "고치는" 순간 구멍이 열린다 — 정책 총수를 1 로 못 박아 자기 완결적으로 만든다.
+    expect(count(sql, /create policy [a-z_]+ on public\.settings\b/g)).toBe(1);
+    expect(count(sql, /on public\.settings for (insert|update|delete|all)/g)).toBe(0);
   });
 });
 
@@ -293,7 +298,46 @@ describe("SQL/D-01·D-02 — 컬럼 정의가 CONTEXT 원문 그대로다", () =
   });
 });
 
+// D-19(2026-09-21 사용자 승인): anon 이 PostgREST 로 직접 쓰는 컬럼은 DB 가 경계를 잡는다.
+// 세 테이블이 Realtime publication 에 있어 거대한 행 하나가 열린 탭 전부로 방송되기 때문이다.
+// 숫자(24·30·200)를 리터럴로 적는 이유는 이 파일 머리의 논증과 같다 — Phase 5 의 lib/constants.ts 가
+// 같은 숫자를 복제할 때 한쪽만 움직이면 여기서 깨져야 한다.
+describe("SQL/D-19 — restaurants 자유 텍스트 컬럼에 DB 상한이 있다", () => {
+  it("restaurants.name 이 공백만인 이름과 개행을 막는다 (#48)", () => {
+    // char_length 만으로는 '   ' 가 통과한다(드라이런 실측). 개행은 D-01 의 "한 줄" 전제를 깬다.
+    expect(count(sql, /btrim\(name\) <> ''/g)).toBe(1);
+    expect(count(sql, /position\(E'\\n' in name\) = 0/g)).toBe(1);
+  });
+
+  it("restaurants.location 이 200자 상한을 갖고 null 은 허용한다 (#49)", () => {
+    expect(count(sql, /location text check \(location is null or char_length\(location\) <= 200\)/g)).toBe(1);
+  });
+
+  it("restaurants.menus 원소 수가 30개 이하로 묶여 있다 (#50)", () => {
+    expect(count(sql, /cardinality\(menus\) <= 30/g)).toBe(1);
+  });
+
+  it("restaurants.menus 에 빈 문자열 원소를 막는다 (#51)", () => {
+    // array_position 은 찾지 못하면 null 을 돌려준다. '' 가 없을 때만 is null 이 참이다.
+    expect(count(sql, /array_position\(menus, ''\) is null/g)).toBe(1);
+  });
+
+  it("menus 원소 길이 상한이 immutable 함수로 구현돼 있다 (#52)", () => {
+    // check 제약은 서브쿼리를 허용하지 않아 unnest 를 함수로 감춘다. immutable 이 아니면 제약이 거부되고,
+    // create or replace 가 아니면 2회차 실행이 "already exists" 로 끊긴다.
+    expect(count(sql, /create or replace function public\.text_array_max_len\(arr text\[\]\) returns int/g)).toBe(1);
+    expect(count(sql, /language sql immutable strict/g)).toBe(1);
+    expect(count(sql, /coalesce\(public\.text_array_max_len\(menus\), 0\) <= 24/g)).toBe(1);
+  });
+});
+
 describe("TS/D-13 — 행 타입이 SQL 컬럼 목록과 일치한다", () => {
+  it("client.ts 를 읽었다 (#53)", () => {
+    // readOrEmpty 는 경로가 틀려도 "" 를 돌려준다. 이 단언이 없으면 #36·#38·#40·#41 이
+    // "[] 대 기대 배열"로 실패해 원인(파일을 못 읽었다)을 필드 불일치로 위장한다. SQL 쪽 #1 과 같은 역할이다.
+    expect(clientSrc.length).toBeGreaterThan(0);
+  });
+
   it("SQL restaurants 컬럼이 기대 목록과 같다 (#35)", () => {
     expect(tableColumns(sql, "restaurants")).toEqual(RESTAURANT_COLUMNS);
   });

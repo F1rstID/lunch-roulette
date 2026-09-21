@@ -1,17 +1,31 @@
 -- 0005 컷오버: 메뉴(이름) 모델을 매장(uuid) 모델로 바꾸고 동작 설정을 DB 단일행으로 옮긴다.
--- 동작 불변 원칙: 이 파일을 적용한 직후의 동작은 지금과 똑같다(11:55 추첨, 쿨다운 없음). 동작 변경은 settings UPDATE 로만 한다.
+-- 동작 불변 원칙: Phase 4·6·7 코드(candidates·settings 를 읽는 앱·Edge Function 2종)가 함께 배포된 뒤라야
+-- 이 파일 적용 직후의 동작이 지금과 똑같다(11:55 추첨, 쿨다운 없음). 동작 변경은 settings UPDATE 로만 한다.
+-- 그 전까지는 동작 불변이 아니다: 파일 끝의 drop table 이 menus 를 떨구므로 구 코드(menus·pinned_menus 를 읽는
+-- app/page.tsx·spin-roulette·respin-roulette)가 살아 있는 동안은 깨진다 — 초기 로드 42P01, 매분 폴링 500.
+-- 그래서 컷오버는 그날 결과가 확정된 뒤(12:00 KST 이후) SQL 적용 → Edge Function 배포 → PR 머지를 몇 분 안에 연속 수행한다.
 -- 적용은 Phase 8 에 사용자가 대시보드 SQL Editor 에서 1회 실행한다 — 로컬 스택이 없어 리허설을 못 하므로
 -- 모든 문을 재실행 안전형(if not exists / if exists / unschedule→schedule)으로만 쓴다. 중간에 끊겨도 다시 돌릴 수 있어야 한다.
 -- 여기까지가 추첨 시각의 단일 출처(settings.spin_time)를 만드는 일이고, 코드 쪽 시각 하드코딩 제거는 Phase 3·6 소관이다.
 
+-- menus 원소 길이 상한용 헬퍼. check 제약은 서브쿼리를 못 써서 unnest 를 여기에 감춘다.
+-- immutable 이라야 check 가 받아 주고, create or replace 라 2회차 실행에도 안전하다(if not exists 불필요).
+create or replace function public.text_array_max_len(arr text[]) returns int
+language sql immutable strict as $$ select coalesce(max(char_length(m)), 0) from unnest(arr) m $$;
+
 -- 1. restaurants — 영구 매장 카탈로그. 자정 리셋에 지워지지 않는 쪽이 여기다.
 -- 24자 상한은 lib/constants.ts 의 MENU_NAME_MAX_LEN 과 같은 값이다. 늘릴 때는 두 곳을 함께 고친다.
 -- 제약을 컬럼 인라인으로 두는 이유: alter table … add constraint 에는 if not exists 가 없어 재실행이 거기서 끊긴다.
+-- 상한을 DB 가 드는 이유(D-19): 세 테이블 모두 Realtime publication 에 있어 거대한 행 하나가 열린 탭 전부로 방송된다.
+-- anon 이 PostgREST 로 직접 쓰므로 클라이언트 검증은 보조일 뿐이고 정본은 여기다. Phase 5 가 같은 숫자를 lib/constants.ts 에 복제한다.
+-- location 이 null 이면 check 결과가 null 이라 그대로 통과한다 — "없음" 은 허용, "있으면 200자" 가 규칙이다.
 create table if not exists public.restaurants (
   id uuid primary key default gen_random_uuid(),
-  name text not null unique check (char_length(name) between 1 and 24),
-  menus text[] not null default '{}',
-  location text,
+  name text not null unique
+    check (char_length(name) between 1 and 24 and btrim(name) <> '' and position(E'\n' in name) = 0),
+  menus text[] not null default '{}'
+    check (cardinality(menus) <= 30 and array_position(menus, '') is null and coalesce(public.text_array_max_len(menus), 0) <= 24),
+  location text check (location is null or char_length(location) <= 200),
   pinned boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -112,16 +126,18 @@ begin
   end loop;
 end $$;
 
+-- $cmd$ 안에는 주석을 두지 않는다: 본문은 cron.job.command 에 그대로 저장되고 매분 job_run_details 로 복제된다.
+-- URL 의 프로젝트 ref swxiqytyxjlcgubqlozk 는 하드코딩이다(0002 선례). 다른 프로젝트로 옮기면 치환할 것.
+-- timeout 5000ms: pg_net 기본값 2000ms 는 Edge Function 콜드스타트에 짧다.
 select cron.schedule(
   'spin-lunch-roulette',
   '* * * * *',  -- 매분 폴링. 시각 판정은 Edge Function 이 settings.spin_time 으로 한다
   $cmd$
   select net.http_post(
-    -- URL 의 프로젝트 ref swxiqytyxjlcgubqlozk 는 하드코딩이다(0002 선례). 다른 프로젝트로 옮기면 치환할 것.
     url := 'https://swxiqytyxjlcgubqlozk.supabase.co/functions/v1/spin-roulette',
     headers := '{"Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb,
-    timeout_milliseconds := 5000  -- pg_net 기본값 2000ms 는 Edge Function 콜드스타트에 짧다
+    timeout_milliseconds := 5000
   );
   $cmd$
 );
