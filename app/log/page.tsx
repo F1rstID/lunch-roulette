@@ -5,9 +5,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, type ResultRow } from "@/lib/supabase/client";
 import { todayKstDate, formatHhMmSs, kstParts } from "@/lib/time";
 import { currentPhase } from "@/lib/phase";
-import { formatLoadError } from "@/lib/errors";
-// 아직 기본 추첨 시각(11:55)을 그대로 넘긴다. settings 주입은 다음 플랜이다.
-import { DEFAULT_SPIN_TIME } from "@/supabase/functions/_shared/spinTime";
+import { formatLoadError, joinLoadErrors } from "@/lib/errors";
+import { useSettings } from "@/lib/useSettings";
 import { TopBar } from "@/components/TopBar";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { CalendarLog } from "@/components/CalendarLog";
@@ -31,10 +30,13 @@ export default function LogPage() {
   // 초기 SELECT 실패 메시지. 실패를 빈 달력으로 위장하지 않는다.
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // 추첨 시각은 settings 가 정한다. 로드 전·실패 시에도 기본값(11:55)으로 계속 동작한다(SETT-03).
+  const { settings, error: settingsError, warning: settingsWarning } = useSettings();
+
   // 이미 로드한 results 에서 오늘 결과 여부를 파생한다. 다른 달을 보고 있으면 오늘 행이 로드 범위
   // 밖이라 상단 뱃지가 부정확할 수 있다 — 이 페이지는 뱃지 외에 phase 를 쓰지 않아 기능 영향은 0이고,
   // 오늘 결과를 따로 조회하는 것은 이 페이지를 다시 쓰는 뒤쪽 페이즈로 미룬다.
-  const phase = currentPhase(now, DEFAULT_SPIN_TIME, results.some((r) => r.date === todayKey));
+  const phase = currentPhase(now, settings.spinTime, results.some((r) => r.date === todayKey));
 
   // 월 변경 시 또는 마운트 시 해당 월 데이터 로드 (3개월 윈도우)
   useEffect(() => {
@@ -97,12 +99,20 @@ export default function LogPage() {
     r.date.startsWith(`${calMonth.y}-${String(calMonth.m).padStart(2, "0")}`),
   ).length;
 
+  // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버 전에는
+  // settings 테이블이 없어 상시 표시되는 것이 정상이다. 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않는다.
+  const loadBanner = joinLoadErrors([
+    loadError,
+    formatLoadError("설정", settingsError ? { message: settingsError } : null),
+    settingsWarning,
+  ]);
+
   return (
     <>
       <TopBar active="log" phase={phase} clockTime={formatHhMmSs(now)} />
 
       <main className="wrap" style={{ flex: 1 }}>
-        <ErrorBanner message={loadError} onCloseAction={() => setLoadError(null)} />
+        <ErrorBanner message={loadBanner} onCloseAction={() => setLoadError(null)} />
 
         <div style={head.wrap}>
           <div>

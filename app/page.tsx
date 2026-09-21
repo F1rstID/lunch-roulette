@@ -7,8 +7,7 @@ import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
 import { formatLoadError, joinLoadErrors } from "@/lib/errors";
-// 아직 기본 추첨 시각(11:55)을 그대로 넘긴다. settings 에서 읽은 시각으로 교체하는 것은 다음 플랜이다.
-import { DEFAULT_SPIN_TIME } from "@/supabase/functions/_shared/spinTime";
+import { useSettings } from "@/lib/useSettings";
 import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -41,8 +40,11 @@ export default function TodayPage() {
   const [pinnedNames, setPinnedNames] = useState<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
 
+  // 추첨 시각은 settings 가 정한다. 로드 전·실패 시에도 기본값(11:55)으로 계속 동작한다(SETT-03).
+  const { settings, error: settingsError, warning: settingsWarning } = useSettings();
+
   // todayResult 가 선언된 뒤라야 계산할 수 있다 — decided 를 결정하는 것은 시각이 아니라 결과 행의 존재다.
-  const phase = currentPhase(now, DEFAULT_SPIN_TIME, todayResult !== null);
+  const phase = currentPhase(now, settings.spinTime, todayResult !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,6 +234,15 @@ export default function TodayPage() {
   const headline = phaseHeadline(phase, todayResult?.menu);
   const subhead = phaseSubhead(phase, menus.length, todayResult?.menu);
 
+  // 페이지 쿼리 3개(loadError)에 설정 실패·경고를 렌더 시점에 합친다. 설정 쪽은 훅이 소유하므로
+  // 닫기 버튼(setLoadError(null))으로 사라지지 않고, 컷오버 전에는 상시 표시되는 것이 정상이다.
+  // 파싱 경고는 이미 완성된 문장이라 "설정 불러오기 실패:" 접두를 붙이지 않고 그대로 싣는다.
+  const loadBanner = joinLoadErrors([
+    loadError,
+    formatLoadError("설정", settingsError ? { message: settingsError } : null),
+    settingsWarning,
+  ]);
+
   return (
     <>
       <TopBar
@@ -253,7 +264,7 @@ export default function TodayPage() {
           <PhaseTimeline current={phase} />
         </div>
 
-        <ErrorBanner message={loadError} onCloseAction={() => setLoadError(null)} />
+        <ErrorBanner message={loadBanner} onCloseAction={() => setLoadError(null)} />
         <ErrorBanner message={actionError} onCloseAction={() => setActionError(null)} />
 
         <div style={layoutStyles.cols}>
