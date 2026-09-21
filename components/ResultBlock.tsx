@@ -102,7 +102,9 @@ export function ResultBlock({ phase, candidateCount, winner, spinTime = "11:55" 
     );
   }
 
-  if (phase === "decided" && !winner) {
+  // 원래 decided && !winner 였던 분기를 조건만 바꿔 옮긴 것이다. hasResult 가 decided 를 결정하게 된
+  // 뒤로는 "결과가 있는데 winner 가 없다" 가 도달 불가라, 같은 문구가 걸릴 자리는 stalled 뿐이다.
+  if (phase === "stalled") {
     return (
       <div style={s.bar}>
         <div style={{ padding: "16px 22px" }}>

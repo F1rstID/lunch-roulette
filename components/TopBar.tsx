@@ -14,10 +14,23 @@ type Props = {
 };
 
 export function TopBar({ active, candidateCount = 0, phase, clockTime }: Props) {
-  const phaseInfo = (() => {
-    if (phase === "accepting") return { label: "모집중", dot: "live" };
-    if (phase === "spinning") return { label: "룰렛 회전", dot: "spin" };
-    return { label: "확정", dot: "done" };
+  const phaseInfo = ((): { label: string; dot: string } => {
+    switch (phase) {
+      case "accepting":
+        return { label: "모집중", dot: "live" };
+      case "spinning":
+        return { label: "룰렛 회전", dot: "spin" };
+      case "decided":
+        return { label: "확정", dot: "done" };
+      case "stalled":
+        // 추첨 시각은 지났는데 결과 행이 없는 구간. "확정" 으로 보이면 안 된다.
+        return { label: "추첨 대기", dot: "live" };
+      default: {
+        // 유니온에 상태가 더 늘면 이 대입이 컴파일 에러가 된다. 이 파일이 갱신을 강제당하는 지점.
+        const exhaustive: never = phase;
+        return exhaustive;
+      }
+    }
   })();
 
   return (

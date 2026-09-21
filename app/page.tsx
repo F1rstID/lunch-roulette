@@ -7,6 +7,8 @@ import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
 import { formatLoadError, joinLoadErrors } from "@/lib/errors";
+// 아직 기본 추첨 시각(11:55)을 그대로 넘긴다. settings 에서 읽은 시각으로 교체하는 것은 다음 플랜이다.
+import { DEFAULT_SPIN_TIME } from "@/supabase/functions/_shared/spinTime";
 import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -25,7 +27,6 @@ export default function TodayPage() {
   }, []);
 
   const todayKey = todayKstDate(now);
-  const phase = currentPhase(now);
 
   const [menus, setMenus] = useState<MenuRow[]>([]);
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
@@ -39,6 +40,9 @@ export default function TodayPage() {
   // 고정된 메뉴 이름 집합. 파생 표시(핀 아이콘 상태)에 O(1) 멤버십으로 쓴다.
   const [pinnedNames, setPinnedNames] = useState<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
+
+  // todayResult 가 선언된 뒤라야 계산할 수 있다 — decided 를 결정하는 것은 시각이 아니라 결과 행의 존재다.
+  const phase = currentPhase(now, DEFAULT_SPIN_TIME, todayResult !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +149,8 @@ export default function TodayPage() {
     return menus.findIndex((m) => m.name === todayResult.menu);
   }, [todayResult, menus]);
 
+  // WheelPhase 는 Phase 와 별개 유니온이라 stalled 가 없다. accepting 과 stalled 는 둘 다 "idle" —
+  // 추첨이 건너뛰어진 날에도 휠은 멈춰 있어야 한다.
   const wheelPhase: WheelPhase = forceSpin
     ? "spinning"
     : todayResult
@@ -152,8 +158,6 @@ export default function TodayPage() {
       : phase === "spinning"
         ? "spinning"
         : "idle";
-
-  const resolvedPhase: Phase = todayResult ? "decided" : phase;
 
   // 아래 세 핸들러는 useCallback 으로 감싸지 않는다. 소비자(MenuList, button)가 memo 컴포넌트가
   // 아니라 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가
@@ -225,15 +229,15 @@ export default function TodayPage() {
   }
 
   const clockTime = formatHhMmSs(now);
-  const headline = phaseHeadline(resolvedPhase, todayResult?.menu);
-  const subhead = phaseSubhead(resolvedPhase, menus.length, todayResult?.menu);
+  const headline = phaseHeadline(phase, todayResult?.menu);
+  const subhead = phaseSubhead(phase, menus.length, todayResult?.menu);
 
   return (
     <>
       <TopBar
         active="today"
         candidateCount={menus.length}
-        phase={resolvedPhase}
+        phase={phase}
         clockTime={clockTime}
       />
 
@@ -246,7 +250,7 @@ export default function TodayPage() {
             <h1 style={pageHeadStyles.h1}>{headline}</h1>
             <div style={pageHeadStyles.sub}>{subhead}</div>
           </div>
-          <PhaseTimeline current={resolvedPhase} />
+          <PhaseTimeline current={phase} />
         </div>
 
         <ErrorBanner message={loadError} onCloseAction={() => setLoadError(null)} />
@@ -255,16 +259,16 @@ export default function TodayPage() {
         <div style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
             <div className="card" style={layoutStyles.stage}>
-              <StageHeader phase={resolvedPhase} clockTime={clockTime} />
+              <StageHeader phase={phase} clockTime={clockTime} />
               <div style={layoutStyles.wheelHolder}>
                 <Wheel items={menus} phase={wheelPhase} winnerIndex={winnerIndex} size={460} />
               </div>
               <ResultBlock
-                phase={resolvedPhase}
+                phase={phase}
                 candidateCount={menus.length}
                 winner={todayResult ? { name: todayResult.menu } : null}
               />
-              {resolvedPhase === "decided" && todayResult && (
+              {phase === "decided" && todayResult && (
                 <div style={respinStyles.wrap}>
                   <button
                     type="button"
@@ -283,7 +287,7 @@ export default function TodayPage() {
           <div style={layoutStyles.right}>
             <MenuList
               items={menus}
-              phase={resolvedPhase}
+              phase={phase}
               pinnedNames={pinnedNames}
               onAddAction={addMenus}
               onRemoveAction={removeMenu}
@@ -299,9 +303,23 @@ export default function TodayPage() {
 }
 
 function StageHeader({ phase, clockTime }: { phase: Phase; clockTime: string }) {
-  const label =
-    phase === "accepting" ? "후보 접수중" : phase === "spinning" ? "룰렛 회전중" : "오늘의 결과";
-  const dot = phase === "accepting" ? "live" : phase === "spinning" ? "spin" : "done";
+  const { label, dot } = ((): { label: string; dot: string } => {
+    switch (phase) {
+      case "accepting":
+        return { label: "후보 접수중", dot: "live" };
+      case "spinning":
+        return { label: "룰렛 회전중", dot: "spin" };
+      case "decided":
+        return { label: "오늘의 결과", dot: "done" };
+      case "stalled":
+        return { label: "추첨 대기중", dot: "live" };
+      default: {
+        // 유니온에 상태가 더 늘면 이 대입이 컴파일 에러가 된다. 이 자리가 갱신을 강제당하는 지점.
+        const exhaustive: never = phase;
+        return exhaustive;
+      }
+    }
+  })();
   return (
     <div style={stageStyles.header}>
       <div style={stageStyles.headerLeft}>
@@ -337,6 +355,7 @@ function phaseHeadline(phase: Phase, winnerName?: string) {
   if (phase === "accepting") return "오늘 점심 뭐 먹지?";
   if (phase === "spinning") return "운명의 카운트다운…";
   if (phase === "decided" && winnerName) return "오늘은 이거예요.";
+  if (phase === "stalled") return "아직 안 정해졌어요.";
   return "오늘의 점심";
 }
 
@@ -346,6 +365,8 @@ function phaseSubhead(phase: Phase, count: number, winnerName?: string) {
   if (phase === "spinning") return "룰렛은 11:55에 시작되어 약 5초간 돌아갑니다.";
   if (phase === "decided" && winnerName)
     return `"${winnerName}" · 더는 변경할 수 없어요. 결과는 자정에 초기화됩니다.`;
+  if (phase === "stalled")
+    return `추첨 시각이 지났지만 결과가 없어요. 현재 ${count}개의 후보가 올라가 있어요.`;
   return "";
 }
 

@@ -13,7 +13,9 @@ const STEPS = [
 ] as const;
 
 export function PhaseTimeline({ current }: Props) {
-  const activeIdx = STEPS.findIndex((s) => s.id === current);
+  // stalled 는 타임라인 단계가 아니다. 추첨이 건너뛰어져 아직 후보를 담을 수 있는 상태라
+  // 화면상으로는 모집(idx 0)과 같다. STEPS 는 4단계 그대로 둔다 — 단계 추가는 UI 작업이다.
+  const activeIdx = STEPS.findIndex((s) => s.id === (current === "stalled" ? "accepting" : current));
   const idx = activeIdx === -1 ? 2 : activeIdx; // decided 후 reset 전엔 decided 유지
 
   return (

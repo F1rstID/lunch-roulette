@@ -8,6 +8,9 @@ import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import type { MenuRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
 import { formatHhMm } from "@/lib/time";
+// lib/phase.ts 는 supabase 클라이언트를 끌어오지 않는 순수 모듈이라 값 import 를 해도
+// parseMenuInput 의 환경변수 없는 테스트가 깨지지 않는다.
+import { isCandidateListLocked } from "@/lib/phase";
 import type { Phase } from "@/lib/phase";
 
 type Props = {
@@ -46,7 +49,7 @@ export function parseMenuInput(input: string, existing: string[]): string[] {
 export function MenuList({ items, phase, pinnedNames, onAddAction, onRemoveAction, onTogglePinAction }: Props) {
   const [val, setVal] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const readOnly = phase !== "accepting";
+  const readOnly = isCandidateListLocked(phase);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
