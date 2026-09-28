@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
 | 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
 | 3. 순수 로직 | 3/3 | Complete    | 2026-09-21 |
-| 4. 서버 추첨 | 4/4 | Complete   | 2026-09-28 |
+| 4. 서버 추첨 | 4/4 | Complete    | 2026-09-28 |
 | 5. 매장 탭 | 0/TBD | Not started | - |
 | 6. 오늘 탭 | 0/TBD | Not started | - |
 | 7. 기록·랭킹 | 0/TBD | Not started | - |

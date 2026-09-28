@@ -192,8 +192,8 @@
 
 - Files: `supabase/functions/spin-roulette/index.ts`, `supabase/functions/respin-roulette/index.ts`
 - Why fragile: `npm run check:edge`(`deno check --config supabase/functions/deno.json`)가 두 `index.ts`를 검사하고 `_shared/*.ts`까지 전이 검사한다(Phase 4). `tsconfig.json`·`eslint.config.mjs`의 제외는 **함수 디렉터리 2개로 좁혀져** `_shared/**`는 3중 검사를 받는다 — 남은 것은 eslint 사각지대뿐이다. 진짜 위험은 정적 검사가 아니라 **실행**이다: 로컬 Supabase 스택이 없어 이 두 파일은 한 줄도 실행돼 본 적이 없는데, 이것이 **제품의 유일한 쓰기 경로**다. [P1]에서 [P2]로 강등한 근거가 딱 여기까지다.
-- Safe modification: 수정 후 `npm run check:edge`(exit 0) + `npx vitest run supabase/functions/_shared/edgeImports.test.ts`(텍스트 계약 50건). 배포 후에는 `curl -X POST <url>/functions/v1/respin-roulette`로 실제 응답을 확인한다. `spin-roulette`는 시간 가드 때문에 추첨 시각 이전엔 `skipped: "before_spin_time"`만 돌아오므로 정상 경로를 검증할 수 없다 — 그래서 `respin` 쪽이 컷오버의 유일한 검증 창이다.
-- Test coverage: 텍스트 계약 50건 + 전이 타입 검사. **동작 0.**
+- Safe modification: 수정 후 `npm run check:edge`(exit 0) + `npx vitest run supabase/functions/_shared/edgeImports.test.ts`(텍스트 계약 58건). 배포 후에는 `curl -X POST <url>/functions/v1/respin-roulette`로 실제 응답을 확인한다. `spin-roulette`는 시간 가드 때문에 추첨 시각 이전엔 `skipped: "before_spin_time"`만 돌아오므로 정상 경로를 검증할 수 없다 — 그래서 `respin` 쪽이 컷오버의 유일한 검증 창이다.
+- Test coverage: 텍스트 계약 58건 + 전이 타입 검사(리뷰 후 `5b11547`: `console.error` spin 8·respin 6 정확 개수, 쿨다운 창 경계, respin 405 가드 고정). **동작 0.**
 
 ### [P1] `supabase/migrations/0002_cron.sql`의 프로젝트 ref 하드코딩 + cron 잡 정본의 분산
 

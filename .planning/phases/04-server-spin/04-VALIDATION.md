@@ -84,6 +84,8 @@ created: 2026-09-28
 
 **페이즈 게이트 5종 (2026-09-28, `3d460fb` 시점 — 04-04-T2 실측):** `npx tsc --noEmit` exit 0 (0.80s) · `npm run lint` exit 0 (1.76s) · `npm test` exit 0 (`Test Files 10 passed (10)` · `Tests 219 passed (219)`, 0.55s) · `npm run build` exit 0 (3.32s, 라우트 4개 정적 생성) · `npm run check:edge` exit 0 (0.27s). `npm audit --audit-level=high` → exit 0, `found 0 vulnerabilities`(전체 `npm audit` 도 0건 — critical·high 0). 미의도 변경 0: `git status --porcelain | grep -vE '\.serena/project\.yml|\.planning/config\.json' | wc -l` → 0, 루트 `deno.lock` 부재(`test -f deno.lock` exit 1), 함수 디렉터리 2개는 각각 `index.ts` 1파일뿐.
 
+**리뷰 후 재실측 (2026-09-28, `5b11547` 시점 — 04-REVIEW fixed 9):** 계약 `edgeImports.test.ts` **58건**(#49~#56 추가: respin 405 가드·`excluded_count`·`console.error` 정확 개수 spin 8/respin 6·쿨다운 창 `[gte, lt)`·`no_candidates` 리터럴·페이지 번역 키), `lib/errors.test.ts` 17건. `npm test` `Test Files 10 passed (10)` · `Tests 234 passed (234)`. `npx tsc --noEmit`·`npm run lint`·`npm run build`·`npm run check:edge` 전부 exit 0, `supabase/functions/deno.lock` 276줄 무변경. 위 표의 판정은 리뷰 전 시점 기록으로 유지한다.
+
 ---
 
 ## Wave 0 Requirements
