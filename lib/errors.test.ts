@@ -59,4 +59,33 @@ describe("formatRespinError", () => {
       "Edge Function returned a non-2xx status code",
     );
   });
+
+  // 아래 세 케이스는 "함수 본문이 아예 돌지 못한" 응답을 읽는다. 함수가 만든 { error } 가 없는
+  // 구간이라 여기서 키를 하나만 보면 배너가 라이브러리 고정 문구로 끝난다.
+  it("게이트웨이의 401 본문({ code, message })에서 문장을 건진다", () => {
+    expect(
+      formatRespinError("Edge Function returned a non-2xx status code", {
+        code: 401,
+        message: "Invalid JWT",
+      }),
+    ).toBe("Invalid JWT");
+  });
+
+  it("워커 부팅 실패 본문({ code: BOOT_ERROR, message })에서도 문장을 건진다", () => {
+    expect(
+      formatRespinError("Edge Function returned a non-2xx status code", {
+        code: "BOOT_ERROR",
+        message: "worker boot error: failed to create the graph",
+      }),
+    ).toBe("worker boot error: failed to create the graph");
+  });
+
+  it("두 키가 다 있으면 함수가 보낸 error 가 이긴다 (우선순위)", () => {
+    expect(
+      formatRespinError("Edge Function returned a non-2xx status code", {
+        error: "후보가 없어요",
+        message: "Invalid JWT",
+      }),
+    ).toBe("후보가 없어요");
+  });
 });
