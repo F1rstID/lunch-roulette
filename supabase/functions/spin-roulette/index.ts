@@ -68,155 +68,163 @@ function json(body: unknown, status = 200): Response {
 }
 
 Deno.serve(async () => {
-  const now = kstNow();
+  try {
+    const now = kstNow();
 
-  // 클라이언트 생성이 시각 판정보다 위로 올라온다 — 판정 기준 자체가 DB 의 설정값이기 때문이다.
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+    // 클라이언트 생성이 시각 판정보다 위로 올라온다 — 판정 기준 자체가 DB 의 설정값이기 때문이다.
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-  let spinTime = DEFAULT_SPIN_TIME;
-  let cooldownDays = 0;
-  let settingsFallback = false; // 설정을 못 읽거나 못 읽힌 값이어서 기본값으로 갔다
-  let cooldownSkipped = false; // 쿨다운 창 조회가 실패해 필터를 건너뛰었다
-  let cooldownFallback = false; // 필터 결과가 0개라 전체 후보로 되돌렸다
+    let spinTime = DEFAULT_SPIN_TIME;
+    let cooldownDays = 0;
+    let settingsFallback = false; // 설정을 못 읽거나 못 읽힌 값이어서 기본값으로 갔다
+    let cooldownSkipped = false; // 쿨다운 창 조회가 실패해 필터를 건너뛰었다
+    let cooldownFallback = false; // 필터 결과가 0개라 전체 후보로 되돌렸다
 
-  const { data: settingsRow, error: settingsErr } = await supabase
-    .from("settings")
-    .select("spin_time, cooldown_days")
-    .eq("id", 1)
-    .maybeSingle();
+    const { data: settingsRow, error: settingsErr } = await supabase
+      .from("settings")
+      .select("spin_time, cooldown_days")
+      .eq("id", 1)
+      .maybeSingle();
 
-  if (settingsErr) {
-    console.error(`설정 조회 실패(기본값으로 진행): ${settingsErr.message}`);
-    settingsFallback = true;
-  } else if (settingsRow) {
-    // 여기 들어오지 못한 경우(행이 null)는 0행(아직 시드 안 됨)이고 에러가 아니다 — 플래그도 올리지 않는다.
-    // 행의 필드는 타입 검사를 전혀 받지 않고 들어온다(스키마 제네릭 없는 클라이언트). 좁히기는 규율이 한다.
-    const parsed = typeof settingsRow.spin_time === "string"
-      ? parseSpinTime(settingsRow.spin_time)
-      : null;
-    if (parsed) {
-      spinTime = parsed;
-    } else {
-      // 값이 문자열이 아닐 수도 있는 자리라 템플릿 보간 대신 직렬화해서 남긴다.
-      console.error(
-        `추첨 시각 설정값을 읽지 못했다(기본값으로 진행): ${JSON.stringify(settingsRow.spin_time)}`,
-      );
+    if (settingsErr) {
+      console.error(`설정 조회 실패(기본값으로 진행): ${settingsErr.message}`);
       settingsFallback = true;
+    } else if (settingsRow) {
+      // 여기 들어오지 못한 경우(행이 null)는 0행(아직 시드 안 됨)이고 에러가 아니다 — 플래그도 올리지 않는다.
+      // 행의 필드는 타입 검사를 전혀 받지 않고 들어온다(스키마 제네릭 없는 클라이언트). 좁히기는 규율이 한다.
+      const parsed = typeof settingsRow.spin_time === "string"
+        ? parseSpinTime(settingsRow.spin_time)
+        : null;
+      if (parsed) {
+        spinTime = parsed;
+      } else {
+        // 값이 문자열이 아닐 수도 있는 자리라 템플릿 보간 대신 직렬화해서 남긴다.
+        console.error(
+          `추첨 시각 설정값을 읽지 못했다(기본값으로 진행): ${JSON.stringify(settingsRow.spin_time)}`,
+        );
+        settingsFallback = true;
+      }
+      // 정수·양수 좁히기는 쿨다운 모듈이 흡수한다. 여기서 한 번 더 좁히면 판정처가 둘이 된다.
+      cooldownDays = Number(settingsRow.cooldown_days);
     }
-    // 정수·양수 좁히기는 쿨다운 모듈이 흡수한다. 여기서 한 번 더 좁히면 판정처가 둘이 된다.
-    cooldownDays = Number(settingsRow.cooldown_days);
-  }
 
-  if (!isAfterSpinTime(now, spinTime)) {
-    // 분해된 8필드를 줄이지 않고 그대로 싣는다 — cron 로그에서 함수가 본 시각을 보는 유일한 창이다.
-    return json({ skipped: "before_spin_time", kst: now });
-  }
+    if (!isAfterSpinTime(now, spinTime)) {
+      // 분해된 8필드를 줄이지 않고 그대로 싣는다 — cron 로그에서 함수가 본 시각을 보는 유일한 창이다.
+      return json({ skipped: "before_spin_time", kst: now });
+    }
 
-  // 멱등성: 이미 오늘 결과 있으면 종료
-  const { data: existing, error: existErr } = await supabase
-    .from("results")
-    .select("date, menu, restaurant_id")
-    .eq("date", now.date)
-    .maybeSingle();
-
-  // 조회 실패를 삼키지 않되 멈추지도 않는다. 여기서 500 을 내면 그날 추첨만 잃고, 중복 기록은
-  // 날짜 유니크 제약이 최종 보험으로 막아 준다(아래 레이스 분기로 착지한다).
-  if (existErr) console.error(`오늘 결과 조회 실패(진행): ${existErr.message}`);
-
-  if (existing) {
-    return json({
-      skipped: "already_decided",
-      date: now.date,
-      menu: existing.menu,
-      restaurant_id: existing.restaurant_id,
-    });
-  }
-
-  // 오늘 후보 조회. 정렬 옵션을 주지 않으면 부모(후보 행) 정렬이다 — 임베드 정렬이 아니다.
-  const { data: rows, error: candErr } = await supabase
-    .from("candidates")
-    .select("restaurant_id, created_at, restaurants ( id, name )")
-    .order("created_at", { ascending: true });
-
-  if (candErr) {
-    console.error(`후보 조회 실패: ${candErr.message}`);
-    // 응답에는 message 만 싣는다. 상세·힌트를 실으면 스키마가 호출자 쪽으로 샌다.
-    return json({ error: candErr.message }, 500);
-  }
-
-  const { picked: candidates, excluded, excludedIds } = normalizeCandidates(rows);
-  if (excluded > 0) {
-    console.error(`후보 ${excluded}건을 매장 조인 형태 불일치로 제외했다: ${excludedIds.join(", ")}`);
-  }
-
-  // 후보가 없으면 결과 행을 만들지 않는다. 이 검사가 쿨다운보다 앞이라야 아래의 난수 선택이
-  // 빈 배열을 받는 경로가 구조적으로 생기지 않는다.
-  // 제외 건수를 함께 싣는다 — 이게 없으면 "후보 테이블이 비었다" 와 "조인이 깨져 전부 떨어졌다" 가
-  // 응답에서 바이트 단위로 같아져, 로그를 열기 전까지 구분할 수 없다.
-  if (candidates.length === 0) {
-    return json({ skipped: "no_candidates", date: now.date, excluded_count: excluded });
-  }
-
-  let pool = candidates;
-  const windowStart = cooldownWindowStart(now.date, cooldownDays);
-  // 창이 없으면(쿨다운 0 = 기본 설정) 조회 자체를 하지 않는다 — 전환 전과 같은 쿼리 수를 유지한다.
-  if (windowStart !== null) {
-    const { data: recent, error: recentErr } = await supabase
+    // 멱등성: 이미 오늘 결과 있으면 종료
+    const { data: existing, error: existErr } = await supabase
       .from("results")
-      .select("restaurant_id")
-      .gte("date", windowStart)
-      .lt("date", now.date);
+      .select("date, menu, restaurant_id")
+      .eq("date", now.date)
+      .maybeSingle();
 
-    if (recentErr) {
-      console.error(`쿨다운 창 조회 실패(미적용 진행): ${recentErr.message}`);
-      cooldownSkipped = true;
-    } else {
-      // 빈 값을 미리 거르지 않는다 — 전환 이전 레거시 행을 무시하는 분기가 쿨다운 모듈 안에 있고,
-      // 여기서 걸러 버리면 그 분기가 영원히 죽어 계약이 한쪽에서만 유지된다.
-      const ids: (string | null)[] = (recent ?? []).map((r) =>
-        typeof r.restaurant_id === "string" ? r.restaurant_id : null
-      );
-      const filtered = applyCooldown(candidates, ids);
-      pool = filtered.picked;
-      cooldownFallback = filtered.fellBack;
+    // 조회 실패를 삼키지 않되 멈추지도 않는다. 여기서 500 을 내면 그날 추첨만 잃고, 중복 기록은
+    // 날짜 유니크 제약이 최종 보험으로 막아 준다(아래 레이스 분기로 착지한다).
+    if (existErr) console.error(`오늘 결과 조회 실패(진행): ${existErr.message}`);
+
+    if (existing) {
+      return json({
+        skipped: "already_decided",
+        date: now.date,
+        menu: existing.menu,
+        restaurant_id: existing.restaurant_id,
+      });
     }
-  }
 
-  // pool 이 비어 있지 않다는 전제는 코드 배치가 보장한다: 후보 0개 검사가 위에 있고, 쿨다운 조회
-  // 실패 경로는 후보 전체를 그대로 쓰며, 쿨다운 모듈은 전멸 시 전체를 되돌린다. 순서를 바꾸면 깨진다.
-  const winner = pickRandom(pool);
-  // 스냅샷은 쿨다운 적용 전 후보 전체를 담은 순서 그대로 남긴다.
-  const snapshot = candidates.map((c) => ({ name: c.name, restaurant_id: c.restaurant_id }));
+    // 오늘 후보 조회. 정렬 옵션을 주지 않으면 부모(후보 행) 정렬이다 — 임베드 정렬이 아니다.
+    const { data: rows, error: candErr } = await supabase
+      .from("candidates")
+      .select("restaurant_id, created_at, restaurants ( id, name )")
+      .order("created_at", { ascending: true });
 
-  const { error: insErr } = await supabase.from("results").insert({
-    date: now.date,
-    menu: winner.name,
-    restaurant_id: winner.restaurant_id,
-    candidates: snapshot,
-  });
-
-  if (insErr) {
-    // 동시에 두 번 호출됐다면 unique date 제약으로 거부될 수 있음 — 정상 시나리오
-    if (insErr.code === "23505") {
-      return json({ skipped: "race_already_decided", date: now.date });
+    if (candErr) {
+      console.error(`후보 조회 실패: ${candErr.message}`);
+      // 응답에는 message 만 싣는다. 상세·힌트를 실으면 스키마가 호출자 쪽으로 샌다.
+      return json({ error: candErr.message }, 500);
     }
-    console.error(`결과 기록 실패: ${insErr.message}`);
-    return json({ error: insErr.message }, 500);
-  }
 
-  return json({
-    ok: true,
-    date: now.date,
-    menu: winner.name,
-    restaurant_id: winner.restaurant_id,
-    candidate_count: candidates.length, // 쿨다운 적용 전
-    picked_count: pool.length, // 쿨다운 적용 후
-    excluded_count: excluded, // 조인 형태 불일치로 버린 행. 폴백 플래그와 같은 독법 — 0 이 정상
-    cooldown_fallback: cooldownFallback,
-    cooldown_skipped: cooldownSkipped,
-    settings_fallback: settingsFallback,
-  });
+    const { picked: candidates, excluded, excludedIds } = normalizeCandidates(rows);
+    if (excluded > 0) {
+      console.error(`후보 ${excluded}건을 매장 조인 형태 불일치로 제외했다: ${excludedIds.join(", ")}`);
+    }
+
+    // 후보가 없으면 결과 행을 만들지 않는다. 이 검사가 쿨다운보다 앞이라야 아래의 난수 선택이
+    // 빈 배열을 받는 경로가 구조적으로 생기지 않는다.
+    // 제외 건수를 함께 싣는다 — 이게 없으면 "후보 테이블이 비었다" 와 "조인이 깨져 전부 떨어졌다" 가
+    // 응답에서 바이트 단위로 같아져, 로그를 열기 전까지 구분할 수 없다.
+    if (candidates.length === 0) {
+      return json({ skipped: "no_candidates", date: now.date, excluded_count: excluded });
+    }
+
+    let pool = candidates;
+    const windowStart = cooldownWindowStart(now.date, cooldownDays);
+    // 창이 없으면(쿨다운 0 = 기본 설정) 조회 자체를 하지 않는다 — 전환 전과 같은 쿼리 수를 유지한다.
+    if (windowStart !== null) {
+      const { data: recent, error: recentErr } = await supabase
+        .from("results")
+        .select("restaurant_id")
+        .gte("date", windowStart)
+        .lt("date", now.date);
+
+      if (recentErr) {
+        console.error(`쿨다운 창 조회 실패(미적용 진행): ${recentErr.message}`);
+        cooldownSkipped = true;
+      } else {
+        // 빈 값을 미리 거르지 않는다 — 전환 이전 레거시 행을 무시하는 분기가 쿨다운 모듈 안에 있고,
+        // 여기서 걸러 버리면 그 분기가 영원히 죽어 계약이 한쪽에서만 유지된다.
+        const ids: (string | null)[] = (recent ?? []).map((r) =>
+          typeof r.restaurant_id === "string" ? r.restaurant_id : null
+        );
+        const filtered = applyCooldown(candidates, ids);
+        pool = filtered.picked;
+        cooldownFallback = filtered.fellBack;
+      }
+    }
+
+    // pool 이 비어 있지 않다는 전제는 코드 배치가 보장한다: 후보 0개 검사가 위에 있고, 쿨다운 조회
+    // 실패 경로는 후보 전체를 그대로 쓰며, 쿨다운 모듈은 전멸 시 전체를 되돌린다. 순서를 바꾸면 깨진다.
+    const winner = pickRandom(pool);
+    // 스냅샷은 쿨다운 적용 전 후보 전체를 담은 순서 그대로 남긴다.
+    const snapshot = candidates.map((c) => ({ name: c.name, restaurant_id: c.restaurant_id }));
+
+    const { error: insErr } = await supabase.from("results").insert({
+      date: now.date,
+      menu: winner.name,
+      restaurant_id: winner.restaurant_id,
+      candidates: snapshot,
+    });
+
+    if (insErr) {
+      // 동시에 두 번 호출됐다면 unique date 제약으로 거부될 수 있음 — 정상 시나리오
+      if (insErr.code === "23505") {
+        return json({ skipped: "race_already_decided", date: now.date });
+      }
+      console.error(`결과 기록 실패: ${insErr.message}`);
+      return json({ error: insErr.message }, 500);
+    }
+
+    return json({
+      ok: true,
+      date: now.date,
+      menu: winner.name,
+      restaurant_id: winner.restaurant_id,
+      candidate_count: candidates.length, // 쿨다운 적용 전
+      picked_count: pool.length, // 쿨다운 적용 후
+      excluded_count: excluded, // 조인 형태 불일치로 버린 행. 폴백 플래그와 같은 독법 — 0 이 정상
+      cooldown_fallback: cooldownFallback,
+      cooldown_skipped: cooldownSkipped,
+      settings_fallback: settingsFallback,
+    });
+  } catch (e) {
+    // 던져진 예외는 반환이 아니라서 json() 을 지나지 않는다. 여기서 받지 않으면 런타임이 기본
+    // 500 을 내고 이 파일이 정한 헤더도 로그도 붙지 않아, cron 로그에는 실패한 흔적조차 남지
+    // 않는다. 환경변수 미주입 같은 부팅 실패가 그 경로다.
+    console.error(`처리되지 않은 예외: ${e instanceof Error ? e.message : String(e)}`);
+    return json({ error: "internal_error" }, 500);
+  }
 });

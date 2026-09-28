@@ -230,6 +230,12 @@ export default function TodayPage() {
         return;
       }
       setActionError(null);
+    } catch (e) {
+      // invoke() 는 던지지 않고 본문 파싱 거부도 .catch 가 흡수하지만, 예상 밖 throw 가 여기서
+      // 빠져나가면 배너 없는 unhandled rejection 이 되어 사용자는 "아무 일도 없는 화면" 만 본다.
+      // 쓰기 실패이므로 actionError 다 — loadError 와 합치지 않는다(쓰기 성공이 읽기 실패를 지운다).
+      const fallback = e instanceof Error ? e.message : String(e);
+      setActionError(`다시 돌리기 실패: ${formatRespinError(fallback, null)}`);
     } finally {
       setRespinning(false);
     }
