@@ -18,6 +18,9 @@
 // - 따라서 함수가 직접 Access-Control-* 를 내려야 하고, OPTIONS 는 본문 로직(=재추첨,
 //   멱등 아님) 을 실행하지 않도록 즉시 단락시켜야 한다. 안 그러면 프리플라이트가 respin 을
 //   실행해 결과가 중복으로 덮어써진다.
+// - 다만 그 단락은 OPTIONS 한 메서드만 거른다. 되돌릴 수 없는 쓰기를 지키는 것은 그 아래의
+//   POST 검사다 — GET·HEAD 는 프리플라이트 없이 곧장 오고(링크 미리보기 봇·주소창 입력),
+//   Allow-Methods 헤더는 브라우저의 교차 출처 요청만 제한할 뿐 비브라우저 호출을 막지 못한다.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.117.2";
@@ -72,6 +75,13 @@ Deno.serve(async (req) => {
   // CORS 프리플라이트: 재추첨 로직을 실행하지 않고 즉시 응답한다.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // 되돌릴 수 없는 쓰기는 POST 로만 받는다. 이 검사가 없으면 함수 URL 한 줄이 곧 실행이다 —
+  // GET 은 프리플라이트가 없어 링크 미리보기 봇·주소창 입력만으로 본문이 돌고(HEAD 도 같다),
+  // 그때마다 오늘 결과가 덮어써져 모든 탭의 휠이 다시 돈다.
+  if (req.method !== "POST") {
+    return json({ error: "method_not_allowed" }, 405);
   }
 
   const now = kstNow();
@@ -156,8 +166,8 @@ Deno.serve(async (req) => {
   // 스냅샷은 쿨다운 적용 전 후보 전체를 담은 순서 그대로 남긴다.
   const snapshot = candidates.map((c) => ({ name: c.name, restaurant_id: c.restaurant_id }));
 
-  // 멱등성 없이 덮어쓰기: 같은 날짜 행이 있으면 갱신한다. 되돌릴 수 없는 쓰기라 위의 프리플라이트
-  // 단락이 곧 무결성 장치다.
+  // 멱등성 없이 덮어쓰기: 같은 날짜 행이 있으면 갱신한다. 되돌릴 수 없는 쓰기라 위의 POST 검사가
+  // 무결성 장치다 — 프리플라이트 단락은 OPTIONS 한 메서드만 거르므로 그것만으로는 부족하다.
   const { error: upErr } = await supabase.from("results").upsert(
     {
       date: now.date,

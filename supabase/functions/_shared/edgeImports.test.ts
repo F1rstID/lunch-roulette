@@ -164,6 +164,17 @@ describe("EDGE/QUAL-02 — respin-roulette 의 복붙이 _shared 로 합쳐졌�
       count(respin, /corsHeaders/g) >= 2,
     ]).toEqual([1, true]);
   });
+
+  it("되돌릴 수 없는 쓰기를 POST 로만 받는다 (#49)", () => {
+    // #22 의 짝이자 그 한계를 메우는 단언이다. 프리플라이트 단락은 OPTIONS 만 거르므로,
+    // 이 검사가 사라지면 함수 URL 에 대한 GET(링크 미리보기·주소창) 한 번이 곧 재추첨이 된다.
+    // 405 까지 세는 이유: 검사만 남기고 200 으로 돌려보내면 거절이 아니라 조용한 무시가 된다.
+    expect([
+      count(respin, /req\.method !== "POST"/g),
+      count(respin, /"method_not_allowed"/g),
+      count(respin, /,\s*405\)/g),
+    ]).toEqual([1, 1, 1]);
+  });
 });
 
 // 아래 세 describe 는 Phase 4 의 재작성이 닫아야 할 계약이다. 라이브에 새 테이블이 없어 두 함수를 한 줄도
