@@ -1,4 +1,4 @@
-// 읽기(SELECT) 실패를 화면에 띄울 한 줄 한국어 문장으로 조립하는 순수 모듈.
+// 읽기(SELECT)·Edge Function 실패를 화면에 띄울 한 줄 한국어 문장으로 조립하는 순수 모듈.
 // 순수성 자체가 이 파일의 계약이다 — 데이터 클라이언트·React·환경변수를 import 하지 않는다.
 // 그래야 테스트 러너가 브라우저 전역이나 NEXT_PUBLIC_* 키 없이 이 파일만 단독으로 불러올 수 있다.
 // 에러 타입을 라이브러리에서 가져오지 않고 { message: string } 구조적 타입으로만 받는 이유도 같다.
@@ -17,4 +17,15 @@ export function joinLoadErrors(parts: (string | null)[]): string | null {
   const messages = parts.filter((part): part is string => Boolean(part));
   if (messages.length === 0) return null;
   return messages.join(ERROR_SEPARATOR);
+}
+
+// body 를 unknown 으로 받는 이유: 이 값은 신뢰할 수 없는 네트워크 본문이고, 형태 판정을 여기서 끝내야
+// 호출하는 페이지 쪽으로 타입 단언이 새지 않는다.
+// 빈 문자열을 거르는 이유: 그대로 통과시키면 접두만 남아 "다시 돌리기 실패: " 로 끝나는 배너가 나온다.
+export function formatRespinError(fallbackMessage: string, body: unknown): string {
+  if (typeof body === "object" && body !== null && "error" in body) {
+    const message = body.error;
+    if (typeof message === "string" && message.trim().length > 0) return message;
+  }
+  return fallbackMessage;
 }

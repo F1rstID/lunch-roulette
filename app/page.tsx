@@ -6,7 +6,7 @@ import { supabase, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/li
 import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
 import { currentPhase, type Phase } from "@/lib/phase";
-import { formatLoadError, joinLoadErrors } from "@/lib/errors";
+import { formatLoadError, formatRespinError, joinLoadErrors } from "@/lib/errors";
 import { useSettings } from "@/lib/useSettings";
 import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
@@ -213,10 +213,15 @@ export default function TodayPage() {
   async function respin() {
     setRespinning(true);
     try {
-      // service_role 함수가 results를 덮어쓰고, realtime UPDATE로 휠이 다시 돈다
-      const { data, error } = await supabase.functions.invoke<RespinResponse>("respin-roulette");
+      // service_role 함수가 results를 덮어쓰고, realtime UPDATE로 휠이 다시 돈다.
+      // 세 번째 값은 supabase-js 가 non-2xx 에서 던진 에러의 context 와 같은 미독 Response 다 —
+      // 라이브러리가 본문을 읽기 전에 던지므로 여기서 정확히 한 번 읽을 수 있다.
+      const { data, error, response } = await supabase.functions.invoke<RespinResponse>("respin-roulette");
       if (error) {
-        setActionError(`다시 돌리기 실패: ${error.message}`);
+        // 본문이 JSON 이 아닐 수 있다(게이트웨이 HTML). 두 번째 예외가 나면 배너가 통째로 사라지므로 값으로 받는다.
+        const body: unknown = response ? await response.json().catch(() => null) : null;
+        const fallback = error instanceof Error ? error.message : String(error);
+        setActionError(`다시 돌리기 실패: ${formatRespinError(fallback, body)}`);
         return;
       }
       if (data?.skipped) {
