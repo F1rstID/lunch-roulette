@@ -81,7 +81,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 기본 설정(11:55·쿨다운 0)에서 두 함수의 판정 결과가 전환 전 동작과 동일함을 보이는 테스트가 통과한다.
   5. `deno check`가 두 함수에서 통과하고, CORS 헤더·OPTIONS 단락·`verify_jwt = false` 설정이 유지된다.
 **로컬 검증**: `deno check supabase/functions/spin-roulette/index.ts` · `.../respin-roulette/index.ts`(tsc·eslint 사각지대라 이것이 유일한 정적 검사) + `_shared` 단위 테스트. 실제 호출 검증은 Phase 8 컷오버에서 `respin-roulette` 수동 invoke로 한다.
-**Plans**: TBD
+**Plans**: 4 plans (4 waves)
+- [ ] 04-01-PLAN.md — `npm run check:edge` 정적 게이트(`deno.json`·`deno.lock`) + `ResultRow.candidates` 확장 + 계약 26건 RED (wave 1)
+- [ ] 04-02-PLAN.md — `spin-roulette` 재작성: `candidates`⋈`restaurants`·`settings`·쿨다운·`json()`·콘솔 에러 (wave 2)
+- [ ] 04-03-PLAN.md — `respin-roulette` 재작성 + `formatRespinError` + `respin()` 500 본문 표면화 (wave 3)
+- [ ] 04-04-PLAN.md — D-17 문서 정정·컷오버 체크리스트 7번 추가 + 페이즈 게이트 5종 (wave 4)
 
 ### Phase 5: 매장 탭
 **Goal**: 익명 누구나 매장 카탈로그를 관리하는 새 탭이 생긴다. 오늘 탭과 분리해 오늘 탭을 후보 선택만으로 가볍게 유지한다.
@@ -148,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
 | 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
 | 3. 순수 로직 | 3/3 | Complete    | 2026-09-21 |
-| 4. 서버 추첨 | 0/TBD | Not started | - |
+| 4. 서버 추첨 | 0/4 | Not started | - |
 | 5. 매장 탭 | 0/TBD | Not started | - |
 | 6. 오늘 탭 | 0/TBD | Not started | - |
 | 7. 기록·랭킹 | 0/TBD | Not started | - |

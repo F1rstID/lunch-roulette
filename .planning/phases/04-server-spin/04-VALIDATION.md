@@ -12,6 +12,8 @@ created: 2026-09-28
 > Per-phase validation contract for feedback sampling during execution. 근거: `04-RESEARCH.md` §Validation Architecture. TDD 모드(`workflow.tdd_mode: true`) — 계약 테스트·단위 테스트가 구현보다 먼저 RED 로 선다(Phase 2·3 방식). 단 **`npm run check:edge` 는 RED 를 허용하지 않는다**(CONTEXT D-16): 타입이 깨진 함수는 커밋하지 않는다.
 >
 > Task ID·Plan·Wave 열은 플래너가 실제 PLAN.md 태스크로 채우고, Status 열은 실행자가 갱신한다(Phase 3 관례).
+>
+> **2026-09-28 갱신(플래너):** 플랜을 **4개**로 나눴다(04-01 게이트·타입·계약 RED / 04-02 `spin-roulette` / 04-03 `respin-roulette`+`formatRespinError`+`respin()` / 04-04 문서·todo·이 문서 마감). CONTEXT §Claude's Discretion 의 3분할 권고에서 문서 정정(D-17)을 04-04 로 떼어낸 이유는 컨텍스트 예산이다 — 04-03 이 세 태스크(≈48%)를 쓰고 거기에 문서 6파일(≈28%)을 더하면 한 플랜이 75%를 넘긴다. Wave 열은 PLAN frontmatter 의 `wave` 값(04-01=1, 04-02=2, 04-03=3, 04-04=4)이고 04-01 이 GSD 의미의 "Wave 0"(테스트·게이트 인프라) 플랜이라 `1 (W0)` 로 적었다. 네 플랜은 **순차 실행**이다(`use_worktrees: false`). 기준 숫자는 플래너가 2026-09-28 에 두 `index.ts`·두 spec 에서 재측정했다(PATTERNS §베이스라인 표와 일치; `edgeImports.test.ts` 현재 `it` **24건**·마지막 번호 #22, `spinTime.test.ts` 15건·#15, `npm test` 10파일/189건). 신규 계약은 **#23~#48(26건)** 이고 이 중 4건(#42·#45·#46·#48)은 현행 코드에서 이미 초록이므로 **RED 는 22건**이다. 페이즈 종료 시 총 **219건 / 10파일**(189 + 26 + `spinTime` 1 + `lib/errors` 3).
 
 ---
 
@@ -24,47 +26,55 @@ created: 2026-09-28
 | **Quick run command** | `npm run check:edge && npx vitest run supabase/functions/_shared lib` |
 | **Full suite command** | `npm test` |
 | **Static gate (신규)** | `npm run check:edge` = `deno check --config supabase/functions/deno.json supabase/functions/spin-roulette/index.ts supabase/functions/respin-roulette/index.ts` — 실측 0.47s, exit 0(현행 두 파일). `_shared/*.ts` 도 전이 검사됨(리서치 §Q-7) |
-| **Estimated runtime** | `_shared`+`lib` ~0.2s · 전체 ~185ms · `check:edge` ~0.5s (페이즈 시작 시점 189 tests / 10 files) |
+| **Estimated runtime** | `_shared`+`lib` ~0.2s · 전체 ~210ms · `check:edge` ~0.5s (페이즈 시작 시점 189 tests / 10 files — 플래너 재확인 2026-09-28) |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** `npm run check:edge` + `npx vitest run supabase/functions/_shared lib` (합쳐 1초 미만). 함수 파일을 건드린 태스크는 `git status --porcelain` 에 루트 `deno.lock`·`supabase/functions/deno.lock` 변경이 **없어야** 한다(lock 드리프트 감지기, D-02)
+- **After every task commit:** `npm run check:edge` + `npx vitest run supabase/functions/_shared lib` (합쳐 1초 미만). 함수 파일을 건드린 태스크는 `git status --porcelain` 에 **루트** `deno.lock` 이 없어야 한다(D-02). `supabase/functions/deno.lock` 은 **jsr 핀을 바꾸는 태스크(04-02-T1·04-03-T3)에서만** 바뀌고 그 커밋에 포함된다 — 다른 태스크에서 바뀌면 멈추고 보고한다
 - **After every plan wave:** `npx tsc --noEmit` + `npm run lint` + `npm test` + `npm run check:edge`
 - **Before `/gsd:verify-work`:** 위 4개 + `npm run build` 전부 green + `npm audit` 0건 + `git status` 에 `.serena/project.yml`·`.planning/config.json` 외 미의도 변경 0(특히 루트 `deno.lock`·함수 디렉터리 `deno.json` 부재)
-- **Max feedback latency:** 10 seconds (`npm run build` 는 페이즈 게이트 예외 — Phase 2·3 선례)
+- **Max feedback latency:** 10 seconds (`npm run build` 는 페이즈 게이트 예외 — Phase 2·3 선례. 단 04-03-T2 가 `app/**` 를 건드리므로 그 태스크에서 한 번 당겨 돌린다)
 
-**의도된 빨간 구간**(TDD RED 커밋 — vitest 만 빨갛다. 같은 플랜의 다음 태스크가 닫는다. 세션은 RED 상태로 끝내지 않는다):
-- `edgeImports.test.ts` 확장 직후(D-14 신규 단언) — `from("menus")` 0회 등이 현행 파일에서 실패한다. `check:edge` 는 이때도 초록이어야 한다.
-- `lib/errors.test.ts` 3케이스 직후(D-13) — `formatRespinError` 미존재로 단언 실패(vitest 는 없는 named export 를 `undefined` 로 바인딩하므로 exit code 와 `npx tsc --noEmit` TS2305 로 RED 를 판정 — Phase 3 결정).
-- `spinTime.test.ts` 왕복 1케이스(D-15)는 현행 코드로도 통과하므로 RED 없음 — 회귀 고정 목적임을 플랜에 명시.
+**의도된 빨간 구간**(TDD RED — vitest 만 빨갛다. **이 페이즈의 RED 는 플랜을 가로지른다**: 04-01 이 22건을 세우고 04-02 가 12건, 04-03 이 10건 + 자기 3건을 닫는다. 각 플랜은 자기가 닫을 적색 건수를 SUMMARY 에 숫자로 남긴다):
+- `04-01-T3` 직후 — `edgeImports.test.ts` 50건 중 **22건 적색**(`Tests  22 failed | 28 passed (50)`), 전체 `Tests  22 failed | 194 passed (216)`. `check:edge` 는 이때도 exit 0 이어야 한다.
+- `04-02-T1` 직후 — 적색 **10건**(`Tests  10 failed | 40 passed (50)`), 전체 `10 failed | 206 passed (216)`. 남은 적색은 전부 `EDGE/SPIN-04` describe + `#47`(헬퍼 이름 대칭)이다.
+- `04-03-T1` 직후 — `lib/errors.test.ts` 3건 적색 추가(`3 failed | 7 passed (10)`), 전체 `13 failed | 206 passed (219)`. `npx tsc --noEmit` 이 `TS2305` 1건으로 실패한다(`formatRespinError` 미존재) — 같은 플랜의 다음 태스크가 닫는다.
+- `04-03-T3` 이후 — **적색 0**(`Tests  219 passed (219)` · `Test Files  10 passed (10)`).
+- `spinTime.test.ts` 왕복 1건(#16, D-15)은 현행 코드로도 통과하므로 **RED 가 아니다** — 회귀 핀임을 플랜이 명시한다.
 
 ---
 
 ## Per-Task Verification Map
 
+> Task ID = `{plan}-T{n}`. Status 는 실행자가 태스크 완료 시 갱신한다.
+
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| (플래너) | 01 | 0 | SPIN-01 | — | N/A | static | `npm run check:edge` (두 파일 exit 0) | ❌ W0 (스크립트·deno.json·lock 신설) | ⬜ pending |
-| (플래너) | 01 | 0 | SPIN-01 / SPIN-04 | — | `ResultRow.candidates` 확장이 소비처를 깨지 않는다 | static | `npx tsc --noEmit` | ✅ (exit 0, 소비처는 `c.name`·`length` 만) | ⬜ pending |
-| (플래너) | 01 | 0 | SPIN-01 | — | `from("menus")` 0회 · `from("candidates")`·`from("settings")` 각 1회 · `restaurants` 임베드 토큰 | contract | `npx vitest run supabase/functions/_shared/edgeImports.test.ts` | ⚠️ 확장(D-14) — RED | ⬜ pending |
-| (플래너) | 01 | 0 | SPIN-01 | — | 시각 판정 → 멱등 → 후보 → 쿨다운 → insert 순서(토큰 `indexOf` 비교) | contract | 〃 | ❌ W0 | ⬜ pending |
-| (플래너) | 01 | 0 | SPIN-01 | — | `parseSpinTime(`·`DEFAULT_SPIN_TIME`·`jsr:@supabase/supabase-js@2.117.2` 토큰 존재 | contract | 〃 | ❌ W0 | ⬜ pending |
-| (플래너) | 01 | 0 | SPIN-02 | — | `"../_shared/cooldown.ts"` import 1회 · `cooldownWindowStart(`·`applyCooldown(` 각 1회(두 파일) | contract | 〃 | ❌ W0 | ⬜ pending |
-| (플래너) | 01 | 0 | SPIN-04 | T-04-?? (CORS) | respin `new Response(` 정확 2회 · `.upsert(` 1회 · `onConflict: "date"` 1회(주석 제거 사본) | contract | 〃 | ⚠️ 확장(#22 유지 + 신규) | ⬜ pending |
-| (플래너) | 01 | 0 | SETT-04 | — | 폴백 boolean 3개 토큰(`settings_fallback`·`cooldown_fallback`·`cooldown_skipped`) 두 파일 존재 · `console.error(` ≥1 | contract | 〃 | ❌ W0 | ⬜ pending |
-| (플래너) | 01 | 0 | (D-01) | T-04-?? (배포 import map) | 함수 디렉터리 2개에 `deno.json`·`deno.jsonc`·`import_map.json` 부재 + `supabase/functions/deno.json` 존재 | contract | 〃 | ❌ W0 (#23) | ⬜ pending |
-| (플래너) | 01 | 0 | (D-03) | — | 후보 정규화 헬퍼 선언 토큰이 두 파일에서 같은 이름 | contract | 〃 | ❌ W0 (#25) | ⬜ pending |
-| (플래너) | 01 | 0 | SETT-04 | — | `parseSpinTime(DEFAULT_SPIN_TIME_TEXT)` `toEqual(DEFAULT_SPIN_TIME)` | unit | `npx vitest run supabase/functions/_shared/spinTime.test.ts` | ❌ W0 (신규 1건, RED 없음) | ⬜ pending |
+| 04-01-T1 | 01 | 1 (W0) | SPIN-01 | T-04-01, T-04-02 | 두 `index.ts` 가 정적 검사 안으로 들어온다. 설정 파일은 `supabase/functions/` 위에만, 루트 `deno.lock` 부재, `package-lock.json` 무변경 | static | `npm run check:edge` (exit 0) · `test ! -f deno.lock` · `test -z "$(git diff --stat -- package-lock.json)"` | ❌ W0 (스크립트·deno.json·lock 신설) | ⬜ pending |
+| 04-01-T2 | 01 | 1 (W0) | SPIN-01 / SPIN-04 | — | `ResultRow.candidates` 확장이 소비처를 깨지 않는다(`c.name`·`length` 만 읽는다) | static | `npx tsc --noEmit` · `test -z "$(git diff --stat -- components/CalendarLog.tsx)"` | ✅ (현재 exit 0) | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SPIN-01 | — | `from("menus")` 0회 · `from("candidates")`·`from("settings")` 각 1회 · `restaurants` 임베드 토큰(공백 허용 정규식) — 두 파일 각각 | contract (RED) | `npx vitest run supabase/functions/_shared/edgeImports.test.ts` → exit 1, `22 failed \| 28 passed (50)` | ⚠️ 확장(D-14, #23·#24·#35·#36) | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SPIN-01 | T-04-17 | 시각 판정 → 멱등 → 후보 → 쿨다운 → insert 순서(토큰 `indexOf` 단조 증가 + 전부 > 0) | contract (RED) | 〃 (#31) | ❌ W0 | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SPIN-01 | T-04-02 | spin 에 `parseSpinTime(` 1 · `\bDEFAULT_SPIN_TIME\b` ≥1 · `jsr:@supabase/supabase-js@2.117.2"` 1 및 비핀 `@2"` 0 (respin 도 핀, 단 `parseSpinTime`·`DEFAULT_SPIN_TIME` 은 0) | contract (RED) | 〃 (#29·#30·#41·#42) | ❌ W0 | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SPIN-02 | — | `"../_shared/cooldown.ts"` import 1 · `cooldownWindowStart(` 1 · `applyCooldown(` 1 — 두 파일 각각 | contract (RED) | 〃 (#28·#40) | ❌ W0 | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SPIN-04 | T-04-05, T-04-06 | respin 맨 `new Response(` **정확히 2회**(헬퍼+OPTIONS) · `function json(` 1 · `.upsert(` 1 · `onConflict: "date"` 1(주석 제거 사본) | contract | 〃 (#45·#46 — 현행 코드에서 이미 초록) | ⚠️ 확장(#22 유지 + 신규) | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SETT-04 | T-04-03 | 폴백 boolean 3키(`settings_fallback`·`cooldown_fallback`·`cooldown_skipped`) 각 1회 · `console.error(` spin ≥5 / respin ≥4 — 두 파일 각각 | contract (RED) | 〃 (#32·#33·#43·#44) | ❌ W0 | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | (D-01) | T-04-01 | 함수 디렉터리 2개에 `deno.json`·`deno.jsonc`·`import_map.json` 부재 + `supabase/functions/deno.json` 존재(`existsSync` 7원소) | contract | 〃 (#48 — Task 1 이후 초록) | ❌ W0 | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | (D-03) | T-04-11 | 후보 정규화 헬퍼 선언 토큰이 두 파일에서 같은 이름(`[1, 1]`) | contract (RED) | 〃 (#47) | ❌ W0 | ⬜ pending |
+| 04-01-T3 | 01 | 1 (W0) | SETT-04 | — | `parseSpinTime(DEFAULT_SPIN_TIME_TEXT)` `toEqual(DEFAULT_SPIN_TIME)` | unit | `npx vitest run supabase/functions/_shared/spinTime.test.ts` → exit 0, `16 passed (16)` | ❌ W0 (신규 1건, **RED 없음** — 회귀 핀) | ⬜ pending |
 | (인용) | — | — | SETT-04 | — | `parseSpinTime("11:55:00")` · `isAfterSpinTime` 11:54:59/11:55:00 경계 | unit | 〃 | ✅ #2·#12·#13 | ✅ green |
 | (인용) | — | — | SPIN-02 / SETT-04 | — | `cooldownWindowStart(today, 0) === null` · `applyCooldown(c, [])` 항등 · 폴백 · `null` 무시 · 경계 | unit | `npx vitest run supabase/functions/_shared/cooldown.test.ts` | ✅ 14케이스 | ✅ green |
-| (인용) | — | — | (회귀) | — | `_shared` 3파일 import 0 · 복붙 부재 · 23505 1회 · #17 · #22 | contract | `…/edgeImports.test.ts` | ✅ #1~#22 | ✅ green |
-| (플래너) | 02 | 1 | SPIN-01 / SPIN-02 / SETT-04 | T-04-?? (service_role) | `spin-roulette` 재작성 후 계약 GREEN + `check:edge` exit 0 | contract + static | `npm run check:edge && npx vitest run supabase/functions/_shared` | (W0 산출물) | ⬜ pending |
-| (플래너) | 03 | 1 | SPIN-04 / SPIN-02 | T-04-?? (CORS·공개 노출) | `respin-roulette` 재작성 후 계약 GREEN + `check:edge` exit 0 | contract + static | 〃 | (W0 산출물) | ⬜ pending |
-| (플래너) | 03 | 1 | SPIN-04 | — | `formatRespinError`: 본문 우선 / 본문 null·비객체 / `error` 빈 문자열 | unit | `npx vitest run lib/errors.test.ts` | ❌ W0 (3케이스) — RED | ⬜ pending |
-| (플래너) | 03 | 1 | SPIN-04 | — | `respin()` 이 `response` 본문을 읽는다 | static + 낭독 | `npx tsc --noEmit` (`response: Response \| undefined` 타입 통과) | 자동 단언 불가 → Manual-Only | ⬜ pending |
-| (플래너) | 03 | 1 | (D-17) | — | CLAUDE.md·CONVENTIONS·CONCERNS·todo 정정 문자열 존재 / 낡은 문장 0 | grep | `grep -c` 인수조건(플래너 실측 기입) | — | ⬜ pending |
+| (인용) | — | — | (회귀) | T-04-05, T-04-09 | `_shared` 3파일 import 0 · 복붙 부재 · `23505` 1회 · #17(respin 은 spinTime 미import) · #22(OPTIONS+CORS) | contract | `…/edgeImports.test.ts` | ✅ #1~#22 | ✅ green |
+| 04-02-T1 | 02 | 2 | SPIN-01 / SPIN-02 / SETT-04 | T-04-11, T-04-03, T-04-04, T-04-07, T-04-08, T-04-16, T-04-09, T-04-17, T-04-18 | `spin-roulette` 재작성 후 계약 #23~#34 GREEN + `check:edge` exit 0. `from("results")` 3회(멱등·쿨다운창·insert) · 맨 `new Response(` 1 · `console.error(` 7 · `as`/`any`/`restaurants[0]` 0건 | contract + static | `npm run check:edge && npx vitest run supabase/functions/_shared/edgeImports.test.ts` → `10 failed \| 40 passed (50)` (남은 적색은 respin 대기) | (W0 산출물) | ⬜ pending |
+| 04-02-T2 | 02 | 2 | SPIN-01 | T-04-11, T-04-17 | 낭독 6항목(임베드 접기 · 모든 반환이 `json()` · 세 boolean 상시 · 콘솔 에러 경로별 1건 · insert 에 매장 id · D-05 순서)을 **파일:줄 인용**으로 기록 | manual (낭독) + static | `npm run check:edge && npx tsc --noEmit && npm run lint` · 기록은 `04-02-SUMMARY.md` | 자동 단언 불가 → Manual-Only | ⬜ pending |
+| 04-03-T1 | 03 | 3 | SPIN-04 | T-04-19 | `formatRespinError` 3케이스가 RED 로 선다(본문 우선 / 본문 null·비객체 / `error` 빈 문자열) | unit (RED) | `npx vitest run lib/errors.test.ts` → exit 1, `3 failed \| 7 passed (10)` · `npx tsc --noEmit \| grep -c TS2305` = 1 | ❌ W0 (3케이스) | ⬜ pending |
+| 04-03-T2 | 03 | 3 | SPIN-04 | T-04-19, T-04-20, T-04-04 | `formatRespinError` GREEN + `respin()` 이 `response` 본문을 한 번 읽는다. `FunctionsHttpError`·`error.context` 0건, `lib/errors.ts` 값 import 0건, `respin()` 밖 무변경 | unit + static | `npx vitest run lib/errors.test.ts && npx tsc --noEmit && npm run build` · `grep -c 'FunctionsHttpError' app/page.tsx` = 0 · `grep -cE '^import ' app/page.tsx` = 14 | ❌ W0 → GREEN | ⬜ pending |
+| 04-03-T2 | 03 | 3 | SPIN-04 | — | todo `wr-02-respin-error-body.md` 삭제(D-13a), `done/` 디렉터리 미생성 | grep | `test ! -f .planning/todos/pending/wr-02-respin-error-body.md` · `ls .planning/todos/pending \| wc -l` = 6 | ✅ (현재 7개) | ⬜ pending |
+| 04-03-T3 | 03 | 3 | SPIN-04 / SPIN-02 | T-04-05, T-04-06, T-04-10, T-04-11, T-04-08, T-04-09 | `respin-roulette` 재작성 후 계약 #35~#47 GREEN. CORS 논증·`corsHeaders`·`json()`·OPTIONS 단락·`spun_at` 보존, 맨 `new Response(` 2, `onConflict` 원본 1(주석 토큰 제거), `console.error(` 5 | contract + static | `npm run check:edge && npx vitest run supabase/functions/_shared/edgeImports.test.ts` → `50 passed (50)` · `npm test` → `219 passed (219)` | (W0 산출물) | ⬜ pending |
+| 04-03-T3 | 03 | 3 | SPIN-04 | — | `respin()` 배너에 함수 본문이 실리는가 | 낭독 + Manual-Only | `npx tsc --noEmit`(타입만 — `response: Response \| undefined`) | 자동 단언 불가 → Manual-Only(Phase 6·8) | ⬜ pending |
+| 04-04-T1 | 04 | 4 | (D-17) | T-04-21, T-04-11, T-04-13 | 낡은 진술 정정 + `wr-01` 7번 추가. 새 거짓(미배포 사실 왜곡) 0 | grep | `grep -c '여전히 사각지대' CLAUDE.md` = 0 · `grep -c 'npm run check:edge' CLAUDE.md` ≥ 2 · `grep -c '복붙돼 있다' .planning/codebase/CONVENTIONS.md` = 0 · `grep -c '수동 실행' .planning/codebase/CONCERNS.md` = 0 · `grep -c '63fae89' .planning/todos/pending/wr-01-cutover-window.md` = 1 · `grep -cE '^7\. ' …/wr-01-cutover-window.md` = 1 · `grep -cE '^[[:space:]]*it\(' supabase/functions/_shared/edgeImports.test.ts` = 50 | ✅ (문서 존재) | ⬜ pending |
+| 04-04-T2 | 04 | 4 | SPIN-01 / SPIN-04 / SETT-04 | T-04-22, T-04-SC | 페이즈 게이트 5종 + `npm audit` + 미의도 변경 0. 거짓 초록 금지 | static + gate | `npx tsc --noEmit && npm run lint && npm test && npm run build && npm run check:edge && npm audit --audit-level=high` · `git status --porcelain \| grep -vE '\.serena/project\.yml\|\.planning/config\.json' \| wc -l` = 0 | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -72,11 +82,11 @@ created: 2026-09-28
 
 ## Wave 0 Requirements
 
-- [ ] `package.json` `scripts.check:edge` + `supabase/functions/deno.json` + `supabase/functions/deno.lock` — **가장 먼저**(CONTEXT D-01·D-02). 정적 게이트가 켜지기 전에 쓴 함수 코드는 타입 사각지대에서 자란다.
-- [ ] `lib/supabase/client.ts` `ResultRow.candidates` 1줄(D-08) — 함수가 쓸 형태를 타입이 먼저 인정해야 한다.
-- [ ] `supabase/functions/_shared/edgeImports.test.ts` 확장(D-14 + #23~#25) — RED.
-- [ ] `supabase/functions/_shared/spinTime.test.ts` 왕복 1케이스(D-15).
-- [ ] `lib/errors.test.ts` 3케이스(D-13) — RED(플랜 03 의 Wave 0 로 두거나 플랜 01 에 합칠지는 플래너 재량).
+- [ ] **`package.json` `scripts.check:edge` + `supabase/functions/deno.json` + `supabase/functions/deno.lock`(D-01·D-02)** — **가장 먼저**(04-01-T1). 정적 게이트가 켜지기 전에 쓴 함수 코드는 타입 사각지대에서 자란다.
+- [ ] `lib/supabase/client.ts` `ResultRow.candidates` 1줄(D-08) — 04-01-T2. 함수가 쓸 형태를 타입이 먼저 인정해야 한다.
+- [ ] `supabase/functions/_shared/edgeImports.test.ts` 확장 #23~#48(D-14 + 권고 3종) — 04-01-T3, RED 22건.
+- [ ] `supabase/functions/_shared/spinTime.test.ts` 왕복 1건 #16(D-15) — 04-01-T3, RED 없음.
+- [ ] `lib/errors.test.ts` 3케이스(D-13) — **04-03-T1**(GREEN 이 같은 플랜에 있어 04-03 으로 뒀다).
 - 프레임워크 설치 불필요 · `vitest.config.mts` 무변경 · 공용 픽스처 불필요.
 
 ---
@@ -85,9 +95,9 @@ created: 2026-09-28
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| 두 `index.ts` 의 **동작**(분기·순서·응답 본문) | SPIN-01·SPIN-04 | 라이브에 새 테이블이 없어 실호출 불가 | 낭독 6항목(SUMMARY 에 파일:줄 인용으로 기록 — Phase 2 T-02-11 관례): (1) 임베드를 `Array.isArray` 로 접는가 (2) 모든 반환이 `json()` 을 거치는가(OPTIONS 제외) (3) 세 폴백 boolean 이 ok 응답에 **항상** 있는가 (4) `console.error` 가 500·폴백 경로마다 1건인가 (5) `insert`/`upsert` 본문에 `restaurant_id` 가 있는가 (6) D-05 순서가 코드 순서와 같은가 |
-| 임베드가 실제로 객체로 오는가 | SPIN-01 | 실호출 필요 | **Phase 8 SHIP-04**(todo `wr-01-cutover-window.md` 7번, D-17): 컷오버 후 `respin-roulette` 수동 invoke → 응답 `menu` 가 실제 매장명, `restaurant_id` 가 uuid |
-| `respin()` 배너에 함수 본문이 실리는가 | SPIN-04 | 브라우저 필요(`npm run dev` 는 가드런처만, 라이브 오염 금지) | Phase 8 이후 실사용 1회, 또는 Phase 6 UI 검증에 위임 |
+| 두 `index.ts` 의 **동작**(분기·순서·응답 본문) | SPIN-01·SPIN-04 | 라이브에 새 테이블이 없어 실호출 불가 | 낭독 6항목(SUMMARY 에 파일:줄 인용으로 기록 — Phase 2 T-02-11 관례): (1) 임베드를 `Array.isArray` 로 접는가 (2) 모든 반환이 `json()` 을 거치는가(OPTIONS 제외) (3) 세 폴백 boolean 이 ok 응답에 **항상** 있는가 (4) `console.error` 가 500·폴백 경로마다 1건인가 (5) `insert`/`upsert` 본문에 `restaurant_id` 가 있는가 (6) D-05 순서가 코드 순서와 같은가. **기록 위치: spin 은 `04-02-SUMMARY.md`(04-02-T2), respin 은 `04-03-SUMMARY.md`(04-03-T3, 6번 항목은 "spin 과의 diff 가 의도된 비대칭 5개로만 설명되는가" 로 치환)** |
+| 임베드가 실제로 객체로 오는가 | SPIN-01 | 실호출 필요 | **Phase 8 SHIP-04**(todo `wr-01-cutover-window.md` 7번 — 04-04-T1 이 추가한다): 컷오버 후 `respin-roulette` 수동 invoke → 응답 `menu` 가 실제 매장명, `restaurant_id` 가 uuid |
+| `respin()` 배너에 함수 본문이 실리는가 | SPIN-04 | 브라우저 필요(`npm run dev` 는 가드런처만, 라이브 오염 금지) | Phase 8 이후 실사용 1회, 또는 Phase 6 UI 검증에 위임. 증상 기준: 배너 문구가 영어 고정 문구면 500 에 CORS 가 빠진 것이다 |
 | `console.error` 가 대시보드 로그에 보이는가 | (관측성) | 배포 후에만 | Phase 8: 대시보드 Edge Function Logs 에서 1건 확인 |
 | `check:edge` 도입이 배포 동작을 바꾸지 않았는가 | SC-5 | 배포 필요 | Phase 8: `functions deploy` 출력에 `WARNING: Functions using fallback import map` / `deprecated import_map.json` 이 **없어야** 한다 |
 
