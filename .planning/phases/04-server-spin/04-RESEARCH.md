@@ -893,7 +893,9 @@ it("두 파일의 후보 정규화 헬퍼 이름이 같다 (#25)", () => {
 | A6 | 컷오버 후 첫 실호출에서 `settings.spin_time` 이 `"HH:MM:SS"` 로 직렬화된다 | §Q-6f | `parseSpinTime` 이 `"HH:MM"`·`"HH:MM:SS"`·소수 초를 모두 받으므로 안전 실패(기본값 + `settings_fallback: true`) |
 | A7 | 매분 `settings` SELECT 1회(1,440/일)가 무료 티어에서 문제없다 | D-05 | 과다하면 Supabase 대시보드의 사용량에서 보인다. 대안: 시각 판정 캐시(범위 밖) |
 
-## Open Questions
+## Open Questions (RESOLVED 2026-09-28 — 오케스트레이터가 CONTEXT 에 반영)
+
+> RESOLVED: 1 → D-01 (b) `--config` 채택 · 2 → D-02 `jsr:@supabase/supabase-js@2.117.2` 핀(사용자 결정 D4) · 3 → D-12 `response` 필드 · 4 → D-05 멱등 SELECT 에러는 `console.error` + 진행 · 5 → D-09 `candidate_count` 유지 + `picked_count` 신설 · 6 → D-14 #23/#48 로 `deno.json` 위치 고정. 아래 원문은 판단 근거로 보존한다.
 
 1. **D-01 의 (a)/(b) 선택 — 리서치는 (b) 를 권고한다(CONTEXT 기본 선호와 반대).**
    - 아는 것: 배포 영향은 둘 다 0(§Q-1a·d 검증). lock 내용은 (b) 가 더 작고 `package.json` 과 독립(295 vs 276줄, `workspace.packageJson` 유무).
@@ -952,7 +954,7 @@ it("두 파일의 후보 정규화 헬퍼 이름이 같다 (#25)", () => {
 | Quick run command | `npx vitest run supabase/functions/_shared` |
 | Full suite command | `npm test` |
 | **신규 정적 게이트** | `npm run check:edge` = `deno check --config supabase/functions/deno.json supabase/functions/spin-roulette/index.ts supabase/functions/respin-roulette/index.ts` (**0.47s 실측**) |
-| 현재 기준선 | 10 파일 / **189 tests** 통과, 185ms (`edgeImports` 25 · `spinTime` 15 · `cooldown` 14 · `kst` 9 · `errors` 7 …) |
+| 현재 기준선 | 10 파일 / **189 tests** 통과, 185ms (`edgeImports` 24(플래너 재측정 — 리서치 초안의 25 는 오기) · `spinTime` 15 · `cooldown` 14 · `kst` 9 · `errors` 7 …) |
 
 ### Phase Requirements → Test Map
 

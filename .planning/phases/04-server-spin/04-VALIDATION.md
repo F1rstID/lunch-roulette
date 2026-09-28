@@ -49,6 +49,8 @@ created: 2026-09-28
 ## Per-Task Verification Map
 
 > Task ID = `{plan}-T{n}`. Status 는 실행자가 태스크 완료 시 갱신한다.
+>
+> Threat Ref 는 위협을 **등록한 플랜과 무관하게** 그 위협을 완화하는 태스크 행에 적는다(예: 04-01-T3 의 `T-04-17` 은 04-02 STRIDE 표의 위협을 계약 #31 로 선제 고정한다). `T-04-12` 는 결번, 04-01 의 `T-04-14`·`T-04-15` 는 표 행이 아니라 플랜 본문의 실행 규칙으로 완화된다.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
