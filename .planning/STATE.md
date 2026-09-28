@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 executing — 04-01 complete, 04-02 next
-last_updated: "2026-09-28T07:03:17.695Z"
-last_activity: 2026-09-28 -- 04-01 완료 (check:edge 게이트 + 계약 RED 22건)
+stopped_at: Phase 4 executing — 04-02 complete, 04-03 next
+last_updated: "2026-09-28T07:14:33.218Z"
+last_activity: 2026-09-28 -- 04-02 완료 (spin-roulette 재작성, 계약 #23~#34 GREEN)
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
   percent: 38
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 ## Current Position
 
 Phase: 04 (server-spin) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Executing Phase 04
-Last activity: 2026-09-28 -- 04-01 완료 (check:edge 게이트 + 계약 RED 22건)
+Last activity: 2026-09-28 -- 04-02 완료 (spin-roulette 재작성, 계약 #23~#34 GREEN)
 
-Progress: [████████░░] 79%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [████████░░] 79%
 | Phase 03 P02 | 8min | 3 tasks | 11 files |
 | Phase 03 P03 | 10min | 4 tasks | 7 files |
 | Phase 04 P01 | 4min | 3 tasks | 6 files |
+| Phase 04 P02 | 6min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Progress: [████████░░] 79%
 - [Phase 4]: deno 설정 파일을 supabase/functions/deno.json 한 단계 위에 둔다 — 함수 디렉터리 안에 두면 Supabase CLI 가 배포 import map 으로 채택해 번들 입력이 바뀐다. 계약 #48 이 existsSync 7원소로 배치를 고정한다
 - [Phase 4]: deno.lock 은 커밋하되 --frozen 을 스크립트에 넣지 않는다 — lock 갱신이 필요한 상황에서 diff 를 내며 실패한다. 드리프트 감지기는 git status 이고, 루트에 lock 이 생기면 .gitignore 가 아니라 명령을 고친다
 - [Phase 4]: 04-01 은 RED 전용이라 feat(04-01) 커밋이 없다 — 타입 확장은 동작 변경이 아니라 chore 로 커밋했다. GREEN 은 feat(04-02)(적색 12건)·feat(04-03)(10건, #47 포함)이 닫는다
+- [Phase 4]: 04-02 — 임베드를 접을 때 row.restaurants[0] 대신 지역 변수 embed 를 거친다 — 인수 조건의 restaurants[0] 0건과 RESEARCH Pattern 1 을 동시에 만족한다
+- [Phase 4]: 04-02 — normalizeCandidates 내부를 unknown[] 로 한 번 더 좁힌다 — Array.isArray 가 unknown 을 any[] 로 넓혀 이후 좁히기가 무효가 되는 것을 막는다
+- [Phase 4]: 04-02 — 23505 레이스 경로에는 서버 로그를 남기지 않는다 — 실패가 아니라 설계된 정상 경로라 진짜 실패와 섞이면 관측성이 떨어진다
 
 ### Pending Todos
 
@@ -130,6 +134,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:03:17.688Z
-Stopped at: Phase 4 executing — 04-01 complete, 04-02 next
+Last session: 2026-09-28T07:14:19.376Z
+Stopped at: Phase 4 executing — 04-02 complete, 04-03 next
 Resume file: None
