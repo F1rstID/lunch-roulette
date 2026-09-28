@@ -56,6 +56,13 @@ describe("SPINTIME/QUAL-02 — 기본 추첨 시각의 정의처는 이 파일�
   it('DEFAULT_SPIN_TIME_TEXT 가 "11:55" 다 (#10)', () => {
     expect(DEFAULT_SPIN_TIME_TEXT).toBe("11:55");
   });
+
+  it("텍스트 상수를 파싱하면 값 상수가 된다 — 이 한 건만 머리 주석의 리터럴 규칙에서 예외다 (#16)", () => {
+    // 계약 자체가 "두 상수가 서로 왕복한다" 이므로 기대값이 상수여야 한다. 리터럴로 적으면
+    // #9·#10 을 한 번 더 쓰는 것일 뿐 두 상수의 관계는 어디에도 남지 않는다.
+    // 마이그레이션 직후 기본값 동작이 전환 전과 같다(SETT-04)는 사실이 이 왕복 위에 서 있다.
+    expect(parseSpinTime(DEFAULT_SPIN_TIME_TEXT)).toEqual(DEFAULT_SPIN_TIME);
+  });
 });
 
 describe("SPINTIME/QUAL-02 — 시각 경과 판정", () => {

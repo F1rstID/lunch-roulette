@@ -6,7 +6,7 @@
 // 같은 한계를 갖는다.
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 // RED 단계에는 검사 대상 _shared/*.ts 가 아직 없다. 예외를 그대로 던지면 vitest 가 모듈 로드 실패("Failed to load")로
 // 수집 자체를 접어 버려서, "무엇이 왜 없는지" 가 단언 실패로 드러나지 않는다 — TDD 게이트가 성립하지 않는다.
@@ -160,5 +160,189 @@ describe("EDGE/QUAL-02 — respin-roulette 의 복붙이 _shared 로 합쳐졌�
       count(respin, /req\.method === "OPTIONS"/g),
       count(respin, /corsHeaders/g) >= 2,
     ]).toEqual([1, true]);
+  });
+});
+
+// 아래 세 describe 는 Phase 4 의 재작성이 닫아야 할 계약이다. 라이브에 새 테이블이 없어 두 함수를 한 줄도
+// 실행할 수 없으므로(컷오버 전), 여기서 묻는 것은 끝까지 "무엇이 쓰여 있는가" 뿐이다 — 임베드가 실제로
+// 객체로 오는지 같은 런타임 사실은 Phase 8 의 첫 실호출에서만 드러난다.
+// 개수는 전부 주석 제거 사본(spin·respin)에서 센다. 한글 Why 주석에 검사 토큰이 섞이면 게이트가 자기 자신을
+// 세어 조용히 무력화되기 때문이다 — 그래서 이 파일의 주석도 토큰 리터럴 대신 한국어 표현을 쓴다.
+
+describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · settings · 쿨다운 위에서 돈다", () => {
+  it("후보를 오늘 후보 테이블에서 읽고 옛 메뉴 테이블은 더 읽지 않는다 (#23)", () => {
+    // 부재와 존재를 한 번에 센다 — 한쪽만 세면 "둘 다 읽는" 중간 상태가 통과한다.
+    expect([count(spin, /from\("menus"\)/g), count(spin, /from\("candidates"\)/g)]).toEqual([0, 1]);
+  });
+
+  it("후보와 함께 매장을 임베드로 읽는다 (#24)", () => {
+    // 공백 변형을 허용한다. PostgREST 파서가 공백에 관대하므로 텍스트 단언도 같은 관대함을 가져야 한다.
+    expect(count(spin, /restaurants\s*\(\s*id\s*,\s*name\s*\)/g)).toBe(1);
+  });
+
+  it("설정 단일행을 읽는다 — 추첨 시각과 쿨다운 일수의 출처다 (#25)", () => {
+    expect(count(spin, /from\("settings"\)/g)).toBe(1);
+  });
+
+  it("결과 테이블을 세 번 만진다 (#26)", () => {
+    // 숫자의 근거를 여기 적어 둔다: 오늘 결과 존재 확인 1 + 쿨다운 창 조회 1 + 기록 1.
+    // 근거 없이 숫자만 남으면 다음 사람이 이 단언을 고칠 수도, 믿을 수도 없다.
+    expect(count(spin, /from\("results"\)/g)).toBe(3);
+  });
+
+  it("쓰기 본문과 성공 응답이 당첨 매장 id 를 함께 싣는다 (#27)", () => {
+    // 기록 본문 1 + 응답 1 = 2. 응답에도 실어야 cron 로그만으로 어느 매장이 뽑혔는지 추적된다.
+    expect(count(spin, /restaurant_id: winner\.restaurant_id/g)).toBe(2);
+  });
+
+  it("쿨다운 모듈이 배선됐다 (#28)", () => {
+    // 창 계산과 필터 적용은 짝이다 — 하나만 있는 파일은 쿨다운이 반쪽만 켜진 상태다.
+    expect([
+      count(spin, /from "\.\.\/_shared\/cooldown\.ts"/g),
+      count(spin, /cooldownWindowStart\(/g),
+      count(spin, /applyCooldown\(/g),
+    ]).toEqual([1, 1, 1]);
+  });
+
+  it("supabase 클라이언트 명세자가 정확 버전으로 핀됐다 (#29)", () => {
+    // 로컬 잠금 파일은 배포 번들에 실리지 않는다. 검사한 버전과 배포될 버전을 같게 만드는 장치는 이 핀뿐이다.
+    expect([
+      count(spin, /jsr:@supabase\/supabase-js@2\.117\.2"/g),
+      count(spin, /jsr:@supabase\/supabase-js@2"/g),
+    ]).toEqual([1, 0]);
+  });
+
+  it("하드코딩된 시각 대신 설정 문자열을 파싱해 판정한다 (#30)", () => {
+    // 낱말 경계를 쓰는 이유: 접두가 같은 텍스트 상수까지 함께 세면 숫자가 부풀어 게이트가 헐거워진다.
+    expect([
+      count(spin, /parseSpinTime\(/g),
+      count(spin, /DEFAULT_SPIN_TIME\b/g) >= 1,
+    ]).toEqual([1, true]);
+  });
+
+  it("시각 판정 → 오늘 결과 확인 → 후보 조회 → 쿨다운 → 기록 순서를 지킨다 (#31)", () => {
+    // 개수가 아니라 위치를 묻는 유일한 단언이라 count 헬퍼 대신 indexOf 를 직접 쓴다.
+    // 이 순서가 뒤집히면 후보를 비운 뒤 뽑는 경로가 열려 빈 배열에서 난수를 고르게 된다.
+    const at = [
+      spin.indexOf("isAfterSpinTime("),
+      spin.indexOf('from("results")'),
+      spin.indexOf('from("candidates")'),
+      spin.indexOf("applyCooldown("),
+      spin.indexOf(".insert("),
+    ];
+    expect([
+      at.every((i) => i > 0),
+      at.every((i, n) => n === 0 || i > at[n - 1]),
+    ]).toEqual([true, true]);
+  });
+
+  it("실패·폴백 경로가 서버 로그를 남긴다 (#32)", () => {
+    // 재작성이 넣을 지점은 일곱 곳이라 하한을 다섯으로 둔다 — 로그를 한두 줄 옮겨도 게이트가 깨지지 않게.
+    expect(count(spin, /console\.error\(/g)).toBeGreaterThan(4);
+  });
+
+  it("폴백 플래그 세 키가 응답에 상시 실린다 (#33)", () => {
+    // 전부 거짓인 줄이 정상이고, 참이 보이면 그날 설정과 DB 를 본다 — 그러려면 키가 항상 있어야 한다.
+    expect([
+      count(spin, /settings_fallback/g),
+      count(spin, /cooldown_fallback/g),
+      count(spin, /cooldown_skipped/g),
+    ]).toEqual([1, 1, 1]);
+  });
+
+  it("모든 반환이 응답 헬퍼를 지난다 (#34)", () => {
+    // 맨 응답 생성이 헬퍼 한 곳뿐이어야 헤더 규약이 한 자리에서 끝난다.
+    expect([count(spin, /new Response\(/g), count(spin, /function json\(/g)]).toEqual([1, 1]);
+  });
+});
+
+describe("EDGE/SPIN-04 — respin-roulette 가 같은 조회 위에서 덮어쓴다", () => {
+  it("후보를 오늘 후보 테이블에서 읽고 옛 메뉴 테이블은 더 읽지 않는다 (#35)", () => {
+    expect([count(respin, /from\("menus"\)/g), count(respin, /from\("candidates"\)/g)]).toEqual([0, 1]);
+  });
+
+  it("후보와 함께 매장을 임베드로 읽는다 (#36)", () => {
+    expect(count(respin, /restaurants\s*\(\s*id\s*,\s*name\s*\)/g)).toBe(1);
+  });
+
+  it("설정 단일행을 읽는다 — 쿨다운 일수만 쓰지만 같은 조회·같은 정책이다 (#37)", () => {
+    expect(count(respin, /from\("settings"\)/g)).toBe(1);
+  });
+
+  it("결과 테이블을 두 번 만진다 (#38)", () => {
+    // 쿨다운 창 조회 1 + 덮어쓰기 1. 이 숫자가 "이 함수에는 멱등 조회가 없다" 는 사실까지 고정한다.
+    expect(count(respin, /from\("results"\)/g)).toBe(2);
+  });
+
+  it("쓰기 본문과 성공 응답이 당첨 매장 id 를 함께 싣는다 (#39)", () => {
+    expect(count(respin, /restaurant_id: winner\.restaurant_id/g)).toBe(2);
+  });
+
+  it("쿨다운 모듈이 배선됐다 (#40)", () => {
+    expect([
+      count(respin, /from "\.\.\/_shared\/cooldown\.ts"/g),
+      count(respin, /cooldownWindowStart\(/g),
+      count(respin, /applyCooldown\(/g),
+    ]).toEqual([1, 1, 1]);
+  });
+
+  it("supabase 클라이언트 명세자가 정확 버전으로 핀됐다 (#41)", () => {
+    expect([
+      count(respin, /jsr:@supabase\/supabase-js@2\.117\.2"/g),
+      count(respin, /jsr:@supabase\/supabase-js@2"/g),
+    ]).toEqual([1, 0]);
+  });
+
+  it("시간 가드가 없으므로 추첨 시각 파싱도 기본 상수도 쓰지 않는다 (#42)", () => {
+    // 부재 단언(#17)의 연장이다. 시간 가드가 없는 함수에 불필요한 의존을 만들지 않는다.
+    expect([count(respin, /parseSpinTime\(/g), count(respin, /DEFAULT_SPIN_TIME\b/g)]).toEqual([0, 0]);
+  });
+
+  it("실패·폴백 경로가 서버 로그를 남긴다 (#43)", () => {
+    // 재작성이 넣을 지점은 다섯 곳이라 하한을 넷으로 둔다.
+    expect(count(respin, /console\.error\(/g)).toBeGreaterThan(3);
+  });
+
+  it("폴백 플래그 세 키가 응답에 상시 실린다 (#44)", () => {
+    expect([
+      count(respin, /settings_fallback/g),
+      count(respin, /cooldown_fallback/g),
+      count(respin, /cooldown_skipped/g),
+    ]).toEqual([1, 1, 1]);
+  });
+
+  it("맨 응답 생성은 프리플라이트 단락과 헬퍼 두 곳뿐이다 (#45)", () => {
+    // 500 하나라도 헬퍼를 건너뛰면 교차 출처 헤더가 빠져 브라우저가 본문을 차단한다 —
+    // 그러면 클라이언트가 함수의 실패 사유를 읽는 경로가 통째로 죽는다.
+    expect([count(respin, /new Response\(/g), count(respin, /function json\(/g)]).toEqual([2, 1]);
+  });
+
+  it("덮어쓰기는 날짜 충돌 기준 한 번뿐이다 (#46)", () => {
+    // 주석 제거 사본에서 센다 — 이 파일 머리 주석이 같은 낱말을 쓰고 있어서 원본으로 세면 두 번이 된다.
+    expect([count(respin, /\.upsert\(/g), count(respin, /onConflict: "date"/g)]).toEqual([1, 1]);
+  });
+});
+
+describe("EDGE/QUAL — 두 파일의 대칭과 설정 파일의 위치", () => {
+  it("후보 정규화 헬퍼 이름이 두 파일에서 같다 (#47)", () => {
+    // 이름이 같아야 Phase 8 낭독에서 두 파일을 diff 로 나란히 비교할 수 있다.
+    expect([
+      count(spin, /function normalizeCandidates\(/g),
+      count(respin, /function normalizeCandidates\(/g),
+    ]).toEqual([1, 1]);
+  });
+
+  it("deno 설정 파일이 함수 디렉터리 밖 한 단계 위에 있다 (#48)", () => {
+    // 이 파일이 함수 디렉터리 안으로 내려가면 Supabase CLI 가 배포 import map 으로 채택해 번들 입력이 바뀐다.
+    // 그 사고는 배포 전까지 조용하므로 위치 자체를 계약으로 못 박는다.
+    expect([
+      existsSync(new URL("../spin-roulette/deno.json", import.meta.url)),
+      existsSync(new URL("../spin-roulette/deno.jsonc", import.meta.url)),
+      existsSync(new URL("../spin-roulette/import_map.json", import.meta.url)),
+      existsSync(new URL("../respin-roulette/deno.json", import.meta.url)),
+      existsSync(new URL("../respin-roulette/deno.jsonc", import.meta.url)),
+      existsSync(new URL("../respin-roulette/import_map.json", import.meta.url)),
+      existsSync(new URL("../deno.json", import.meta.url)),
+    ]).toEqual([false, false, false, false, false, false, true]);
   });
 });
