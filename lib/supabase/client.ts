@@ -19,7 +19,7 @@ export type ResultRow = {
   id: string;
   date: string;
   menu: string; // 이제 매장명 스냅샷. 매장이 지워져도 이 문자열이 남아 있는 것이 기록·랭킹의 전제다
-  candidates: { name: string }[];
+  candidates: { name: string; restaurant_id?: string }[]; // Phase 4 부터 restaurant_id 를 함께 싣는다. 전환 이전 행에는 그 키가 아예 없어서 optional 이다
   spun_at: string;
   restaurant_id: string | null; // 매장 삭제 시 set null (supabase/migrations/0005_restaurants_settings.sql)
 };
