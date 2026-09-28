@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: 안전망** - vitest 도입 + 모델과 무관한 선행 수정(next 범프, 읽기 에러 표면화) (completed 2026-09-18)
 - [x] **Phase 2: 데이터 모델** - `restaurants`·`candidates`·`settings` 컷오버 마이그레이션 1파일 + TS 타입 (completed 2026-09-21)
 - [x] **Phase 3: 순수 로직** - 추첨 시각·쿨다운·KST를 주입 가능한 단일 출처로 모으고 테스트로 고정 (completed 2026-09-21)
-- [ ] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성
+- [x] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성 (completed 2026-09-28)
 - [ ] **Phase 5: 매장 탭** - 카탈로그 등록·수정·삭제·핀 UI
 - [ ] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시
 - [ ] **Phase 7: 기록·랭킹** - 전환일 이후 결과만 매장 기준으로 표시·집계
@@ -85,7 +85,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 04-01-PLAN.md — `npm run check:edge` 정적 게이트(`deno.json`·`deno.lock`) + `ResultRow.candidates` 확장 + 계약 26건 RED (wave 1)
 - [x] 04-02-PLAN.md — `spin-roulette` 재작성: `candidates`⋈`restaurants`·`settings`·쿨다운·`json()`·콘솔 에러 (wave 2)
 - [x] 04-03-PLAN.md — `respin-roulette` 재작성 + `formatRespinError` + `respin()` 500 본문 표면화 (wave 3)
-- [ ] 04-04-PLAN.md — D-17 문서 정정·컷오버 체크리스트 7번 추가 + 페이즈 게이트 5종 (wave 4)
+- [x] 04-04-PLAN.md — D-17 문서 정정·컷오버 체크리스트 7번 추가 + 페이즈 게이트 5종 (wave 4)
 
 ### Phase 5: 매장 탭
 **Goal**: 익명 누구나 매장 카탈로그를 관리하는 새 탭이 생긴다. 오늘 탭과 분리해 오늘 탭을 후보 선택만으로 가볍게 유지한다.
@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
 | 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
 | 3. 순수 로직 | 3/3 | Complete    | 2026-09-21 |
-| 4. 서버 추첨 | 3/4 | In Progress | - |
+| 4. 서버 추첨 | 4/4 | Complete   | 2026-09-28 |
 | 5. 매장 탭 | 0/TBD | Not started | - |
 | 6. 오늘 탭 | 0/TBD | Not started | - |
 | 7. 기록·랭킹 | 0/TBD | Not started | - |

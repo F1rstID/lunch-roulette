@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 executing — 04-03 complete, 04-04 next
-last_updated: "2026-09-28T07:26:58.443Z"
-last_activity: 2026-09-28 -- 04-03 완료 (respin-roulette 재작성 + 500 본문 표면화, 계약 #35~#47 GREEN)
+stopped_at: Phase 4 executed — all 4 plans complete, verification next
+last_updated: "2026-09-28T07:44:02.254Z"
+last_activity: 2026-09-28 -- 04-04 완료 (D-17 문서 정정·wr-01 7번 추가·VALIDATION 마감, 게이트 5종 green)
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 13
-  percent: 38
+  completed_plans: 14
+  percent: 50
 ---
 
 # Project State
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 Phase: 04 (server-spin) — EXECUTING
 Plan: 4 of 4
 Status: Executing Phase 04
-Last activity: 2026-09-28 -- 04-03 완료 (respin-roulette 재작성 + 500 본문 표면화, 계약 #35~#47 GREEN)
+Last activity: 2026-09-28 -- 04-04 완료 (D-17 문서 정정·wr-01 7번 추가·VALIDATION 마감, 게이트 5종 green)
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [█████████░] 93%
 | Phase 04 P01 | 4min | 3 tasks | 6 files |
 | Phase 04 P02 | 6min | 2 tasks | 3 files |
 | Phase 04 P03 | 11min | 3 tasks | 4 files |
+| Phase 04 P04 | 6min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -115,15 +116,24 @@ Progress: [█████████░] 93%
 - [Phase 4]: 04-03 — respin 의 설정 폴백 플래그는 조회 실패에서만 오른다 — 시간 가드가 없어 추첨 시각 값을 읽되 파싱하지 않는다(형제 함수는 파싱 실패에서도 오른다)
 - [Phase 4]: 04-03 — jsr 핀을 바꿔도 deno.lock 이 갱신되지 않았다 — deno check 는 명세자를 추가만 하고 쓰이지 않게 된 항목을 지우지 않는다. 생성물이라 손으로 고치지 않았다
 - [Phase 4]: 04-03 — 배너 에러 판정을 페이지가 아니라 lib/errors.ts 순수 모듈에 뒀다 — invoke 반환의 Response 로 본문을 한 번 읽고 형태 판정은 순수 함수가 끝낸다(FunctionsHttpError 값 import 0 · any 0)
+- [Phase 4]: 04-04 — deno.lock 의 비핀 @2 명세자 줄은 손편집이 아니라 삭제 후 재생성으로 지운다 — deno check 는 명세자를 추가만 하고 정리하지 않으며 lock 은 생성물이다
+- [Phase 4]: 04-04 — VALIDATION 의 Manual-Only 항목은 pending 을 비우되 green 으로 칠하지 않고 manual-only 로 판정한다 — 거짓 초록은 재검증 비용을 숨긴다 (T-04-22)
+- [Phase 4]: 04-04 — 요구사항 마킹(SPIN-01·SPIN-02·SPIN-04·SETT-04)은 페이즈 검증을 닫는 마지막 플랜이 한 번에 찍는다 — Phase 2 선례이고 04-01·04-03 이 같은 근거로 미뤘다
 
 ### Pending Todos
 
-없음. (`.planning/todos/pending/` 비어 있음)
+`.planning/todos/pending/` 에 **6건** (2026-09-28 04-04 실측 — 04-03 이 `wr-02-respin-error-body.md` 를 해소하며 7건에서 줄였다. 이전의 "없음" 기재는 사실과 달랐다):
+
+- `wr-01-cutover-window.md` — 컷오버 창(SQL → 배포 → 머지) 체크리스트. 04-04 가 **7번(임베드 함정 수동 invoke 확인)** 을 추가했다 → Phase 8
+- `wr-01-char-length-truncation.md` — `parseMenuInput` 의 `slice(0,24)` UTF-16 절단을 코드포인트 기준으로 → Phase 5
+- `wr-02-pinned-reseed-order.md` — 후보 정렬을 `candidates.created_at` + `restaurants.created_at` 조인 순서로 → Phase 6
+- `in-02-settings-loaded-first-paint.md`(페이즈 라벨을 `settings.loaded` 로 가리기) · `in-03-usesettings-branches-to-reducer.md`(훅 분기 2개를 리듀서로) → Phase 6
+- `in-05-history-since-same-day.md` — 전환일 당일 `results`(`restaurant_id` null)를 기록·랭킹이 어떻게 다룰지 → Phase 7
 
 ### Blockers/Concerns
 
 - **로컬 Supabase 스택이 없다.** 마이그레이션·Edge Function 실행 경로는 컷오버 전까지 정적 검토(`deno check`, 파일 리뷰)로만 검증된다. 전환의 최대 리스크 증폭기.
-- **Edge Function은 tsc·eslint 사각지대.** `supabase/functions/**`가 두 설정에서 제외돼 있어 `deno check`가 유일한 정적 검사다.
+- **Edge Function 의 정적 검사는 `npm run check:edge`(deno check) 하나뿐이다.** tsc·eslint 제외는 함수 디렉터리 2개로 좁혀졌고(`_shared/**` 는 3중 검사) 두 `index.ts` 는 `deno check` + 계약 테스트 50건이 본다 — eslint 는 여전히 못 보고, 동작은 컷오버 전까지 아무도 못 본다.
 - **`spin-roulette`는 사전 검증 불가.** 시각 가드 때문에 컷오버 시 `respin-roulette` 수동 invoke로 새 스키마 경로를 대신 확인해야 한다.
 - **`npm run dev`는 가드런처로만.** 과거 커널 패닉 이력. 재발 시 `rm -rf .next`.
 - **`.serena/project.yml`은 커밋 금지** (serena가 매번 재포맷).
@@ -138,6 +148,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:26:47.387Z
-Stopped at: Phase 4 executing — 04-03 complete, 04-04 next
+Last session: 2026-09-28T07:40:00.318Z
+Stopped at: Phase 4 executed — all 4 plans complete, verification next
 Resume file: None
