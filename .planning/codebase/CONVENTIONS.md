@@ -272,14 +272,14 @@ if (!cancelled && data) setResults(data as ResultRow[]);
 
 ## Edge Function Conventions
 
-- Deno 런타임. import는 `jsr:` 스킴만 쓴다:
+- Deno 런타임. import는 `jsr:` 스킴만 쓰고, **런타임 의존은 버전을 핀한다**(로컬 `deno check` 가 보는 버전과 배포가 받는 버전을 맞추기 위해. 타입 전용 `edge-runtime.d.ts` 는 공식 문서 형태 그대로 둔다):
   ```ts
   import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-  import { createClient } from "jsr:@supabase/supabase-js@2";
+  import { createClient } from "jsr:@supabase/supabase-js@2.117.2";
   ```
 - 진입점은 `Deno.serve(async (req) => {...})`. 파일은 `supabase/functions/<name>/index.ts` 하나로 자족한다.
-- **`tsconfig.json`·`eslint.config.mjs`에서 제외돼 있어 타입체크·lint가 돌지 않는다.** 수정 후 배포해서 직접 확인해야 한다.
-- 그래서 `lib/`를 공유할 수 없다 — `kstNow()`가 두 함수에 복붙돼 있다(`spin-roulette/index.ts:17-35`, `respin-roulette/index.ts:37-55`). **한쪽을 고치면 다른 쪽도 고친다.**
+- **`deno check`(`npm run check:edge`)가 두 `index.ts` 의 타입을 검사한다**(`--config supabase/functions/deno.json`, `_shared/*.ts` 까지 전이 검사). `tsconfig.json`·`eslint.config.mjs` 의 제외는 **함수 디렉터리 2개뿐**이고 `_shared/**` 는 포함된다 — 즉 **eslint 는 여전히 두 `index.ts` 를 보지 않는다.** 남는 사각지대는 동작이고, 실호출 확인은 컷오버(Phase 8) 전까지 불가능하다.
+- `lib/`는 Deno 에서 import 할 수 없다(경로 별칭·확장자 규칙이 다르다). 공통 로직은 `supabase/functions/_shared/{kst,spinTime,cooldown}.ts` **한 곳**에 있고 두 함수가 `../_shared/<name>.ts`(확장자 포함)로 같은 파일을 본다. 각 `index.ts` 에 남는 중복은 행 타입 선언뿐이다 — **한쪽이 늘면 양쪽을 함께 고친다.**
 - 난수는 `Math.random()`이 아니라 `crypto.getRandomValues(new Uint32Array(1))`를 쓴다(`pickRandom`, 두 파일 공통).
 - 권한은 `Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!`로 service_role 클라이언트를 만든다. 환경변수는 Supabase가 주입한다(레포에 값 없음).
 - 배포 플래그 `verify_jwt = false`는 `supabase/config.toml`에 고정돼 있다(두 함수 모두). 이유가 같은 파일에 주석으로 적혀 있다 — 기본값(true)으로 배포되면 401로 추첨이 조용히 멈춘다.
@@ -296,12 +296,14 @@ if (!cancelled && data) setResults(data as ResultRow[]);
 ## Verification Commands
 
 ```bash
-npx tsc --noEmit   # 타입체크 (supabase/functions, design 제외)
+npx tsc --noEmit   # 타입체크 (design·함수 디렉터리 2개 제외. _shared 는 포함)
 npm run lint       # eslint 9 flat config + react-hooks 규칙
+npm test           # vitest run (lib·components·_shared·migrations 의 *.test.ts)
 npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌드 자체가 실패
+npm run check:edge # deno check 두 index.ts (로컬 deno 설치 전제 — npm ci 로 따라오지 않는다)
 ```
 
-커밋 전 최소 `npx tsc --noEmit`과 `npm run lint` 둘 다 통과시킨다(현재 둘 다 클린). Edge Function이나 마이그레이션을 건드렸다면 이 명령들이 **검사하지 않으므로** 별도로 확인해야 한다.
+커밋 전 최소 `npx tsc --noEmit`과 `npm run lint` 둘 다 통과시킨다(현재 둘 다 클린). Edge Function 은 `npm run check:edge` + `_shared/edgeImports.test.ts` 계약이, 마이그레이션은 `supabase/migrations/*.test.ts` 텍스트 계약이 본다 — 남는 것은 **실호출**뿐이고 그건 컷오버(Phase 8)에서만 가능하다.
 
 ---
 

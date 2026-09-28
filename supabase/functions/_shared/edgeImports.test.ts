@@ -1,6 +1,9 @@
-// 두 Edge Function 의 복붙 제거를 파일 텍스트로 못 박는다. deno 가 로컬에 없어 deno check 를 돌릴 수 없고,
-// 두 index.ts 는 tsc·eslint 제외 대상이라 정적 검사도 닿지 않는다 — 이것이 그 두 파일에 대한 유일한 자동 회귀 장치다.
-// 한계까지 적어 둔다: 형태만 본다. import 경로가 실제로 해석되는지, 타입이 맞는지는 확인하지 않는다(배포는 Phase 8).
+// 두 Edge Function 의 복붙 제거를 파일 텍스트로 못 박는다. 로컬 deno 2.9.7 + npm run check:edge 가
+// 두 index.ts 의 타입을 검사하지만(전이로 _shared 까지), 이 spec 이 보는 것은 형태다 — 둘은 서로를 대체하지 않는다.
+// tsc·eslint 는 여전히 두 index.ts 를 제외하므로 "무엇이 쓰여 있는가"(조회 문자열·jsr 핀·폴백 키·헬퍼 이름)는
+// 여기서만 고정된다.
+// 한계까지 적어 둔다: 형태만 본다. 타입이 맞는지는 check:edge 가 보고, 그 코드가 실제로 도는지는 아무도 보지 않는다
+// — 실호출은 컷오버(Phase 8) 전까지 불가능하다.
 // _shared/*.ts 를 import 하지 않고 텍스트로 읽는 이유도 같다 — 여기서 묻는 것은 "무엇이 쓰여 있는가" 이지 동작이 아니다.
 // Phase 2 의 마이그레이션 계약 테스트(supabase/migrations/0005_restaurants_settings.test.ts)와 같은 방식이고
 // 같은 한계를 갖는다.

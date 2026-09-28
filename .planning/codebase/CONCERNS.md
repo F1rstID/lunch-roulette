@@ -143,12 +143,12 @@
 - Current mitigation: `char_length(name) between 1 and 24` 제약과 URL 비공개성뿐. 삽입 개수·빈도 제한 없음.
 - Recommendations: 서비스 성격상 전면 잠금은 부적절하므로, (a) `pinned_menus` 총 행 수 상한을 트리거로 강제(예: 30개), (b) `menus` 1일 삽입 상한을 트리거로 강제, (c) 삭제는 `created_at > now() - interval '1 hour'` 처럼 최근 추가분으로 제한하는 정책을 검토한다.
 
-### [P2] 핵심 경로에 로깅·알림이 전혀 없다
+### [P2] 로깅은 들어왔고 알림은 여전히 없다
 
-- Risk: 코드 전체에 `console.*` 호출이 **0건**이다. `spin-roulette`가 500을 반환해도 `net.http_post`는 응답을 확인하지 않는 fire-and-forget이라 실패가 어디에도 기록되지 않는다. 추첨이 며칠째 멈춰도 사용자가 화면을 보고 알아채야 한다.
-- Files: `supabase/migrations/0002_cron.sql:22-26` (`net.http_post` 결과 미검사), `supabase/functions/spin-roulette/index.ts:83-88,106-118` (에러를 응답 본문으로만 반환)
-- Current mitigation: Supabase 대시보드의 Edge Function 로그(수동 조회)와 `cron.job_run_details`.
-- Recommendations: 최소한 Edge Function 양쪽에 `console.error`를 넣어 Supabase 로그에 남긴다(무료·즉시 적용 가능). 추가로 `net._http_response`를 주기적으로 확인하는 cron 잡이나, 결과가 없는 날을 감지하는 12:10 헬스체크 잡을 검토한다.
+- Risk: Edge Function 양쪽의 500·폴백 경로에 `console.error`가 들어갔다(Phase 4 — spin 7지점·respin 5지점, 규약은 `CLAUDE.md` 코드 컨벤션). 남는 위험은 **알림**이다: `net.http_post`는 응답을 확인하지 않는 fire-and-forget이라 실패가 cron 쪽에 남지 않고, 대시보드 로그는 사람이 열어야 보인다. 추첨이 며칠째 멈춰도 사용자가 화면을 보고 알아채야 한다.
+- Files: `supabase/migrations/0002_cron.sql:22-26` (`net.http_post` 결과 미검사), `supabase/functions/spin-roulette/index.ts`·`respin-roulette/index.ts` (`console.error` + 응답의 폴백 플래그 3키)
+- Current mitigation: Edge Function 콘솔 에러 → Supabase 대시보드 로그(수동 조회), `cron.job_run_details`, ok 응답에 상시 실리는 `settings_fallback`·`cooldown_fallback`·`cooldown_skipped`.
+- Recommendations: `net._http_response`를 주기적으로 확인하는 cron 잡이나, 결과가 없는 날을 감지하는 12:10 헬스체크 잡을 검토한다(둘 다 Phase 4 범위 밖). 그 전에 **배포 후 대시보드 로그에 1건이 실제로 보이는지** 확인한다 — 아직 두 함수가 배포되지 않아 이 경로는 한 번도 관측되지 않았다(Phase 8).
 
 ### [P3] 시크릿 관리
 
@@ -188,12 +188,12 @@
 
 ## Fragile Areas
 
-### [P1] Edge Function이 타입체크·lint 사각지대
+### [P2] Edge Function은 타입 검사 안으로 들어왔지만 한 줄도 실행된 적이 없다
 
 - Files: `supabase/functions/spin-roulette/index.ts`, `supabase/functions/respin-roulette/index.ts`
-- Why fragile: `tsconfig.json:33`과 `eslint.config.mjs:17`이 `supabase/functions/**`를 제외한다(VS Code 인덱서 OOM 회피 목적, `README.md:59-65`). 즉 `npx tsc --noEmit`·`npm run lint`·`npm run build` 어느 것도 이 243줄을 검사하지 않는다. 그런데 이 243줄이 **제품의 유일한 쓰기 경로**다.
-- Safe modification: 수정 후 `deno check supabase/functions/<name>/index.ts`를 수동 실행하고, 배포 후 `curl -X POST <url>/functions/v1/respin-roulette`로 실제 응답을 확인한다. `spin-roulette`는 시간 가드 때문에 11:55 이전엔 `skipped: "before_spin_time"`만 돌아오므로 정상 경로를 검증할 수 없다 — 이 점이 특히 위험하다.
-- Test coverage: 0.
+- Why fragile: `npm run check:edge`(`deno check --config supabase/functions/deno.json`)가 두 `index.ts`를 검사하고 `_shared/*.ts`까지 전이 검사한다(Phase 4). `tsconfig.json`·`eslint.config.mjs`의 제외는 **함수 디렉터리 2개로 좁혀져** `_shared/**`는 3중 검사를 받는다 — 남은 것은 eslint 사각지대뿐이다. 진짜 위험은 정적 검사가 아니라 **실행**이다: 로컬 Supabase 스택이 없어 이 두 파일은 한 줄도 실행돼 본 적이 없는데, 이것이 **제품의 유일한 쓰기 경로**다. [P1]에서 [P2]로 강등한 근거가 딱 여기까지다.
+- Safe modification: 수정 후 `npm run check:edge`(exit 0) + `npx vitest run supabase/functions/_shared/edgeImports.test.ts`(텍스트 계약 50건). 배포 후에는 `curl -X POST <url>/functions/v1/respin-roulette`로 실제 응답을 확인한다. `spin-roulette`는 시간 가드 때문에 추첨 시각 이전엔 `skipped: "before_spin_time"`만 돌아오므로 정상 경로를 검증할 수 없다 — 그래서 `respin` 쪽이 컷오버의 유일한 검증 창이다.
+- Test coverage: 텍스트 계약 50건 + 전이 타입 검사. **동작 0.**
 
 ### [P1] `supabase/migrations/0002_cron.sql`의 프로젝트 ref 하드코딩 + cron 잡 정본의 분산
 
@@ -327,8 +327,9 @@
 **4. Realtime publication 등록을 잊기 쉽다**
 - 새 테이블은 `alter publication supabase_realtime add table public.<t>;`를 명시적으로 해야 한다(`0001_init.sql:34-35`, `0004_pinned_menus.sql:16`이 선례). 빠뜨리면 앱은 정상처럼 보이다가 **다른 탭에서만 반영이 안 되는** 재현 어려운 버그가 된다.
 
-**5. Edge Function 2개가 정적 검사 밖에서 스키마를 가정한다**
-- `spin-roulette`/`respin-roulette` 모두 `from("menus").select("id, name")` → `{ name }` 후보 배열 생성 → `results` 쓰기를 수행한다(`spin-roulette/index.ts:78-104`, `respin-roulette/index.ts:77-102`). 스키마를 바꾸면 이 코드는 **컴파일 에러 없이** 다음 11:55에 처음 터진다.
+**5. Edge Function 의 스키마 가정은 이제 컴파일 에러를 내지만, 임베드 형태는 그래도 못 잡는다**
+- 두 함수는 `candidates` → `restaurants` 조인으로 후보를 읽고 `results`에 매장명 스냅샷 + `restaurant_id`를 쓴다(Phase 4 재작성). 스키마를 바꾸면 `npm run check:edge`가 타입 에러를 준다 — "컴파일 에러 없이 다음 추첨에서 처음 터지는" 상태는 아니다.
+- **단 PostgREST 임베드가 배열로 오느냐 객체로 오느냐는 정적 검사가 못 잡는다.** 추론 타입은 배열이고 실제 응답은 객체라 `row.restaurants[0].name`은 타입 검사를 통과하고 런타임에 `undefined`를 준다. 두 함수 모두 `Array.isArray`로 접어 뒀지만 그게 옳은지는 **첫 실호출에서만** 드러난다 → `.planning/todos/pending/wr-01-cutover-window.md` 7번이 그 확인 항목이다.
 - 대응 순서: 앱 배포보다 **Edge Function 재배포를 먼저** 하고, `respin-roulette`를 수동 호출해 새 스키마 경로를 검증한 뒤 UI를 내보낸다(`spin-roulette`는 시간 가드 때문에 사전 검증이 불가능하므로 `respin` 경로로 대신 확인).
 
 **6. 검증 수단이 없다**

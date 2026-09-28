@@ -13,9 +13,9 @@
 - `lib/settings.ts` — `settings` 행 → 앱 도메인 변환 + Realtime 병합 리듀서(순수 — supabase·React·환경변수를 **값으로** 끌어오지 않는다. `lib/supabase/client.ts` 에서는 `import type` 만 가져오고, 값 import 는 `_shared/spinTime` 의 `DEFAULT_SPIN_TIME`·`parseSpinTime` 뿐이다). `lib/useSettings.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `settings-changes-<n>` 구독 — 토픽은 구독 인스턴스마다 유일해야 한다). 추첨 시각·쿨다운의 단일 출처.
 - `supabase/functions/_shared/` — Deno 함수와 클라이언트가 **같은 파일로** 공유하는 순수 로직(`kst.ts`·`spinTime.ts`·`cooldown.ts`). 그 **세 모듈**이 import 를 하나도 하지 않는 것이 계약이다 — 서로도 import 하지 않는다 (Deno 는 `.ts` 확장자를 요구하고 tsc 는 거부한다). 같은 디렉터리의 `*.test.ts` 는 예외다 (vitest 만 실행하므로 `./kst` 처럼 확장자 없이 가져온다).
 - `lib/constants.ts` — 환경변수 없이 import 되는 순수 상수(`MENU_NAME_MAX_LEN`). 테스트가 `lib/supabase/client.ts`(모듈 로드 시 `createClient`)를 끌어오지 않게 분리한 것. `lib/errors.ts` — 로드 에러 메시지 조립(순수). `components/ErrorBanner.tsx` — `role="alert"` 배너.
-- `supabase/functions/spin-roulette` — pg_cron이 11:55에 호출하는 추첨 함수 (시간 가드 + 멱등). `respin-roulette` — 클라이언트 "다시 돌리기" (가드 없음, upsert).
+- `supabase/functions/spin-roulette` — pg_cron이 **매분** 호출하는 추첨 함수. 추첨 시각은 `settings.spin_time` 을 읽어 판정하고(조회·파싱 실패는 기본 시각으로 폴백), 같은 날짜 결과 행이 있으면 멱등 종료한다. 후보는 `candidates` → `restaurants` 조인에서 읽고 `_shared/cooldown.ts` 로 거른 뒤 `results` 에 매장명 스냅샷 + `restaurant_id` 를 쓴다. `respin-roulette` — 클라이언트 "다시 돌리기". 시간 가드·멱등 조회가 없고 같은 조인·쿨다운 위에서 `upsert(onConflict: "date")` 로 덮어쓴다 (그래서 컷오버 전 사람이 직접 invoke 해 새 스키마 경로를 볼 수 있는 유일한 함수다). **두 함수 모두 아직 배포되지 않았다** — 라이브에는 구 코드(메뉴 기반)가 돌고 `candidates`·`restaurants`·`settings` 도 라이브에 없다 (배포·마이그레이션 적용은 Phase 8 컷오버).
 
-흐름: 클라이언트는 `menus`/`results`를 직접 SELECT/INSERT/DELETE(anon RLS) → Realtime `postgres_changes`로 동기화. 결과 확정은 **서버(pg_cron → Edge Function → results INSERT)** 만 한다. 클라이언트의 페이즈 계산은 표시용 추정이고, 실제 상태 전환은 results 행 존재 여부가 결정한다.
+흐름: 클라이언트는 `menus`/`results`를 직접 SELECT/INSERT/DELETE(anon RLS) → Realtime `postgres_changes`로 동기화 (오늘 탭의 후보 소스를 `candidates` 로 바꾸는 것은 Phase 6). 결과 확정은 **서버(pg_cron 매분 → Edge Function → `candidates`⋈`restaurants` 조회 → results 쓰기)** 만 한다. 클라이언트의 페이즈 계산은 표시용 추정이고, 실제 상태 전환은 results 행 존재 여부가 결정한다.
 
 ## 검증 명령
 
@@ -24,7 +24,10 @@ npx tsc --noEmit   # 타입
 npm run lint       # eslint (react-hooks 규칙 포함)
 npm test           # vitest run (워치 아님). 워치는 npm run test:watch
 npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌드 자체가 실패한다
+npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적 검사)
 ```
+
+`check:edge` 는 로컬에 설치된 `deno`(2.9.7, Homebrew `/opt/homebrew/bin/deno`)를 전제한다 — npm 의존성이 아니라 외부 도구라 `npm ci` 로 따라오지 않는다.
 
 테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**`·`supabase/migrations/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). `_shared/**`·`migrations/**` 는 각각 Phase 3·2 가 실제 파일을 채웠다 — 마이그레이션 spec 은 SQL 을 실행하지 않고 텍스트로 파싱해 계약을 검사한다. lint는 2026-09-18 기준 에러 0 (`components/Wheel.tsx`는 회전을 props에서 파생하도록 고쳐 `react-hooks/set-state-in-effect` 해결).
 
@@ -38,12 +41,15 @@ npm run build      # 프로덕션 빌드. NEXT_PUBLIC_SUPABASE_* 없으면 빌�
 - **공용 훅은 `lib/useX.ts`, `use` 접두** (`lib/useSettings.ts`). `lib/` 파일명이 소문자 명사인 관례(`time.ts`·`phase.ts`·`errors.ts`·`constants.ts`)의 유일한 예외다. 훅에는 I/O 만 두고 판단은 같은 이름의 순수 모듈(`lib/settings.ts`)로 내린다 — 레포에 React 렌더 하네스가 없어서 훅 안의 분기는 테스트되지 않는다.
 - 주석은 한글, Why만. 파일 머리에 역할·제약을 블록 주석으로.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql`, cron 등록은 "기존 잡 unschedule → 재등록" 패턴으로 재실행 가능하게.
-- Edge Function은 Deno + `jsr:` import. `tsconfig`·eslint 제외는 **함수 디렉터리 2개(`spin-roulette/**`·`respin-roulette/**`)뿐**이고 `_shared/**` 는 tsc·eslint·vitest 3중 검사를 받는다. 두 `index.ts` 본문은 여전히 사각지대 — `_shared/edgeImports.test.ts` 의 텍스트 계약 + 낭독으로만 검증되므로 수정 후 직접 확인.
+- Edge Function은 Deno + `jsr:` import. `tsconfig`·eslint 제외는 **함수 디렉터리 2개(`spin-roulette/**`·`respin-roulette/**`)뿐**이고 `_shared/**` 는 tsc·eslint·vitest 3중 검사를 받는다. 두 `index.ts` 본문은 `deno check`(`npm run check:edge`)가 **타입**을 검사하고(전이로 `_shared` 까지), `_shared/edgeImports.test.ts` 의 텍스트 계약 50건이 **형태**(조회 문자열·jsr 핀·폴백 키·헬퍼 이름)를 고정한다 — 둘은 서로를 대체하지 않는다. eslint 는 여전히 두 파일을 보지 않고, 남는 사각지대는 **동작**이다: 실호출은 컷오버 전 불가라 낭독 기록(`04-02`·`04-03-SUMMARY.md`)이 마지막 방어다.
+- **Edge Function 의 500·폴백 경로는 `console.error` 로 Supabase 로그에 남긴다** (무엇이 어떤 값으로 실패했는지까지. 현재 spin 7지점·respin 5지점). `app/`·`lib/` 에는 넣지 않는다 — 클라이언트는 배너가 채널이다(`actionError`/`loadError`). 로그·응답 본문에 `details`·`hint`·행 덤프를 싣지 않는다.
 
 ## 비표준 규약·함정
 
 - `design/`은 React CDN 프로토타입 + PNG. **빌드 대상 아님**, 시각 참조용. 인덱서 OOM 전례 때문에 tsconfig/eslint/vscode/Tailwind `@source` 네 군데에서 제외돼 있다. 제외를 풀지 말 것. 컴포넌트를 새로 포팅할 때만 열어본다.
 - `supabase/functions/` 는 **함수 디렉터리 2개만** 제외다 (Deno 전역·`jsr:` import 때문이고, OOM 근거는 `design/` 쪽이다). `_shared/` 는 제외하지 않는다 — 좁힌 제외를 다시 넓히지 말 것. Edge Function 배포 플래그는 `supabase/config.toml`의 `[functions.*] verify_jwt = false`에 고정돼 있다(63fae89) — 두 함수 모두 anon(pg_cron·publishable key) 호출이라 true로 배포되면 401로 추첨이 조용히 멈춘다. 재배포 시 CLI가 이 파일을 읽지만 `--no-verify-jwt`를 같이 주면 이중 안전.
+- `supabase/functions/deno.json`(한 키 `{"nodeModulesDir":"none"}`)·`supabase/functions/deno.lock` 은 로컬 `check:edge` 전용이다 — 배포는 API 측 번들링이라 둘 다 읽지 않는다. **함수 디렉터리 안(`spin-roulette/`·`respin-roulette/`)에 `deno.json`·`deno.jsonc`·`import_map.json` 을 두지 말 것** — 거기 두면 Supabase CLI가 배포 import map 으로 채택해 번들 입력이 바뀐다(계약 #48 이 부재를 고정). supabase-js 버전을 올릴 때는 두 `index.ts` 의 `jsr:@supabase/supabase-js@2.117.2` 핀과 lock 을 **함께** 갱신한다(lock 은 생성물 — 손으로 고치지 않고 재생성한다). 루트에 `deno.lock` 이 생기면 `.gitignore` 가 아니라 명령을 고친다.
+- 에디터에서 `supabase/functions/_shared/*.test.ts` 의 확장자 없는 import(`./spinTime`)가 "Cannot find module" 로 뜰 수 있다 — VS Code Deno 확장이 위 `deno.json` 을 보고 그 하위를 Deno 영역으로 켜는 것으로 **추정**한다. `npx tsc --noEmit`·`npm test` 는 exit 0 이라 게이트와 무관하고, `deno.json` 위치는 계약이라 옮기지 않는다.
 - 추첨 시각의 코드상 정의처는 `supabase/functions/_shared/spinTime.ts` 의 `DEFAULT_SPIN_TIME` **한 곳**이고, 런타임 값은 `settings.spin_time`(대시보드 편집)이 이긴다. 아직 남은 중복은 두 갈래다: 화면 하드코딩 문구 "11:55"(Phase 6 에서 `settings` 로 교체), `supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`와 `0005` 의 기본값(DB 쪽 기본값).
 - `kstNow()`·`kstParts()` 는 `supabase/functions/_shared/kst.ts` **한 곳**에 있다. Deno 는 `../_shared/kst.ts`(확장자 포함), 클라이언트는 `@/supabase/functions/_shared/kst`(확장자 없이)로 같은 파일을 본다. `lib/time.ts` 는 그 위의 얇은 재수출 + 포맷터다.
 - RLS는 의도적으로 열려 있다: 누구나 menus insert/delete 가능, results는 service_role만 쓰기. `respin-roulette`는 인증·레이트리밋 없음 — 익명 서비스 설계상 수용한 것.
