@@ -80,6 +80,32 @@ describe("formatRespinError", () => {
     ).toBe("worker boot error: failed to create the graph");
   });
 
+  it("앞뒤 공백을 떼고 싣는다 (접두와 문장 사이가 벌어지지 않게)", () => {
+    expect(formatRespinError("FB", { error: " x " })).toBe("x");
+  });
+
+  it("공백만 있는 문장은 빈 문자열과 같이 fallback 으로 떨어진다", () => {
+    // 이 케이스가 없으면 .trim() 분기가 사라져도 빈 문자열 케이스만으로 초록이 된다.
+    expect(formatRespinError("FB", { error: "   " })).toBe("FB");
+  });
+
+  it("긴 본문은 상한에서 잘라 말줄임표를 붙인다 (한 줄 배너가 화면을 덮지 않게)", () => {
+    // 200 은 lib/errors.ts 의 RESPIN_ERROR_MAX_LEN 과 같은 값이다. 여기 숫자를 박아 두는 것이
+    // 의도다 — 상한을 바꾸면 이 단언이 깨져서 "배너 한 줄" 이라는 전제를 다시 보게 된다.
+    const long = "가".repeat(250);
+    const formatted = formatRespinError("FB", { error: long });
+    expect([formatted.length, formatted.endsWith("…"), formatted.slice(0, 200)]).toEqual([
+      201,
+      true,
+      "가".repeat(200),
+    ]);
+  });
+
+  it("상한과 같은 길이는 자르지 않는다 (경계)", () => {
+    const exact = "나".repeat(200);
+    expect(formatRespinError("FB", { error: exact })).toBe(exact);
+  });
+
   it("두 키가 다 있으면 함수가 보낸 error 가 이긴다 (우선순위)", () => {
     expect(
       formatRespinError("Edge Function returned a non-2xx status code", {
