@@ -32,6 +32,9 @@
 - ✓ `lib/phase.ts` 추첨 시각 주입 + 4번째 상태 `stalled`(시각 경과·결과 없음 → UI 잠기지 않음, P1 클라이언트 반) + 소비처 9곳 `switch`+`never` — Phase 3 (SPIN-03)
 - ✓ `settings` 로딩: `lib/settings.ts` 순수 리듀서(기본값 11:55·쿨다운 0, 로드 실패 `error`·파싱 실패 `warning` 분리) + `lib/useSettings.ts` 훅(인스턴스별 채널 토픽) 세 페이지 배선 — Phase 3 (SETT-02·03)
 - ✓ tsc·eslint가 `_shared/` 포함(함수 디렉터리 2개만 제외), CLAUDE.md 7+1·CONVENTIONS.md 8줄 현행화 — Phase 3
+- ✓ `spin-roulette`·`respin-roulette` 를 `candidates`⋈`restaurants` 조인 + `settings.spin_time`/`cooldown_days` + `_shared/cooldown.ts` 위에서 재작성. 설정·쿨다운 조회 실패는 기본값 폴백 + `console.error` + 응답 boolean(`settings_fallback`·`cooldown_fallback`·`cooldown_skipped`), 후보 0개는 `no_candidates`(행 없음 → 다음 폴링 재시도), 경합은 `23505`, respin 은 POST 전용·`upsert(onConflict: date)` — Phase 4 (SPIN-01·02·04, SETT-04). **미배포**(Phase 8)
+- ✓ `npm run check:edge`(`deno check --config supabase/functions/deno.json`) 정적 게이트 + `jsr:@supabase/supabase-js@2.117.2` 핀 + `supabase/functions/deno.lock`. 텍스트 계약 58건(`edgeImports.test.ts`)이 형태를 고정 — Phase 4
+- ✓ `respin()` 이 `invoke()` 반환의 `response` 로 500 본문을 읽어 함수 문장을 배너에 표시(`lib/errors.ts` `formatRespinError`, `{error}`→`{message}`→fallback, 200자 상한). 페이즈 마감 시 234 tests / 10 files — Phase 4
 
 ### Active
 
@@ -43,11 +46,11 @@
 - [ ] 기록·랭킹은 매장 기준. 집계는 **전환일 이후** 결과만. 과거 60행은 보존
 
 **설정 테이블**
-- [ ] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정. 하드코딩 11:55(11곳/8파일) 전부 제거
-- [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백 — 순수 필터 `_shared/cooldown.ts`(창 = 오늘 제외 `[today−N, today−1]`) Phase 3 완료, Edge 배선은 Phase 4
+- [ ] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정 — cron 은 0005(Phase 2), 함수 판정은 Phase 4 완료. 남은 하드코딩 11:55 는 화면 문구 6곳(Phase 6)과 DB 기본값(0002·0005, 유지)
+- [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백 — 순수 필터 `_shared/cooldown.ts`(창 = 오늘 제외 `[today−N, today−1]`) Phase 3 완료, Edge 배선 Phase 4 완료(쿨다운 0이면 조회 생략). 실호출 확인은 Phase 8
 
 **품질·버그**
-- [ ] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정 — 클라이언트 반(`stalled`) Phase 3 완료, 서버 반(결과 없음 → 다음 폴링 추첨) Phase 4
+- [ ] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정 — 클라이언트 반(`stalled`) Phase 3 완료, 서버 반(`no_candidates` → 행 없음 → 다음 폴링 추첨) Phase 4 완료. `stalled` 화면의 다시 돌리기 버튼은 Phase 6
 - [ ] P2: 자정 `truncate`가 Realtime DELETE를 안 내서 열린 탭에 어제 후보 잔존 → `delete from`으로
 
 **문서·전환**
@@ -108,11 +111,16 @@
 | vitest 4.1.11 정확 고정, 5.x 보류 | Node 25.6.1·@types/node 20과 engines/peer 불일치 | ✓ Good |
 | `_shared` 모듈은 import 0개(type import 포함) | Deno는 상대 import에 `.ts` 확장자 요구, tsc(bundler)는 거부 — 서로 안 부르면 양쪽에서 컴파일. 게이트는 `edgeImports.test.ts` | ✓ Good (Phase 3, 실측) |
 | `Phase`에 `stalled` 추가, `hasResult`가 시각보다 우선 | 시각만으로 decided 판정하면 후보 0개일 때 UI가 잠김(P1). 결과 행 존재가 진실 | ✓ Good (Phase 3) |
-| 쿨다운 창 = 오늘 제외 `[today−N, today−1]`, 키는 `restaurant_id`(null 무시), 비면 전체 폴백 | 다시 돌리기가 오늘 당첨을 다시 뽑을 수 있음(현 동작 유지). 레거시 행은 매칭 불가 | — Pending (Phase 4 배선) |
+| 쿨다운 창 = 오늘 제외 `[today−N, today−1]`, 키는 `restaurant_id`(null 무시), 비면 전체 폴백 | 다시 돌리기가 오늘 당첨을 다시 뽑을 수 있음(현 동작 유지). 레거시 행은 매칭 불가 | ✓ Good (Phase 4 배선, `.gte/.lt` 창 계약 고정) |
 | settings 상태 `error`(로드 실패)·`warning`(spin_time 파싱 실패) 분리 | 파싱 경고를 "불러오기 실패" 접두로 내보내면 거짓 문장. 배너는 완성 문장 그대로 | ✓ Good (Phase 3 리뷰 W-10) |
 | Realtime 채널 토픽은 구독 인스턴스마다 고유(`settings-changes-<n>`) | realtime-js가 토픽으로 dedup + leave는 서버 ack까지 지연 → 라우트 전환 시 새 구독이 옛 인스턴스에 붙어 조용히 죽음 | ✓ Good (Phase 3 리뷰 WR-01, 소스 추적) |
 | 컷오버 전 개발 중 "설정 불러오기 실패" 배너 상시 표시 = 정상 | 라이브에 `settings` 없음(PGRST205). 기본값으로 동작하며 에러는 삼키지 않음 | ✓ Good (Phase 3) |
 | 워크트리 격리 끔(순차 실행) | node_modules·.env.local이 워크트리에 없어 build/tsc 불가, 이중 npm install 메모리 위험 | ✓ Good |
+| `check:edge` = `deno check --config supabase/functions/deno.json`(`nodeModulesDir: none`), 함수 디렉터리 안 `deno.json` 금지 | 루트 `package.json` 때문에 기본 실행은 BYONM 으로 `npm:openai` 타입 미해결. 함수 디렉터리 안 설정은 CLI 2.117.0 이 배포 import map 으로 채택. 상위 경로는 배포가 읽지 않음(소스 확인) | ✓ Good (Phase 4, 계약 #48) |
+| PostgREST many-to-one 임베드는 `unknown` 정규화 헬퍼로 접는다(`as`·`any` 0) | 런타임은 객체인데 제네릭 없는 추론 타입은 배열 → `deno check` 통과·런타임 `undefined`. 정적 검사가 못 잡는 자리라 계약 #47 + Phase 8 수동 invoke 로 이중 방어 | ✓ Good (Phase 4, 실행 프로브 9케이스) |
+| `settings`·쿨다운 조회 실패는 기본값으로 **진행** + `console.error` + 응답 boolean | Core Value("매일 하나 확정") > 설정 존중. 0행은 기본값이지 에러 아님. 클라이언트 SETT-03 과 대칭 | ✓ Good (Phase 4, 사용자 D2) |
+| `jsr:@supabase/supabase-js@2.117.2` 소스 핀 + `supabase/functions/deno.lock` 커밋(생성물, 손편집 금지) | 배포는 API 측 번들링이라 lock 을 읽지 않음 → 소스 핀만이 배포 버전을 고정. lock 은 로컬 `check:edge` 재현성. 미참조 명세자는 `deno` 가 지우지 않아 재생성으로 정리 | ✓ Good (Phase 4, 사용자 D4) |
+| respin 은 POST 전용(405), 던져진 예외도 `json()` 500 으로 착지 | 리뷰 실측: GET/HEAD(링크 미리보기)로 오늘 결과 덮어쓰기 가능, 예외는 CORS 없이 나가 배너가 사유를 못 읽음 | ✓ Good (Phase 4 리뷰 WR-01·IN-08) |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
 ## Evolution
@@ -133,4 +141,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-21 after Phase 3 (순수 로직) completion*
+*Last updated: 2026-09-28 after Phase 4 (서버 추첨) completion*
