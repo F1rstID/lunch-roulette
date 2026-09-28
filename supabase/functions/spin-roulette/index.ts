@@ -23,6 +23,10 @@ import { applyCooldown, cooldownWindowStart } from "../_shared/cooldown.ts";
 // lib/ 를 import 하지 못한다) 필요한 최소 구조만 여기 다시 선언한다. 한쪽이 늘면 양쪽을 함께 고친다.
 type Candidate = { restaurant_id: string; name: string };
 
+// 설정은 단일행이다 — 이 값을 정한 것은 0005 마이그레이션의 check (id = 1) 이고, 코드 쪽에는
+// 출처 없는 맨 숫자만 남아 있었다. 이름을 붙여 둬야 "왜 하필 1인가" 를 다시 묻지 않는다.
+const SETTINGS_ROW_ID = 1;
+
 // 조회 결과를 추론 타입으로 소비하지 않고 unknown 으로 받아 런타임에 좁힌다.
 // 정적 추론은 매장 임베드를 배열이라고 주장하는데 실제 응답은 객체다 — 어느 쪽이 와도 같은 결과가
 // 나오도록 한 줄로 접는다. 추론을 믿는 코드는 타입 검사를 통과하면서 매일 빈 값을 기록한다.
@@ -86,7 +90,7 @@ Deno.serve(async () => {
     const { data: settingsRow, error: settingsErr } = await supabase
       .from("settings")
       .select("spin_time, cooldown_days")
-      .eq("id", 1)
+      .eq("id", SETTINGS_ROW_ID)
       .maybeSingle();
 
     if (settingsErr) {
