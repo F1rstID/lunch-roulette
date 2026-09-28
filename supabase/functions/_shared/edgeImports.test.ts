@@ -264,6 +264,12 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     ]).toEqual([1, 1, 1]);
   });
 
+  it("조인에서 떨어진 후보 수를 두 응답이 함께 싣는다 (#50)", () => {
+    // 후보 없음 응답 1 + 성공 응답 1 = 2. 후보 없음 쪽이 빠지면 "테이블이 비었다" 와
+    // "조인이 깨져 전부 떨어졌다" 가 응답에서 같아져 호출자가 둘을 구분할 수 없다.
+    expect(count(spin, /excluded_count/g)).toBe(2);
+  });
+
   it("모든 반환이 응답 헬퍼를 지난다 (#34)", () => {
     // 맨 응답 생성이 헬퍼 한 곳뿐이어야 헤더 규약이 한 자리에서 끝난다.
     expect([count(spin, /new Response\(/g), count(spin, /function json\(/g)]).toEqual([1, 1]);
@@ -323,6 +329,11 @@ describe("EDGE/SPIN-04 — respin-roulette 가 같은 조회 위에서 덮어쓴
       count(respin, /cooldown_fallback/g),
       count(respin, /cooldown_skipped/g),
     ]).toEqual([1, 1, 1]);
+  });
+
+  it("조인에서 떨어진 후보 수를 두 응답이 함께 싣는다 (#51)", () => {
+    // #50 과 같은 근거. 이쪽은 응답이 곧 사용자 배너라 구분 실패가 화면까지 올라온다.
+    expect(count(respin, /excluded_count/g)).toBe(2);
   });
 
   it("맨 응답 생성은 프리플라이트 단락과 헬퍼 두 곳뿐이다 (#45)", () => {

@@ -42,7 +42,7 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 - 주석은 한글, Why만. 파일 머리에 역할·제약을 블록 주석으로.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql`, cron 등록은 "기존 잡 unschedule → 재등록" 패턴으로 재실행 가능하게.
 - Edge Function은 Deno + `jsr:` import. `tsconfig`·eslint 제외는 **함수 디렉터리 2개(`spin-roulette/**`·`respin-roulette/**`)뿐**이고 `_shared/**` 는 tsc·eslint·vitest 3중 검사를 받는다. 두 `index.ts` 본문은 `deno check`(`npm run check:edge`)가 **타입**을 검사하고(전이로 `_shared` 까지), `_shared/edgeImports.test.ts` 의 텍스트 계약 50건이 **형태**(조회 문자열·jsr 핀·폴백 키·헬퍼 이름)를 고정한다 — 둘은 서로를 대체하지 않는다. eslint 는 여전히 두 파일을 보지 않고, 남는 사각지대는 **동작**이다: 실호출은 컷오버 전 불가라 낭독 기록(`04-02`·`04-03-SUMMARY.md`)이 마지막 방어다.
-- **Edge Function 의 500·폴백 경로는 `console.error` 로 Supabase 로그에 남긴다** (무엇이 어떤 값으로 실패했는지까지. 현재 spin 7지점·respin 5지점). `app/`·`lib/` 에는 넣지 않는다 — 클라이언트는 배너가 채널이다(`actionError`/`loadError`). 로그·응답 본문에 `details`·`hint`·행 덤프를 싣지 않는다.
+- **Edge Function 의 500·폴백 경로는 `console.error` 로 Supabase 로그에 남긴다** (무엇이 어떤 값으로 실패했는지까지. 현재 spin 7지점·respin 5지점). `app/`·`lib/` 에는 넣지 않는다 — 클라이언트는 배너가 채널이다(`actionError`/`loadError`). 로그·응답 본문에 `details`·`hint`·행 덤프를 싣지 않는다. 조인 형태 불일치로 버린 후보 수는 로그뿐 아니라 응답 `excluded_count`(두 함수의 `no_candidates`·`ok` 양쪽)로도 싣는다 — 그래야 "후보가 없다" 와 "조인이 깨졌다" 가 응답만으로 구분된다.
 
 ## 비표준 규약·함정
 

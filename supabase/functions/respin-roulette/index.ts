@@ -40,21 +40,36 @@ type Candidate = { restaurant_id: string; name: string };
 // "후보는 있는데 매장이 없는" 상태가 DB 에 존재할 수 없다. 응답 형태가 예상과 다를 때 후보 전부를
 // 잃지 않으려고 남긴 장치이므로 도달 불가 코드로 보고 지우지 말 것.
 // 형제 함수와 이름·시그니처·본문이 같다 — 두 파일을 나란히 놓고 차이를 세는 것이 리뷰 수단이다.
-function normalizeCandidates(rows: unknown): { picked: Candidate[]; skipped: number } {
-  if (!Array.isArray(rows)) return { picked: [], skipped: 0 };
+// 반환 필드가 excluded 인 이유: 응답의 skipped 는 "건너뛴 사유" 라는 다른 뜻이라, 같은 이름을
+// 쓰면 한 화면 안에서 숫자와 사유 문자열이 같은 낱말로 불린다.
+function normalizeCandidates(
+  rows: unknown,
+): { picked: Candidate[]; excluded: number; excludedIds: string[] } {
+  // 배열이 아닌 응답은 "후보 0행" 이 아니라 "형태 불일치 1건" 이다. 0 을 돌려주면 호출부의 로그가
+  // 켜지지 않아, 형태 방어가 실제로 작동한 사실이 로그에도 응답에도 남지 않는다.
+  if (!Array.isArray(rows)) {
+    return { picked: [], excluded: 1, excludedIds: [`<비배열:${rows === null ? "null" : typeof rows}>`] };
+  }
   const list: unknown[] = rows;
   const picked: Candidate[] = [];
-  let skipped = 0;
-  for (const row of list) {
-    if (typeof row !== "object" || row === null) { skipped++; continue; }
-    if (!("restaurant_id" in row) || !("restaurants" in row)) { skipped++; continue; }
+  const excludedIds: string[] = [];
+  for (let index = 0; index < list.length; index++) {
+    const row: unknown = list[index];
+    // 제외 목록에는 건수가 아니라 "어느 매장" 을 싣는다 — 조인이 깨졌을 때 후보 화면과 대조할
+    // 좌표가 된다. id 조차 읽을 수 없는 행은 담은 순서의 인덱스로 부른다.
+    const id: unknown = typeof row === "object" && row !== null && "restaurant_id" in row
+      ? row.restaurant_id
+      : null;
+    const label = typeof id === "string" ? id : `#${index}`;
+    if (typeof row !== "object" || row === null) { excludedIds.push(label); continue; }
+    if (!("restaurant_id" in row) || !("restaurants" in row)) { excludedIds.push(label); continue; }
     const embed: unknown = row.restaurants;
     const one: unknown = Array.isArray(embed) ? embed[0] : embed;
-    if (typeof one !== "object" || one === null || !("name" in one)) { skipped++; continue; }
-    if (typeof row.restaurant_id !== "string" || typeof one.name !== "string") { skipped++; continue; }
+    if (typeof one !== "object" || one === null || !("name" in one)) { excludedIds.push(label); continue; }
+    if (typeof row.restaurant_id !== "string" || typeof one.name !== "string") { excludedIds.push(label); continue; }
     picked.push({ restaurant_id: row.restaurant_id, name: one.name }); // 담은 순서를 유지한다
   }
-  return { picked, skipped };
+  return { picked, excluded: excludedIds.length, excludedIds };
 }
 
 const corsHeaders = {
@@ -127,13 +142,19 @@ Deno.serve(async (req) => {
     return json({ error: candErr.message }, 500);
   }
 
-  const { picked: candidates, skipped } = normalizeCandidates(rows);
-  if (skipped > 0) console.error(`후보 ${skipped}건을 매장 조인 형태 불일치로 제외했다`);
+  const { picked: candidates, excluded, excludedIds } = normalizeCandidates(rows);
+  if (excluded > 0) {
+    console.error(`후보 ${excluded}건을 매장 조인 형태 불일치로 제외했다: ${excludedIds.join(", ")}`);
+  }
 
   // 후보가 없으면 결과 행을 건드리지 않는다. 이 검사가 쿨다운보다 앞이라야 아래의 난수 선택이
   // 빈 배열을 받는 경로가 구조적으로 생기지 않는다.
   // 이 문자열은 클라이언트가 "후보가 없어요" 로 번역한다 — 바꾸면 화면 문구가 코드값으로 새어 나온다.
-  if (candidates.length === 0) return json({ skipped: "no_candidates", date: now.date });
+  // 제외 건수를 함께 싣는다 — 이게 없으면 "후보 테이블이 비었다" 와 "조인이 깨져 전부 떨어졌다" 가
+  // 응답에서 바이트 단위로 같아져, 화면에 후보가 보이는데도 배너만 "후보가 없어요" 로 끝난다.
+  if (candidates.length === 0) {
+    return json({ skipped: "no_candidates", date: now.date, excluded_count: excluded });
+  }
 
   let pool = candidates;
   const windowStart = cooldownWindowStart(now.date, cooldownDays);
@@ -191,6 +212,7 @@ Deno.serve(async (req) => {
     restaurant_id: winner.restaurant_id,
     candidate_count: candidates.length, // 쿨다운 적용 전
     picked_count: pool.length, // 쿨다운 적용 후
+    excluded_count: excluded, // 조인 형태 불일치로 버린 행. 폴백 플래그와 같은 독법 — 0 이 정상
     cooldown_fallback: cooldownFallback,
     cooldown_skipped: cooldownSkipped,
     settings_fallback: settingsFallback,
