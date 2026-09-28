@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 executing — 04-02 complete, 04-03 next
-last_updated: "2026-09-28T07:14:33.218Z"
-last_activity: 2026-09-28 -- 04-02 완료 (spin-roulette 재작성, 계약 #23~#34 GREEN)
+stopped_at: Phase 4 executing — 04-03 complete, 04-04 next
+last_updated: "2026-09-28T07:26:58.443Z"
+last_activity: 2026-09-28 -- 04-03 완료 (respin-roulette 재작성 + 500 본문 표면화, 계약 #35~#47 GREEN)
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 38
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 ## Current Position
 
 Phase: 04 (server-spin) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Executing Phase 04
-Last activity: 2026-09-28 -- 04-02 완료 (spin-roulette 재작성, 계약 #23~#34 GREEN)
+Last activity: 2026-09-28 -- 04-03 완료 (respin-roulette 재작성 + 500 본문 표면화, 계약 #35~#47 GREEN)
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 86%
 | Phase 03 P03 | 10min | 4 tasks | 7 files |
 | Phase 04 P01 | 4min | 3 tasks | 6 files |
 | Phase 04 P02 | 6min | 2 tasks | 3 files |
+| Phase 04 P03 | 11min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,9 @@ Progress: [█████████░] 86%
 - [Phase 4]: 04-02 — 임베드를 접을 때 row.restaurants[0] 대신 지역 변수 embed 를 거친다 — 인수 조건의 restaurants[0] 0건과 RESEARCH Pattern 1 을 동시에 만족한다
 - [Phase 4]: 04-02 — normalizeCandidates 내부를 unknown[] 로 한 번 더 좁힌다 — Array.isArray 가 unknown 을 any[] 로 넓혀 이후 좁히기가 무효가 되는 것을 막는다
 - [Phase 4]: 04-02 — 23505 레이스 경로에는 서버 로그를 남기지 않는다 — 실패가 아니라 설계된 정상 경로라 진짜 실패와 섞이면 관측성이 떨어진다
+- [Phase 4]: 04-03 — respin 의 설정 폴백 플래그는 조회 실패에서만 오른다 — 시간 가드가 없어 추첨 시각 값을 읽되 파싱하지 않는다(형제 함수는 파싱 실패에서도 오른다)
+- [Phase 4]: 04-03 — jsr 핀을 바꿔도 deno.lock 이 갱신되지 않았다 — deno check 는 명세자를 추가만 하고 쓰이지 않게 된 항목을 지우지 않는다. 생성물이라 손으로 고치지 않았다
+- [Phase 4]: 04-03 — 배너 에러 판정을 페이지가 아니라 lib/errors.ts 순수 모듈에 뒀다 — invoke 반환의 Response 로 본문을 한 번 읽고 형태 판정은 순수 함수가 끝낸다(FunctionsHttpError 값 import 0 · any 0)
 
 ### Pending Todos
 
@@ -134,6 +138,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:14:19.376Z
-Stopped at: Phase 4 executing — 04-02 complete, 04-03 next
+Last session: 2026-09-28T07:26:47.387Z
+Stopped at: Phase 4 executing — 04-03 complete, 04-04 next
 Resume file: None

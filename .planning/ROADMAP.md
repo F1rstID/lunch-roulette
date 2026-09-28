@@ -84,7 +84,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans (4 waves)
 - [x] 04-01-PLAN.md — `npm run check:edge` 정적 게이트(`deno.json`·`deno.lock`) + `ResultRow.candidates` 확장 + 계약 26건 RED (wave 1)
 - [x] 04-02-PLAN.md — `spin-roulette` 재작성: `candidates`⋈`restaurants`·`settings`·쿨다운·`json()`·콘솔 에러 (wave 2)
-- [ ] 04-03-PLAN.md — `respin-roulette` 재작성 + `formatRespinError` + `respin()` 500 본문 표면화 (wave 3)
+- [x] 04-03-PLAN.md — `respin-roulette` 재작성 + `formatRespinError` + `respin()` 500 본문 표면화 (wave 3)
 - [ ] 04-04-PLAN.md — D-17 문서 정정·컷오버 체크리스트 7번 추가 + 페이즈 게이트 5종 (wave 4)
 
 ### Phase 5: 매장 탭
@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. 안전망 | 4/4 | Complete    | 2026-09-18 |
 | 2. 데이터 모델 | 3/3 | Complete    | 2026-09-21 |
 | 3. 순수 로직 | 3/3 | Complete    | 2026-09-21 |
-| 4. 서버 추첨 | 2/4 | In Progress | - |
+| 4. 서버 추첨 | 3/4 | In Progress | - |
 | 5. 매장 탭 | 0/TBD | Not started | - |
 | 6. 오늘 탭 | 0/TBD | Not started | - |
 | 7. 기록·랭킹 | 0/TBD | Not started | - |
