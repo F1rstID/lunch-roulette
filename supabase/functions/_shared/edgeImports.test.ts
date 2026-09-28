@@ -44,12 +44,16 @@ const rawSpinTime = readOrEmpty(new URL("./spinTime.ts", import.meta.url));
 const rawCooldown = readOrEmpty(new URL("./cooldown.ts", import.meta.url));
 const rawSpin = readOrEmpty(new URL("../spin-roulette/index.ts", import.meta.url));
 const rawRespin = readOrEmpty(new URL("../respin-roulette/index.ts", import.meta.url));
+// 함수가 아닌 파일을 하나 더 읽는다. 후보 없음 코드값은 Deno 와 Next 경계를 맨 리터럴로 건너가
+// 한 상수로 묶을 수 없으므로, 양쪽에 같은 문자열이 있다는 사실만 여기서 고정한다(#56).
+const rawPage = readOrEmpty(new URL("../../../app/page.tsx", import.meta.url));
 
 const kst = stripComments(rawKst, "//");
 const spinTime = stripComments(rawSpinTime, "//");
 const cooldown = stripComments(rawCooldown, "//");
 const spin = stripComments(rawSpin, "//");
 const respin = stripComments(rawRespin, "//");
+const page = stripComments(rawPage, "//");
 
 // ^ 만 쓰면 들여쓴 import 를 놓친다(0005 spec:118 의 교훈). \s* 를 넣어 줄 맨 앞 공백을 흡수한다.
 const IMPORT_LINE = /^\s*import\s/gm;
@@ -250,9 +254,27 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     ]).toEqual([true, true]);
   });
 
-  it("실패·폴백 경로가 서버 로그를 남긴다 (#32)", () => {
-    // 재작성이 넣을 지점은 일곱 곳이라 하한을 다섯으로 둔다 — 로그를 한두 줄 옮겨도 게이트가 깨지지 않게.
-    expect(count(spin, /console\.error\(/g)).toBeGreaterThan(4);
+  it("실패·폴백 경로마다 서버 로그가 정확히 하나다 (#32)", () => {
+    // 하한이 아니라 정확 개수인 이유: 하한은 "옮기는 것" 과 "지우는 것" 을 구분하지 못해
+    // 규약("실패·폴백 경로마다 1건")을 실제로는 지키지 못한다. 숫자의 근거를 여기 적어 둔다 —
+    // 설정 조회 실패 1 + 추첨 시각 파싱 실패 1 + 오늘 결과 조회 실패 1 + 후보 조회 실패 1 +
+    // 조인 제외 1 + 쿨다운 창 조회 실패 1 + 기록 실패 1 + 처리되지 않은 예외 1 = 8.
+    expect(count(spin, /console\.error\(/g)).toBe(8);
+  });
+
+  it("쿨다운 창은 시작일부터 어제까지다 — 오늘은 뺀다 (#52)", () => {
+    // 이 세 개수가 창의 유일한 배선이다. 상계를 lt 에서 lte 로 한 글자만 바꾸면 오늘 당첨 매장이
+    // 영원히 제외돼 "다시 돌리기" 가 같은 매장을 다시 뽑을 수 없게 되는데, 타입도 낭독도 그걸 못 잡는다.
+    expect([
+      count(spin, /\.gte\("date"/g),
+      count(spin, /\.lt\("date"/g),
+      count(spin, /\.lte\("date"/g),
+    ]).toEqual([1, 1, 0]);
+  });
+
+  it("후보 없음 응답 문자열이 클라이언트 번역 키와 같다 (#53)", () => {
+    // 이 문자열은 화면 문구로 번역되는 코드값이다. 오타 하나면 배너에 코드값이 그대로 새어 나온다.
+    expect(count(spin, /skipped: "no_candidates"/g)).toBe(1);
   });
 
   it("폴백 플래그 세 키가 응답에 상시 실린다 (#33)", () => {
@@ -318,9 +340,25 @@ describe("EDGE/SPIN-04 — respin-roulette 가 같은 조회 위에서 덮어쓴
     expect([count(respin, /parseSpinTime\(/g), count(respin, /DEFAULT_SPIN_TIME\b/g)]).toEqual([0, 0]);
   });
 
-  it("실패·폴백 경로가 서버 로그를 남긴다 (#43)", () => {
-    // 재작성이 넣을 지점은 다섯 곳이라 하한을 넷으로 둔다.
-    expect(count(respin, /console\.error\(/g)).toBeGreaterThan(3);
+  it("실패·폴백 경로마다 서버 로그가 정확히 하나다 (#43)", () => {
+    // #32 와 같은 이유로 정확 개수다. 근거 — 설정 조회 실패 1 + 후보 조회 실패 1 + 조인 제외 1 +
+    // 쿨다운 창 조회 실패 1 + 덮어쓰기 실패 1 + 처리되지 않은 예외 1 = 6.
+    // 형제보다 둘 적은 것이 정상이다: 이 함수에는 시각 판정도 멱등 조회도 없다.
+    expect(count(respin, /console\.error\(/g)).toBe(6);
+  });
+
+  it("쿨다운 창은 시작일부터 어제까지다 — 오늘은 뺀다 (#54)", () => {
+    // 형제(#52)보다 이쪽이 더 아프다. 상계가 lte 가 되면 오늘 당첨 매장이 후보에서 빠져
+    // "다시 돌리기" 가 후보 2개일 때 항상 나머지 하나만 내놓는다.
+    expect([
+      count(respin, /\.gte\("date"/g),
+      count(respin, /\.lt\("date"/g),
+      count(respin, /\.lte\("date"/g),
+    ]).toEqual([1, 1, 0]);
+  });
+
+  it("후보 없음 응답 문자열이 클라이언트 번역 키와 같다 (#55)", () => {
+    expect(count(respin, /skipped: "no_candidates"/g)).toBe(1);
   });
 
   it("폴백 플래그 세 키가 응답에 상시 실린다 (#44)", () => {
@@ -348,7 +386,14 @@ describe("EDGE/SPIN-04 — respin-roulette 가 같은 조회 위에서 덮어쓴
   });
 });
 
-describe("EDGE/QUAL — 두 파일의 대칭과 설정 파일의 위치", () => {
+describe("EDGE/QUAL — 두 파일의 대칭·설정 파일의 위치·클라이언트 경계", () => {
+  it("후보 없음 코드값이 함수와 페이지 양쪽에 하나씩 있다 (#56)", () => {
+    // #53·#55 의 짝이자 이 파일에서 유일하게 함수 밖을 보는 단언이다. 이 리터럴은 함수가 보내고
+    // 페이지가 "후보가 없어요" 로 번역한다 — 한쪽 오타는 번역을 건너뛰어 배너에 코드값을 띄운다.
+    // 페이지가 사라지거나 옮겨지면 읽기 실패가 빈 문자열로 흡수되므로 길이도 함께 본다.
+    expect([rawPage.length > 0, count(page, /"no_candidates"/g)]).toEqual([true, 1]);
+  });
+
   it("후보 정규화 헬퍼 이름이 두 파일에서 같다 (#47)", () => {
     // 이름이 같아야 Phase 8 낭독에서 두 파일을 diff 로 나란히 비교할 수 있다.
     expect([
