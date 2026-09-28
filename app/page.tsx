@@ -15,8 +15,11 @@ import { Wheel, type WheelPhase } from "@/components/Wheel";
 import { MenuList } from "@/components/MenuList";
 import { ResultBlock } from "@/components/ResultBlock";
 
-// respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다)
-type RespinResponse = { ok?: boolean; skipped?: string; error?: string };
+// respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다).
+// error 키는 일부러 없다: 함수의 { error } 본문은 non-2xx 에서만 오고 그때 data 는 null 이라
+// 이 타입으로 도달하지 않는다. 그 본문은 response.json() 으로 읽어 formatRespinError 가
+// unknown 으로 받는다. 여기 error 를 두면 "2xx 에도 error 가 올 수 있다" 는 거짓말이 된다.
+type RespinResponse = { ok?: boolean; skipped?: string };
 
 export default function TodayPage() {
   const [now, setNow] = useState(() => new Date());
