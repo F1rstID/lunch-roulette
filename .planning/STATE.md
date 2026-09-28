@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 planned (4 plans, 4 waves) — ready to execute 04-01
-last_updated: "2026-09-28T02:30:57.791Z"
-last_activity: 2026-09-28 -- Phase 4 planning complete
+stopped_at: Phase 4 executing — 04-01 complete, 04-02 next
+last_updated: "2026-09-28T07:03:17.695Z"
+last_activity: 2026-09-28 -- 04-01 완료 (check:edge 게이트 + 계약 RED 22건)
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 11
   percent: 38
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 4 — 서버 추첨
+**Current focus:** Phase 04 — server-spin
 
 ## Current Position
 
-Phase: 4
-Plan: 04-01 next (4 plans, 4 sequential waves)
-Status: Ready to execute
-Last activity: 2026-09-28 -- Phase 4 planning complete
+Phase: 04 (server-spin) — EXECUTING
+Plan: 2 of 4
+Status: Executing Phase 04
+Last activity: 2026-09-28 -- 04-01 완료 (check:edge 게이트 + 계약 RED 22건)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [██████████] 100%
 | Phase 03 P01 | 10min | 4 tasks | 11 files |
 | Phase 03 P02 | 8min | 3 tasks | 11 files |
 | Phase 03 P03 | 10min | 4 tasks | 7 files |
+| Phase 04 P01 | 4min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Progress: [██████████] 100%
 - [Phase 3]: settings 상태를 error(로드 실패)와 warning(spin_time 파싱 경고) 두 필드로 갈랐다 — 한 필드에 몰면 로드가 성공했는데 경고가 formatLoadError 의 '설정 불러오기 실패:' 접두를 달고 나와 거짓말이 된다
 - [Phase 3]: 판단을 훅이 아니라 리듀서에 모았다 — 레포는 environment: node 단일 구성이라 렌더 하네스가 없고, 훅에 남는 분기는 영원히 테스트되지 않는다. useSettings 는 SELECT 1회 + 구독 1개 + cleanup 만 갖는다
 - [Phase 3]: 게이트용 토큰(maybeSingle)을 주석 문안에서 뺐다 — 인수 조건이 파일 전체 grep 으로 호출 1건을 세는데 주석이 자기 자신을 세면 게이트가 무력화된다 (Phase 3 의 기존 결정 재적용)
+- [Phase 4]: deno 설정 파일을 supabase/functions/deno.json 한 단계 위에 둔다 — 함수 디렉터리 안에 두면 Supabase CLI 가 배포 import map 으로 채택해 번들 입력이 바뀐다. 계약 #48 이 existsSync 7원소로 배치를 고정한다
+- [Phase 4]: deno.lock 은 커밋하되 --frozen 을 스크립트에 넣지 않는다 — lock 갱신이 필요한 상황에서 diff 를 내며 실패한다. 드리프트 감지기는 git status 이고, 루트에 lock 이 생기면 .gitignore 가 아니라 명령을 고친다
+- [Phase 4]: 04-01 은 RED 전용이라 feat(04-01) 커밋이 없다 — 타입 확장은 동작 변경이 아니라 chore 로 커밋했다. GREEN 은 feat(04-02)(적색 12건)·feat(04-03)(10건, #47 포함)이 닫는다
 
 ### Pending Todos
 
@@ -126,6 +130,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-21T05:08:32.092Z
-Stopped at: 03-03 완료: settings 리듀서 + useSettings 훅 + 세 페이지 배선, D-16 문서 정정 (10파일 179건)
+Last session: 2026-09-28T07:03:17.688Z
+Stopped at: Phase 4 executing — 04-01 complete, 04-02 next
 Resume file: None

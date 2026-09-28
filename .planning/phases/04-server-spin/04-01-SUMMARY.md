@@ -253,6 +253,10 @@ None - no external service configuration required.
 
 **블로커:** 없음.
 
+## Self-Check: PASSED
+
+파일 7개(`supabase/functions/deno.json`·`deno.lock`·`package.json`·`lib/supabase/client.ts`·`_shared/edgeImports.test.ts`·`_shared/spinTime.test.ts`·이 SUMMARY) 전부 디스크에 존재. 커밋 4개(`6ba60ad`·`61186fb`·`a39265b`·`7373120`) 전부 `git log` 에서 확인. 누락 0건.
+
 ---
 *Phase: 04-server-spin*
 *Plan: 01*
