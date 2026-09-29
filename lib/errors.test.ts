@@ -5,7 +5,7 @@
 // 비객체 본문(문자열·숫자)은 두 번째 케이스와 같은 분기(객체가 아니면 fallback)라 별도 it 을 만들지 않는다.
 
 import { describe, it, expect } from "vitest";
-import { formatLoadError, formatRespinError, joinLoadErrors } from "@/lib/errors";
+import { formatLoadError, formatRespinError, formatRestaurantWriteError, joinLoadErrors } from "@/lib/errors";
 
 describe("formatLoadError", () => {
   it("에러가 없으면 null 을 준다 (배너 미렌더 신호)", () => {
@@ -113,5 +113,40 @@ describe("formatRespinError", () => {
         message: "Invalid JWT",
       }),
     ).toBe("후보가 없어요");
+  });
+});
+
+// 매장 쓰기는 익명 누구나 하는 조작이라 실패도 익명 사용자가 읽는다. PostgREST 원문은 제약 이름과 SQL 조각을
+// 그대로 실어 오므로, 사용자가 손쓸 수 있는 두 코드(중복 이름·입력 규칙)만 한국어로 갈아끼운다.
+// 코드가 없는 실패(네트워크·게이트웨이)는 원문을 살려야 원인을 알 수 있어 접두만 붙인다.
+describe("formatRestaurantWriteError", () => {
+  it("중복 이름(23505)은 제약 이름 대신 사용자 언어로 번역된다", () => {
+    expect(
+      formatRestaurantWriteError("등록", "김밥천국", {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "restaurants_name_key"',
+      }),
+    ).toBe("이미 등록된 매장이에요: 김밥천국");
+  });
+
+  it("입력 규칙 위반(23514)은 어떤 상한들인지까지 알려 준다", () => {
+    expect(
+      formatRestaurantWriteError("등록", "김밥천국", {
+        code: "23514",
+        message: 'new row for relation "restaurants" violates check constraint "restaurants_name_check"',
+      }),
+    ).toBe("입력 규칙에 맞지 않아요(김밥천국): 이름 1~24자, 메뉴 30개·24자, 위치 200자");
+  });
+
+  it("코드가 없는 실패는 한글 접두 + 대상 이름 + 원문으로 조립된다", () => {
+    expect(formatRestaurantWriteError("수정", "김밥천국", { message: "permission denied" })).toBe(
+      '매장 "김밥천국" 수정 실패: permission denied',
+    );
+  });
+
+  it("공백뿐인 원문은 알 수 없는 오류로 대체된다 (접두만 남은 배너를 막는다)", () => {
+    expect(formatRestaurantWriteError("삭제", "김밥천국", { message: "   " })).toBe(
+      '매장 "김밥천국" 삭제 실패: 알 수 없는 오류',
+    );
   });
 });
