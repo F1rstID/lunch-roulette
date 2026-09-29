@@ -15,10 +15,11 @@
 - Files:
   - 로직: `lib/phase.ts:14-16` (`SPIN_HH`/`SPIN_MM`/`SPIN_ANIM_SEC`), `supabase/functions/spin-roulette/index.ts:12-13`
   - 스케줄: `supabase/migrations/0002_cron.sql:20` (`'55 2 * * *'` UTC)
-  - UI: `app/page.tsx:340`, `app/page.tsx:341`, `app/layout.tsx:6`, `components/PhaseTimeline.tsx:9-10`, `components/MenuList.tsx:71`, `components/MenuList.tsx:160`, `components/Wheel.tsx:258`, `components/ResultBlock.tsx:13` (`spinTime = "11:55"` 기본값)
-  - 문서: `README.md:3,8,53,55`, `CLAUDE.md:5,13,42`
+  - UI(감사 시점): `app/page.tsx`의 `phaseSubhead` 2곳, `app/layout.tsx:6`, `components/PhaseTimeline.tsx:9-10`, 구 `MenuList` 2곳, `components/Wheel.tsx:258`, `components/ResultBlock.tsx:13`(prop 기본값)
+  - 문서: `README.md:3,8,53,55`, `CLAUDE.md`
 - Impact: 시각을 바꾸면 일부만 고쳐질 확률이 매우 높다. UI 문구와 실제 동작이 어긋나도 타입체크·lint·빌드 어디에도 걸리지 않고, 사용자만 혼란을 겪는다. cron만 빠뜨리면 추첨 자체가 엉뚱한 시간에 돈다.
 - Fix approach: `lib/spinTime.ts`(가칭)에 `SPIN_HH`/`SPIN_MM`/`SPIN_LABEL`("11:55")을 한 번만 정의하고 `lib/phase.ts`·모든 UI가 `SPIN_LABEL`을 import 하게 바꾼다. `components/ResultBlock.tsx`의 `spinTime` prop 기본값도 이 상수로 교체. Deno 쪽(`spin-roulette`)은 파일 공유가 안 되므로 상수 위치를 주석으로 상호 참조하고, cron 표현식은 `0002_cron.sql` 주석에 "KST HH:MM = UTC HH:MM" 계산식을 남긴 현재 방식을 유지한다.
+- **해소 (Resolved, Phase 6 / SPIN-06, 2026-09-29):** 값 정의처는 `supabase/functions/_shared/spinTime.ts`의 `DEFAULT_SPIN_TIME` 한 곳이 됐고(Deno·클라이언트가 같은 파일을 본다), 런타임 값은 `settings.spin_time`이 이긴다. 화면 문구는 `lib/time.ts`의 `formatSpinTime`·`addMinutesToSpinTime`가 조립해 **prop 으로만** 내려가고 기본값이 없다. 수용 기준 grep — `grep -rn '11:55' app components lib --include='*.ts' --include='*.tsx' | grep -v '//' | grep -vF '.test.ts'` → **0줄**. 남은 리터럴은 근거 주석·테스트 기대값·`_shared/spinTime.ts`의 기본 상수·DB 쪽 기본값(`0002_cron.sql`의 `'55 2 * * *'`, `0005`의 `spin_time`)뿐이고, 마지막 갈래는 의도적으로 남긴다(DB 기본값은 앱이 못 읽을 때의 착지점이다).
 
 ### [P2] Edge Function 간 유틸 복붙 (`kstNow`, `pickRandom`)
 
@@ -31,8 +32,9 @@
 
 - Issue: 클라이언트 상수 1곳 + DB check 제약 2곳이 같은 숫자를 각각 들고 있다. `lib/supabase/client.ts:12` 주석이 "여기서만 정의한다"고 선언하지만 실제로는 DB가 진짜 정본이다.
 - Files: `lib/supabase/client.ts:13`, `supabase/migrations/0001_init.sql:4` (`menus.name`), `supabase/migrations/0004_pinned_menus.sql:5` (`pinned_menus.name`)
-- Impact: DB 제약만 늘리면 클라이언트가 계속 잘라 보내고(`app/page.tsx:149`, `components/MenuList.tsx:35`), 클라이언트만 늘리면 insert가 23514로 실패한다. 후자는 `actionError`로 노출되지만 메시지가 raw Postgres 에러다.
+- Impact: DB 제약만 늘리면 클라이언트가 계속 잘라 보내고(`lib/menus.ts`의 절단), 클라이언트만 늘리면 insert가 23514로 실패한다. 후자는 `actionError`로 노출되지만 메시지가 raw Postgres 에러다.
 - Fix approach: 값 변경 시 3곳을 한 커밋에 묶는다. 식당 카탈로그 전환 때 이름 길이가 24자를 넘을 가능성이 크므로 그 마이그레이션에서 함께 재검토.
+- **부분 해소 (Phase 1·5·6):** 클라이언트 정의처가 `lib/constants.ts:9`의 `MENU_NAME_MAX_LEN` 한 곳으로 모였고 `lib/restaurants.ts`의 `parseRestaurantForm`이 23514 를 사람 말로 번역한다. 구 `menus`·`pinned_menus` 쪽 check 두 곳은 컷오버(Phase 8)에서 테이블과 함께 사라지고, 그 뒤에는 `0005`의 `restaurants.name`·`restaurants.menus` 원소 제약 2곳과 상수 1곳이 남는다 — **여전히 수동 동기화**다.
 
 ### [P2] `ResultRow.candidates` jsonb 스키마가 5개 지점에 암묵 가정으로 퍼져 있다
 
@@ -50,7 +52,7 @@
   | `CLAUDE.md:41` "config.toml 없음 — `--no-verify-jwt` 잊지 말 것" | `supabase/config.toml` 존재, 두 함수 모두 `verify_jwt = false` 고정 |
   | `CLAUDE.md:55` "`app/log`, `app/rank`는 INSERT만 구독" | 양쪽 모두 UPDATE 구독 추가됨 (`app/log/page.tsx:63-70`, `app/rank/page.tsx:48-54`) |
   | `CLAUDE.md:59` "클라이언트 쓰기 에러를 확인하지 않는다" | `actionError` state로 전부 노출 (`app/page.tsx:32,147-209,236-248`) |
-  | `CLAUDE.md:42` "11:55은 네 곳" | 실제 11곳 (위 [P1] 참조) |
+  | `CLAUDE.md` "11:55은 네 곳" | 감사 시점 실제 11곳. Phase 6 이후 화면 갈래가 0곳이 되고 `CLAUDE.md`도 그에 맞춰 갱신됐다 (위 [P1] 해소 줄 참조) |
   | `README.md:51` "테이블: `menus`, `results`" | `pinned_menus` 누락 (`supabase/migrations/0004_pinned_menus.sql`) |
   | `README.md:54` "`reset-menus` → `menus` truncate" | truncate **+ `pinned_menus` 재시드** 로 변경됨 (`0004_pinned_menus.sql:28-36`) |
   | `README.md:55` Edge Function 1개만 기술 | `respin-roulette` 누락 (CORS 처리·시간 가드 없음이라는 중요 사실 포함) |
@@ -79,10 +81,11 @@
 ### [P1] 후보 0개로 11:55을 넘기면 하루 종일 복구 불가
 
 - Symptoms: 결과가 확정되지 않았는데 UI는 `decided`로 넘어간다. 메뉴 입력창이 비활성(`readOnly`)이 되고, "다시 돌리기" 버튼은 `todayResult`가 있어야만 렌더되므로 나타나지 않는다. 화면에는 "오늘의 점심"이라는 빈 헤드라인과 빈 서브헤드만 남는다(`app/page.tsx:335,344`). 자정 재시드 전까지 어떤 조작으로도 복구되지 않는다.
-- Files: `supabase/functions/spin-roulette/index.ts:90-95` (`skipped: "no_candidates"` 반환, results 행 미생성), `lib/phase.ts:18-26` (시각만으로 `decided` 판정), `components/MenuList.tsx:46` (`readOnly = phase !== "accepting"`), `app/page.tsx:262` (respin 버튼 조건 `resolvedPhase === "decided" && todayResult`)
+- Files: `supabase/functions/spin-roulette/index.ts` (`skipped: "no_candidates"` 반환, results 행 미생성), `lib/phase.ts` (시각만으로 `decided` 판정), 구 `MenuList` (`readOnly = phase !== "accepting"`), `app/page.tsx` (respin 버튼 조건)
 - Trigger: 11:55 이전에 아무도 메뉴를 추가하지 않았거나(고정 메뉴도 0개), 누군가 11:55 직전에 전부 삭제했을 때. RLS가 열려 있어 삭제는 누구나 가능하다([보안] 참조).
 - Workaround: 없음. 운영자가 직접 `results`에 행을 넣거나, `respin-roulette`를 curl로 호출해야 한다(후보가 없으면 이것도 `no_candidates`로 스킵되므로 먼저 메뉴를 넣어야 한다).
 - Fix approach: (a) `todayResult == null && phase !== "accepting"` 상태를 별도 `stalled` 페이즈로 인식해 입력창을 계속 열어두고, (b) 그 상태에서 "지금 돌리기" 버튼으로 `respin-roulette`를 호출할 수 있게 한다. `respin-roulette`는 시간 가드가 없으므로 그대로 재사용 가능하다.
+- **해소 (Resolved, Phase 3·4·6 / SPIN-03, 2026-09-29):** (a) 는 `lib/phase.ts`의 `stalled` + `isCandidateListLocked("stalled") === false` 로 들어갔고 `components/CandidateList.tsx`의 토글이 그 구간에서 살아 있다. (b) 는 **두지 않기로 했다**(D-19) — pg_cron 이 추첨 시각 이후 **매분** `spin-roulette` 를 부르므로 후보를 담으면 1분 안에 서버가 뽑는다. 수동 버튼은 같은 일을 하는 두 번째 경로를 여는 비용만 남는다. `ResultBlock`의 `stalled` 문구가 그 사실을 사람 말로 알린다.
 
 ### [P2] 자정 `truncate`가 실시간으로 전파되지 않아 열린 탭이 유령 메뉴를 보여준다
 
@@ -95,26 +98,29 @@
 ### [P2] `menus.name`에 unique 제약이 없어 동시 추가 시 중복 행이 생긴다
 
 - Symptoms: 같은 메뉴가 휠에 두 조각으로 나타나 당첨 확률이 2배가 되고, 목록에도 두 줄로 보인다. 핀 아이콘은 이름 기준(`pinnedNames.has(m.name)`)이라 두 행이 함께 켜지는데 삭제는 id 기준이라 한 줄만 사라진다.
-- Files: `supabase/migrations/0001_init.sql:2-6` (unique 없음), `components/MenuList.tsx:31-41` (`parseMenuInput` 중복 제거는 **클라이언트가 현재 로드한 목록** 기준일 뿐), `components/MenuList.tsx:140-141`, `app/page.tsx:127-130` (`winnerIndex`)
+- Files: `supabase/migrations/0001_init.sql:2-6` (unique 없음), `lib/menus.ts:20` (`parseMenuInput` 중복 제거는 **클라이언트가 현재 로드한 목록** 기준일 뿐), 구 `MenuList`의 핀 상태 판정, `app/page.tsx`의 `winnerIndex`
 - Trigger: 두 사용자가 거의 동시에 같은 이름을 추가. 또는 한 사용자의 탭이 Realtime 이벤트를 받기 전에 다른 탭에서 추가.
 - Workaround: 중복된 한 줄을 수동 삭제.
 - Fix approach: `create unique index on public.menus (name);` 추가 후, 클라이언트 insert 실패(23505)를 "이미 있는 메뉴"로 번역해 조용히 무시한다. 식당 카탈로그 전환 시 자연스럽게 해결되는 항목이므로 그 마이그레이션에 포함시키는 편이 낫다.
+- **해소 (Resolved, Phase 2·5·6, 2026-09-29):** 예상대로 카탈로그 전환이 닫았다. 오늘 후보는 `candidates.restaurant_id` 가 **PK** 라 같은 매장이 두 번 담기지 못하고, 동시 담기의 `23505` 는 `formatCandidateWriteError` 가 `null` 로 번역해 화면에 실패로 뜨지 않는다(원하던 상태가 이미 됐다). 휠 조각이 두 개로 갈리는 경로 자체가 사라졌다. 구 `menus` 테이블의 unique 부재는 컷오버(Phase 8)에서 테이블과 함께 없어진다.
 
 ### [P3] `winnerIndex`가 이름 매칭이라 당첨 메뉴가 삭제되면 휠 하이라이트가 사라진다
 
 - Symptoms: `menus.findIndex((m) => m.name === todayResult.menu)`가 -1이 되어 휠이 정지 각도 0으로 돌아가고 당첨 라벨 박스가 렌더되지 않는다. 결과 텍스트(`ResultBlock`)는 남으므로 화면이 서로 모순된 상태가 된다.
 - Files: `app/page.tsx:127-130`, `components/Wheel.tsx:50-63`, `components/Wheel.tsx:167`
-- Trigger: 확정 후에는 UI에서 삭제 버튼이 숨겨지지만(`components/MenuList.tsx:143`) 다른 탭·다른 사용자·직접 API 호출로는 여전히 삭제 가능하다(RLS 개방). 중복 이름이면 첫 번째 행이 당첨으로 표시돼 실제 당첨 조각과 다를 수 있다.
+- Trigger: 확정 후에는 UI에서 삭제 버튼이 숨겨지지만 다른 탭·다른 사용자·직접 API 호출로는 여전히 삭제 가능하다(RLS 개방). 중복 이름이면 첫 번째 행이 당첨으로 표시돼 실제 당첨 조각과 다를 수 있다.
 - Workaround: 없음(표시 문제).
 - Fix approach: `results`에 당첨 메뉴 id를 함께 저장하고 id로 매칭한다. 식당 카탈로그 전환 시 필수로 함께 처리할 항목.
+- **해소 (Resolved, Phase 2·4·6, 2026-09-29):** `results.restaurant_id`(0005:66-69)가 생겼고 `lib/candidates.ts`의 `findWinnerIndex`가 **그 식별자로만** 찾는다(이름 폴백 없음 — 동명 매장 오인이 구조적으로 불가능하다). 매장이 지워지면 `on delete set null` 로 -1 이 되어 하이라이트만 사라지고 이름 스냅샷은 남는데, **그것이 의도한 화면**이다(CATL-03). 같은 UPDATE 가 휠을 재회전시키던 파생 문제는 `isNewSpin` 가드가 막는다.
 
 ### [P3] 고정(핀)만 남고 메뉴를 삭제하면 당일 핀 해제 경로가 사라진다
 
 - Symptoms: `pinned_menus`에는 이름이 남아 있는데 `menus`에 해당 행이 없으면 핀 버튼이 렌더되지 않아 해제할 방법이 없다. 다음 날 자정 재시드로 다시 등장한 뒤에야 해제 가능.
-- Files: `components/MenuList.tsx:139-142` (핀 버튼은 `items`(=menus) 행에만 붙는다), `app/page.tsx:174-189`
+- Files: 구 `MenuList` (핀 버튼은 오늘 목록 행에만 붙었다), `app/page.tsx`의 구 핀 토글
 - Trigger: 고정된 메뉴를 오늘 목록에서 삭제.
 - Workaround: 같은 이름을 다시 추가한 뒤 핀 해제.
 - Fix approach: 목록 하단에 "고정 목록" 섹션을 따로 두고 `pinnedNames` 전체를 노출한다.
+- **해소 (Resolved, Phase 5·6, 2026-09-29):** 핀이 오늘 목록이 아니라 **카탈로그 행의 속성**(`restaurants.pinned`)이 됐고 토글은 매장 탭 한 곳에만 있다. 카탈로그는 자정에 지워지지 않는 영구 테이블이라 "오늘 목록에서 빠져서 해제할 수 없는" 상태가 성립하지 않는다. 오늘 후보에서 빼도 📌 는 매장 탭에 그대로 남는다.
 
 ### [P3] 동시 핀 토글이 raw Postgres 에러로 노출된다
 
@@ -163,11 +169,11 @@
 ### [P2] 1초 tick × Intl.DateTimeFormat 매회 신규 생성
 
 - Problem: 3개 페이지 모두 1초마다 `setNow(new Date())`로 전체 트리를 리렌더한다. 그 리렌더마다 `lib/time.ts`의 헬퍼가 **매 호출 새 `Intl.DateTimeFormat` 인스턴스를 만든다**(`lib/time.ts:6-7`은 팩토리 함수이지 캐시가 아니다, `lib/time.ts:39-49`도 인라인 생성).
-- Files: `lib/time.ts:6-7,39-49`, `app/page.tsx:19-25` (`todayKstDate`+`currentPhase`+`formatHhMmSs`+`formatKstLongDay` = 초당 최소 4개 생성), `components/MenuList.tsx:136` (`formatHhMm(new Date(m.created_at))` — 메뉴 N개면 초당 N개 추가 생성), `app/log/page.tsx:12-19`, `app/rank/page.tsx:12-18`
+- Files: `lib/time.ts:6-7,39-49`, `app/page.tsx:19-25` (`todayKstDate`+`currentPhase`+`formatHhMmSs`+`formatKstLongDay` = 초당 최소 4개 생성), 구 `MenuList` (`formatHhMm(new Date(...))` — 메뉴 N개면 초당 N개 추가 생성), `app/log/page.tsx:12-19`, `app/rank/page.tsx:12-18`
 - Cause: `Intl.DateTimeFormat` 생성은 포맷 실행보다 수십 배 비싸다. 메뉴 20개 기준 초당 25개 내외의 포맷터가 생성·폐기되며, 여기에 `Wheel`의 SVG(슬라이스 N개 + 눈금 N개 + 라벨 N그룹)가 `React.memo` 없이 매초 전체 재조정된다.
 - Improvement path:
   1. `lib/time.ts`의 포맷터를 모듈 레벨 상수로 캐시한다(옵션 조합이 4종뿐이라 단순 상수화로 충분). 가장 비용 대비 효과가 크다.
-  2. `components/MenuList.tsx:136`의 시간 문자열을 `useMemo`로 `items` 의존으로만 계산한다.
+  2. 행마다 시간 문자열을 만들던 자리는 Phase 6 이 없앴다 — 오늘 후보 행은 담은 시각을 표시하지 않고 순서로 대신한다(D-13). 행당 `new Date()` N개가 사라졌다.
   3. `Wheel`을 `React.memo`로 감싸고, `app/page.tsx`가 넘기는 props가 초당 변하지 않게 유지한다(현재 `items`/`phase`/`winnerIndex`는 이미 안정적).
   4. 근본적으로는 `lib/phase.ts:29-38`의 미사용 `msToNextPhase`를 써서 "다음 전환까지 한 번만 타이머"로 바꾸되, 시계 표시(`clockTime`)는 별도 컴포넌트로 분리해 1초 리렌더 범위를 좁힌다.
 
@@ -292,7 +298,7 @@
 **즉시 단위 테스트가 가능한(=I/O 없는 순수 함수) 미검증 로직 — 우선순위 High:**
 | 대상 | 파일 | 왜 위험한가 |
 |---|---|---|
-| `parseMenuInput` | `components/MenuList.tsx:31-41` | 전각/반각 쉼표, 24자 절단, 중복 제거 분기. 주석이 "테스트 가능"이라 적어 놨지만 테스트가 없다 |
+| `parseMenuInput` | `lib/menus.ts:20` | 전각/반각 쉼표, 24자 절단, 중복 제거 분기. **회귀 spec 13건이 붙었다**(`lib/menus.test.ts`, Phase 1) |
 | `currentPhase` | `lib/phase.ts:18-26` | 페이즈 경계(11:54:59 / 11:55:00 / 11:55:05)가 전체 UI 동작을 가른다 |
 | `kstParts` / `todayKstDate` | `lib/time.ts:10-65` | 24시→0시 보정(`lib/time.ts:60`), 날짜 경계, 비 KST 브라우저 동작 |
 | `buildRanking` | `components/RankingView.tsx:13-26` | 동점 처리·share 계산. 전환 후 집계 기준이 바뀌면 여기가 먼저 깨진다 |
@@ -317,7 +323,7 @@
 - 대응: 전환 전에 `select date, menu from results order by date;` 전체를 덤프해 육안 검토 → 매핑 테이블을 **수작업으로 확정** → 매핑 불가 행은 `restaurant_id = null` + `legacy_name` 보존으로 남긴다. `results` 컬럼을 파괴적으로 바꾸지 말고 **추가 컬럼 + 백필** 방식을 쓴다.
 
 **2. 이름 기준 조인이 코드 6곳에 박혀 있다**
-- `app/page.tsx:129` (`winnerIndex`), `components/RankingView.tsx:14-22` (`tally` 키), `components/CalendarLog.tsx:60` (월간 최다 메뉴), `components/CalendarLog.tsx:251` (후보 목록), `components/MenuList.tsx:140-141` (핀 상태), `app/page.tsx:174-189` (핀 토글 키).
+- `components/RankingView.tsx:14-22` (`tally` 키), `components/CalendarLog.tsx:60` (월간 최다 메뉴), `components/CalendarLog.tsx:251` (후보 목록). **오늘 탭 쪽은 Phase 6 이 닫았다** — `winnerIndex` 는 `restaurant_id` 매칭이고 핀은 카탈로그 행의 속성이라 이름을 키로 쓰지 않는다. 남은 두 컴포넌트(기록·랭킹)는 **Phase 7 소관**이고, 그때까지 legacy 행(이름만 있는)과 신규 행(id 있는)을 함께 다뤄야 한다.
 - 전부 id 기준으로 바뀌어야 하고, 그중 `RankingView`·`CalendarLog`는 **legacy 행(이름만 있는)과 신규 행(id 있는)을 동시에** 다뤄야 한다. 분기 처리를 빠뜨리면 랭킹이 두 갈래로 쪼개져 보인다(같은 식당이 "김치찌개"와 `#42`로 따로 집계).
 
 **3. `pinned_menus`의 PK가 `name`이다**

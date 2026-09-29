@@ -11,26 +11,26 @@
 **Files:**
 - 컴포넌트 파일은 PascalCase, **파일명 = export 하는 컴포넌트명**: `components/Wheel.tsx` → `Wheel`, `components/CalendarLog.tsx` → `CalendarLog`. 예외 없음(7개 파일 전부).
 - `lib/` 모듈은 소문자 단수 명사: `lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`, `lib/settings.ts`, `lib/supabase/client.ts`.
-- **예외 1종: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅), `lib/useRestaurants.ts`(Phase 5). 같은 도메인의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
+- **예외 1종: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅), `lib/useRestaurants.ts`(Phase 5), `lib/useCandidates.ts`(Phase 6). 같은 도메인의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`·`lib/candidates.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
 - 페이지는 App Router 규약대로 `app/page.tsx`, `app/restaurants/page.tsx`, `app/log/page.tsx`, `app/rank/page.tsx`.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql` (4자리 zero-pad + snake_case 영문 설명): `0001_init.sql`, `0002_cron.sql`, `0003_reseed_menus.sql`, `0004_pinned_menus.sql`.
 - Edge Function은 kebab-case 디렉터리 + `index.ts`: `supabase/functions/spin-roulette/index.ts`, `supabase/functions/respin-roulette/index.ts`.
 
 **Functions:**
 - camelCase. 컴포넌트만 PascalCase.
-- 순수 헬퍼는 동사 접두어로 의도를 드러낸다: `buildMonthGrid`(`components/CalendarLog.tsx:17`), `buildRanking`(`components/RankingView.tsx:13`), `parseMenuInput`(`components/MenuList.tsx:31`), `spinJitter`/`arcPath`/`polar`(`components/Wheel.tsx:25,30,35`).
+- 순수 헬퍼는 동사 접두어로 의도를 드러낸다: `buildMonthGrid`(`components/CalendarLog.tsx:17`), `buildRanking`(`components/RankingView.tsx:13`), `parseMenuInput`(`lib/menus.ts:20`), `spinJitter`/`arcPath`/`polar`(`components/Wheel.tsx:25,30,35`).
 - 포맷터는 `format~` 접두어: `formatHhMm`, `formatHhMmSs`, `formatKstLongDay` (`lib/time.ts`).
 - 로컬 축약 헬퍼 허용: `pad2`, `fmtDate` (`components/CalendarLog.tsx:10,13`).
 
 **Variables:**
-- camelCase. 모듈 스코프 상수는 SCREAMING_SNAKE_CASE: `SPIN_ANIM_SEC`(`lib/phase.ts:18`), `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`(`supabase/functions/_shared/spinTime.ts:9-11` — 추첨 시각의 코드상 정의처), `DEFAULT_SETTINGS`/`INITIAL_SETTINGS_STATE`(`lib/settings.ts:28,42`), `SPIN_TURNS`/`SPIN_MS`/`SPIN_EASING`(`components/Wheel.tsx:19-21`), `MENU_NAME_MAX_LEN`/`RESTAURANT_MENUS_MAX`/`RESTAURANT_LOCATION_MAX_LEN`(`lib/constants.ts` — Phase 1 이 `lib/supabase/client.ts` 에서 옮겼다), `INPUT_MAX_LEN`(`components/MenuList.tsx:32`), `MENUS_INPUT_MAX_LEN`/`MENU_CHIP_LIMIT`(`components/RestaurantList.tsx:23,27`), `SLICE_COLORS`(`lib/colors.ts:2`), `KST_TZ`(`lib/time.ts:4`), `WEEKDAYS`/`STEPS`.
-- ref는 `~Ref` 접미어: `initialLoadedRef`(`app/page.tsx:35`), `inputRef`(`components/MenuList.tsx:45`).
+- camelCase. 모듈 스코프 상수는 SCREAMING_SNAKE_CASE: `SPIN_ANIM_SEC`(`lib/phase.ts:18`), `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`(`supabase/functions/_shared/spinTime.ts:9-11` — 추첨 시각의 코드상 정의처), `DEFAULT_SETTINGS`/`INITIAL_SETTINGS_STATE`(`lib/settings.ts:28,42`), `SPIN_TURNS`/`SPIN_MS`/`SPIN_EASING`(`components/Wheel.tsx:19-21`), `MENU_NAME_MAX_LEN`/`RESTAURANT_MENUS_MAX`/`RESTAURANT_LOCATION_MAX_LEN`(`lib/constants.ts` — Phase 1 이 `lib/supabase/client.ts` 에서 옮겼다), `MENU_CHIP_LIMIT`(`components/MenuChips.tsx:13`), `ROW_MENU_PREVIEW`(`components/CandidateList.tsx:25`), `RESULT_STEP_OFFSET_MIN`(`components/PhaseTimeline.tsx:14`), `SLICE_COLORS`(`lib/colors.ts:2`), `KST_TZ`(`lib/time.ts:4`), `WEEKDAYS`/`STEPS`.
+- ref는 `~Ref` 접미어: `initialLoadedRef`(`app/page.tsx:53`), `todayResultRef`(`app/page.tsx:57` — state 거울), `nameRef`(`components/RestaurantList.tsx:188`).
 - DB 컬럼에서 온 값은 snake_case를 그대로 쓴다(변환하지 않음): `created_at`, `spun_at`, `candidate_count`.
 
 **Types:**
 - **`interface`를 쓰지 않는다.** 전부 `type` alias다(레포 전체 `interface` 0건).
 - DB 행 타입은 `~Row` 접미어: `MenuRow`, `ResultRow`, `PinnedMenuRow` (`lib/supabase/client.ts:15,21,30`).
-- 컴포넌트 props 타입은 파일 내부에서 `type Props = {...}` 로 고정 명명하고 export 하지 않는다(`components/MenuList.tsx:10`, `components/TopBar.tsx:9`, `components/Wheel.tsx:11`, `components/PhaseTimeline.tsx:6`, `components/ResultBlock.tsx:6`, `components/CalendarLog.tsx:43`).
+- 컴포넌트 props 타입은 파일 내부에서 `type Props = {...}` 로 고정 명명하고 export 하지 않는다(`components/CandidateList.tsx:32`, `components/TopBar.tsx:9`, `components/Wheel.tsx:11`, `components/PhaseTimeline.tsx:9`, `components/ResultBlock.tsx:8`, `components/CalendarLog.tsx:43`). 단, props 가 한두 개뿐인 표시 조각은 시그니처에 인라인으로 적는다(`components/MenuChips.tsx:15`, `components/LocationLink.tsx:14`).
 - props가 1~2개로 단순하면 타입 선언 없이 인라인으로 쓴다: `export function RankingView({ results }: { results: ResultRow[] })` (`components/RankingView.tsx:28`).
 - 상태 유니온은 리터럴 유니온 타입: `Phase = "accepting" | "spinning" | "decided" | "stalled"`(`lib/phase.ts:16`), `WheelPhase = "idle" | "spinning" | "decided"`(`components/Wheel.tsx:7`), `Tab = "today" | "restaurants" | "log" | "rank"`(`components/TopBar.tsx:7` — 나열 순서가 탭 표시 순서다).
 
@@ -74,7 +74,7 @@
 - `isolatedModules: true`라 타입은 반드시 `type` 키워드로 표시한다.
 - 값과 타입을 함께 가져올 땐 인라인 modifier: `import { supabase, MENU_NAME_MAX_LEN, type MenuRow, type ResultRow } from "@/lib/supabase/client"` (`app/page.tsx:5`).
 - 타입만 가져오면 `import type { ... }` (`components/ResultBlock.tsx:3-4`).
-- `React.ReactNode`·`React.FormEvent`가 필요한 파일만 `import * as React from "react"`를 추가한다(`components/MenuList.tsx:3`, `components/CalendarLog.tsx:3`, `components/Wheel.tsx:3`).
+- `React.ReactNode`·`React.FormEvent`가 필요한 파일만 `import * as React from "react"`를 추가한다(`components/RestaurantList.tsx:13`, `components/CalendarLog.tsx:3`, `components/Wheel.tsx:3`).
 
 ## Styling
 
@@ -94,11 +94,11 @@
   ```tsx
   style={{ ...s.input, background: readOnly ? "var(--bg-soft)" : "white" }}
   ```
-  (`components/MenuList.tsx:88-92`, `components/TopBar.tsx:76-80`, `components/PhaseTimeline.tsx:25-34`)
+  (`components/CandidateList.tsx:206-213`, `components/TopBar.tsx:76-80`, `components/PhaseTimeline.tsx:37-46`)
 - **색·폰트·반경·그림자는 `app/globals.css`의 CSS 변수 토큰만 쓴다:** `--bg`, `--bg-soft`, `--panel`, `--ink`, `--ink-soft`, `--muted`, `--line`, `--line-soft`, `--accent`, `--accent-ink`, `--accent-soft`, `--green`, `--red`, `--radius`, `--radius-lg`, `--shadow-sm`, `--shadow-md`, `--font-sans`, `--font-mono`. 토큰 정의는 `app/globals.css:13-30`.
 - 토큰으로 표현 못 하는 일회성 색은 `oklch(...)` 리터럴을 직접 쓴다(`components/Wheel.tsx`의 SVG 스트로크들). 프로젝트 전체가 hex가 아니라 **oklch 색 공간**을 쓴다.
 - 전역 클래스는 `app/globals.css`에 정의된 소수만 쓴다: `.wrap`(앱 셸), `.card`, `.mono`, `.micro`, `.divider`, `.dot`(+ `.live`/`.spin`/`.done`). `className={`dot ${phaseInfo.dot}`}` 형태로 조합(`components/TopBar.tsx:49`).
-- 애니메이션은 `app/globals.css`의 `@keyframes`(`fade-up`, `pop-in`, `pulse`, `wheel-spin-final`, `wheel-idle-drift`)를 inline `animation` 속성에서 참조: `animation: "fade-up .2s ease-out both"` (`components/MenuList.tsx:262`).
+- 애니메이션은 `app/globals.css`의 `@keyframes`(`fade-up`, `pop-in`, `pulse`, `wheel-spin-final`, `wheel-idle-drift`)를 inline `animation` 속성에서 참조: `animation: "fade-up .2s ease-out both"` (`components/CandidateList.tsx:287`).
 - Tailwind 유틸리티는 `app/layout.tsx:13`의 `className="min-h-screen flex flex-col"` 한 줄에서만 쓴다. 새 코드는 inline style을 따른다.
 
 ## Component Conventions
@@ -110,13 +110,13 @@
 
 **Export:**
 - 페이지는 `export default function XxxPage()` (App Router 요구).
-- 컴포넌트는 **named export**: `export function MenuList(...)`.
+- 컴포넌트는 **named export**: `export function CandidateList(...)`.
 - barrel 파일(`index.ts` 재export) 없음. 항상 실제 모듈 경로로 import 한다.
 
 **파일 내부 배치 순서:**
 1. `"use client"` → imports
-2. 모듈 상수 (`const INPUT_MAX_LEN = 120;`)
-3. 순수 헬퍼 함수 (`parseMenuInput`, `buildMonthGrid`, `polar`, `arcPath`)
+2. 모듈 상수 (`const MENU_CHIP_LIMIT = 4;`)
+3. 순수 헬퍼 함수 (`buildMonthGrid`, `polar`, `arcPath`)
 4. `type Props`
 5. export 하는 메인 컴포넌트
 6. 파일 전용 하위 컴포넌트 (`PinButton`, `TabLink`, `PodiumCard`, `RankRow`, `DetailView`, `DetailRow`, `StageHeader`, `Footer`, `Pointer`)
@@ -127,11 +127,11 @@
 
 **콜백 prop 이름:**
 - **경계를 넘는(export 된) 컴포넌트의 콜백 prop은 `~Action` 접미어를 붙인다.** Next.js 클라이언트 경계 직렬화 lint를 통과시키기 위한 규약이다. `onX`로 지으면 lint가 잡는다.
-  - `onAddAction`, `onRemoveAction`, `onTogglePinAction` (`components/MenuList.tsx:15-21`)
+  - `onAddAction`, `onRemoveAction` (`components/CandidateList.tsx:42-43`), `onTogglePinAction` (`components/RestaurantList.tsx:40`)
   - `onChangeMonthAction` (`components/CalendarLog.tsx:48`)
   - `onSpinCompleteAction` (`components/Wheel.tsx:15`) — 현재 참조 0건(미사용)
-- **예외: 파일 내부 전용 컴포넌트는 그냥 `onX`를 쓴다.** 경계를 넘지 않으므로 lint 대상이 아니다 — `PinButton`의 `onToggle`(`components/MenuList.tsx:167`).
-- 콜백 타입은 동기/비동기 양쪽을 허용하게 선언한다: `(names: string[]) => boolean | Promise<boolean>`, `(id: string, name: string) => void | Promise<void>`.
+- **예외: 파일 내부 전용 컴포넌트는 그냥 `onX`를 쓴다.** 경계를 넘지 않으므로 lint 대상이 아니다 — `CandidateRowView`의 `onToggle`(`components/CandidateList.tsx:167`), `PinButton`의 `onToggle`(`components/RestaurantList.tsx`).
+- 경계를 넘는 쓰기 콜백은 `Promise<boolean>` 으로 통일한다: `(id: string, name: string) => Promise<boolean>`. 호출부가 성공 여부로 입력을 비울지·진행 표시를 풀지 정한다.
 
 **메모이제이션:**
 - 4개 페이지 전부 1초 `setInterval`로 `now`를 갱신해 리렌더한다(`app/page.tsx:27`, `app/restaurants/page.tsx:18`, `app/log/page.tsx:17`, `app/rank/page.tsx:17`). **매초 전체 리렌더가 일어나므로 비싼 파생 계산은 `useMemo`로 감싼다** — `winnerIndex`(`app/page.tsx:152`), `logMap`(`app/log/page.tsx:93`), `buildRanking`(`components/RankingView.tsx:29`), `sortRestaurants`(`app/restaurants/page.tsx`).
@@ -146,7 +146,7 @@
 - **예외 2곳(기본 인자를 일부러 버렸다):** `currentPhase(now, spinTime, hasResult)`(`lib/phase.ts:22`)와 `kstParts(now)`(`supabase/functions/_shared/kst.ts`)는 시각을 **반드시 주입받는다**. 기본값을 두면 설정(`settings.spin_time`)에서 온 추첨 시각이 다시 모듈 안에 숨고, `decided` 를 결정하는 것이 결과 행의 존재라는 사실도 시그니처에서 사라진다.
 - 날짜 키는 `"yyyy-mm-dd"` KST 문자열이고 `results.date`와 문자열 그대로 비교한다(`app/page.tsx:60`, `app/log/page.tsx:84`).
 - **허용된 예외 1곳:** `components/CalendarLog.tsx:18-21,222`는 `new Date(year, month-1, 1).getDay()` 등 로컬 `Date` 메서드로 달력 그리드를 만든다. 명시적 y/m/d 숫자로부터 요일·일수를 계산하는 순수 캘린더 산술이고 "현재 시각"에 의존하지 않으므로 타임존 버그가 나지 않는다. **"지금"을 다루는 코드는 반드시 `lib/time.ts`로.**
-- 추첨 시각의 **코드상 정의처는 한 곳**이다: `supabase/functions/_shared/spinTime.ts:9-11`의 `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`. 런타임 값은 `settings.spin_time`(대시보드 편집)이 이기고, 세 페이지는 `useSettings()` → `currentPhase(now, settings.spinTime, …)` 로 그 값을 받는다. 남은 중복 2갈래: 화면 하드코딩 문구(`components/Wheel.tsx`, `components/ResultBlock.tsx:13` 기본 prop `"11:55"`, `app/page.tsx`의 `phaseSubhead`) — **Phase 6 / SPIN-06 소관**, 그리고 DB 쪽 기본값(`supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`, `0005`의 `spin_time` 기본값).
+- 추첨 시각의 **코드상 정의처는 한 곳**이다: `supabase/functions/_shared/spinTime.ts:9-11`의 `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`. 런타임 값은 `settings.spin_time`(대시보드 편집)이 이기고, **네 페이지 전부** `useSettings()` → `displayPhase(currentPhase(now, settings.spinTime, …), settingsLoaded)` 로 그 값을 받는다. 화면 문구는 `lib/time.ts` 의 `formatSpinTime`·`addMinutesToSpinTime` 가 조립해 prop 으로 내려간다(`Wheel`·`ResultBlock`·`CandidateList`·`PhaseTimeline`·`phaseSubhead`) — **화면 하드코딩 갈래는 SPIN-06 이 해소했고** `app/`·`components/`·`lib/` 에 사용자에게 보이는 시각 리터럴이 0곳이다. 남은 중복은 DB 쪽 기본값 한 갈래뿐이다(`supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`, `0005`의 `spin_time` 기본값).
 
 ## Data Access
 
@@ -161,7 +161,7 @@
   }, [dep]);
   ```
   (`app/page.tsx:37-55`, `app/log/page.tsx:30-49`, `app/rank/page.tsx:21-33`). 병렬 쿼리는 `Promise.all`로 묶는다(`app/page.tsx:41-45`).
-- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 페이지 채널 3개(`"lunch-realtime"`, `"log-results"`, `"rank-results"`)는 이름으로, 공용 훅 2개는 카운터로(`lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`). 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다.
+- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 페이지 채널 2개(`"log-results"`, `"rank-results"`)는 아직 이름으로, 나머지는 카운터로(`app/page.tsx` → `results-<n>`, `lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`, `lib/useCandidates.ts` → `candidates-<n>`). 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다 — 오늘 탭의 고정 토픽은 그 이유로 Phase 6 이 카운터로 바꿨다.
 - Realtime payload는 제네릭이라 **행 타입으로 단언한다**: `payload.new as ResultRow`. DELETE는 부분 행만 오므로 `payload.old as Partial<MenuRow>`로 받고 키 존재를 확인한 뒤 쓴다(`app/page.tsx:84-85,110-111`).
 - 상태 갱신은 항상 함수형 업데이터 + 멱등 처리. INSERT 이벤트는 중복 삽입을 막는다: `prev.some((m) => m.id === row.id) ? prev : [...prev, row]` (`app/page.tsx:75-77`, `app/log/page.tsx:60`).
 - **낙관적 업데이트를 하지 않는다.** 쓰기는 supabase에 보내고, 화면 갱신은 realtime 이벤트가 돌아올 때 일어난다. 근거 주석: `app/page.tsx:172-173`.
@@ -178,12 +178,12 @@ if (error) {
 setActionError(null);
 return true;
 ```
-- `app/page.tsx:32`의 `actionError` state 한 곳에 모으고, `role="alert"` 배너로 렌더하며 닫기 버튼을 둔다(`app/page.tsx:236-248`).
+- `actionError` state 한 곳에 모으고, `role="alert"` 배너로 렌더하며 닫기 버튼을 둔다(`components/ErrorBanner.tsx:18`, `app/page.tsx:290-291`).
 - 성공 경로에서 반드시 `setActionError(null)`로 지운다.
-- 메시지는 한글 + 실패한 대상 이름 + `error.message`. 형식: `` `메뉴 "${name}" 삭제 실패: ${error.message}` ``.
-- 쓰기 핸들러는 UI가 입력을 지울지 판단할 수 있게 **성공 여부를 반환**한다(`addMenus(): Promise<boolean>`). 실패하면 `components/MenuList.tsx:57-60`이 입력값을 보존해 바로 재시도할 수 있게 한다.
-- 진행 중 상태는 별도 state로 잠근다: `respinning`(`app/page.tsx:30`) → 버튼 `disabled` + 라벨 교체.
-- Edge Function 호출은 전송 에러(`error`)와 **업무적 스킵(`data.skipped`)을 따로 분기**한다(`app/page.tsx:195-205`). 스킵 코드는 한글로 번역해 보여준다(`"no_candidates"` → `"후보가 없어요"`).
+- 메시지는 한글 + 실패한 대상 이름 + `error.message` 이고, **조립은 `lib/errors.ts` 의 순수 함수가 한다** — 페이지에서 템플릿을 직접 짜지 않는다(`formatRestaurantWriteError`·`formatCandidateWriteError`). `details`·`hint` 는 어떤 경로로도 싣지 않는다. 후보 담기의 `23505` 만 문장이 아니라 `null` 이고, 호출부는 그것을 성공으로 처리한다.
+- 쓰기 핸들러는 UI가 입력을 지울지·진행 표시를 풀지 판단할 수 있게 **성공 여부를 반환**한다(`addCandidate(): Promise<boolean>`, `app/page.tsx:194`). 실패하면 호출부가 입력·상태를 보존해 바로 재시도할 수 있게 한다.
+- 진행 중 상태는 별도 state로 잠근다: `respinning`(`app/page.tsx:47`) → 버튼 `disabled` + 라벨 교체. 목록의 행 단위 진행은 `busyId`/`pinBusyId` 로 그 행만 잠근다.
+- Edge Function 호출은 전송 에러(`error`)와 **업무적 스킵(`data.skipped`)을 따로 분기**한다(`app/page.tsx:236-240`). 스킵 코드는 한글로 번역해 보여준다(`"no_candidates"` → `"후보가 없어요"`).
 
 **클라이언트 읽기 — 에러를 확인하지 않는다(현재 상태):**
 ```ts
@@ -219,21 +219,23 @@ if (!cancelled && data) setResults(data as ResultRow[]);
 - **비직관적 결정에는 근거를 붙인다.** 이 레포는 "왜 이 흔한 방법을 안 썼는가"를 특히 잘 기록한다:
   - `components/Wheel.tsx:23-24` — `Math.random()` 대신 결정적 지터를 쓰는 이유(lint)
   - `components/Wheel.tsx:55-57` — state+effect 대신 파생값을 쓰는 이유
-  - `app/page.tsx:142-144` — `useCallback`을 안 쓰는 이유
-  - `components/MenuList.tsx:24-25` — `INPUT_MAX_LEN`(120)이 `MENU_NAME_MAX_LEN`(24)과 다른 이유 + 과거 버그
+  - `app/page.tsx:179-181` — `useCallback`을 안 쓰는 이유
+  - `components/RestaurantList.tsx:234-238` — 입력 칸에 `maxLength` 를 걸지 않는 이유(코드유닛 ≠ 코드포인트)
+  - `app/page.tsx:132-138` — 추첨 시각이 같은 결과 갱신으로는 휠을 돌리지 않는 이유
   - `supabase/migrations/0004_pinned_menus.sql:1-3` — 핀 상태를 별도 테이블로 둔 이유(menus는 매일 truncate)
-- 값이 다른 곳과 반드시 같아야 하면 주석으로 연결한다: `lib/supabase/client.ts:12` — "DB check 제약(char_length 1~24)과 동일. 여기서만 정의한다".
+- 값이 다른 곳과 반드시 같아야 하면 주석으로 연결한다: `lib/constants.ts:6-8` — "restaurants.name 의 DB check 제약(char_length 1~24)과 같다. 여기가 유일한 정의처다".
 - **JSDoc/TSDoc:** `lib/time.ts`·`lib/phase.ts`의 export 함수에만 한 줄 `/** ... */`로 **반환 형식 예시**를 적는다(`/** "yyyy-mm-dd" (KST 기준) */`, `/** "2026년 5월 19일 화요일" */`). `@param`·`@returns` 태그는 쓰지 않는다. 컴포넌트에는 JSDoc을 달지 않는다.
-- props 설명은 JSDoc이 아니라 `type Props` 안의 필드 위 한 줄 주석으로 단다(`components/MenuList.tsx:13-21`).
+- props 설명은 JSDoc이 아니라 `type Props` 안의 필드 위 한 줄 주석으로 단다(`components/CandidateList.tsx:33-43`).
 
 ## Function Design
 
 **Size:** 순수 헬퍼는 5~30줄. 컴포넌트는 JSX 때문에 길어질 수 있으나(최대 `components/CalendarLog.tsx` 406줄) 로직 자체는 얇다 — 계산은 파일 상단의 순수 함수로 밀어낸다.
 
 **Parameters:**
-- 컴포넌트는 props 객체를 시그니처에서 구조분해하고, 기본값도 거기서 준다: `{ active, candidateCount = 0, phase, clockTime }` (`components/TopBar.tsx:16`), `size = 460`(`components/Wheel.tsx:47`), `spinTime = "11:55"`(`components/ResultBlock.tsx:13`).
+- 컴포넌트는 props 객체를 시그니처에서 구조분해하고, 기본값도 거기서 준다: `{ active, candidateCount = 0, phase, clockTime }` (`components/TopBar.tsx:16`), `size = 460`(`components/Wheel.tsx:50`).
+- **단, 추첨 시각 문구(`spinTimeText`)에는 기본값을 두지 않는다.** 기본값을 두면 설정을 넘기지 않은 호출부가 조용히 옛 시각을 그리고, 그 순간 화면이 DB 와 갈린다(SPIN-06).
 - 헬퍼는 위치 인자를 쓴다. 시간 함수는 마지막에 `now: Date = new Date()` 기본 인자를 둔다.
-- 표시용 정보가 필요하면 호출부가 다시 조회하지 않게 인자로 넘긴다: `onRemoveAction(id, name)` — name은 실패 메시지용(근거 주석 `components/MenuList.tsx:16`).
+- 표시용 정보가 필요하면 호출부가 다시 조회하지 않게 인자로 넘긴다: `onRemoveAction(id, name)` — name은 실패 메시지용(근거 주석 `components/CandidateList.tsx:41`).
 
 **Return Values:**
 - 쓰기 핸들러는 `Promise<boolean>`(성공 여부) 또는 `Promise<void>`.
@@ -287,7 +289,7 @@ if (!cancelled && data) setResults(data as ResultRow[]);
 ## Accessibility
 
 - 아이콘·기호 버튼에는 `aria-label`을 반드시 단다: `aria-label="삭제"`, `aria-label="닫기"`, `aria-label="이전 달"`/`"다음 달"`, `aria-label={pinned ? "고정 해제" : "고정"}`.
-- 토글 버튼은 `aria-pressed`를 함께 준다(`components/MenuList.tsx:172`).
+- 토글 버튼은 `aria-pressed`를 함께 준다(`components/CandidateList.tsx:202`, `components/RestaurantList.tsx`의 `PinButton`).
 - 장식 요소는 `aria-hidden`(`components/TopBar.tsx:27`, `components/Wheel.tsx:270`).
 - 에러 배너는 `role="alert"`(`app/page.tsx:237`).
 - 버튼에는 `type`을 명시한다(`type="button"` / `type="submit"`).

@@ -20,7 +20,9 @@ lunch_roulette/
 │   ├── RestaurantList.tsx    # 매장 카드 — 등록 폼·인라인 편집·핀·2단계 삭제 확인
 │   ├── PhaseTimeline.tsx     # 모집→룰렛→결과→리셋 진행 표시
 │   ├── Wheel.tsx             # 룰렛 SVG + 회전
-│   ├── MenuList.tsx          # 후보 입력/목록/핀 토글
+│   ├── CandidateList.tsx     # 오늘 후보 카드 — 이름 필터·단일 목록 행 토글·잠금
+│   ├── MenuChips.tsx         # 메뉴 칩 + "+n" 접기 (결과 화면·매장 탭 공용)
+│   ├── LocationLink.tsx      # 위치 렌더 — http(s)만 앵커, 그 외 텍스트 (공용)
 │   ├── ResultBlock.tsx       # 페이즈별 결과 배너
 │   ├── CalendarLog.tsx       # 월 격자 달력
 │   └── RankingView.tsx       # 포디움 + 순위표
@@ -30,10 +32,14 @@ lunch_roulette/
 │   ├── colors.ts             # 룰렛 슬라이스 팔레트
 │   ├── constants.ts          # 환경변수 없이 import 되는 순수 상수 (길이 상한 3개)
 │   ├── errors.ts             # 읽기·쓰기·함수 실패 → 한 줄 한국어 문장 (순수)
+│   ├── menus.ts              # 쉼표 파싱·코드포인트 절단 (순수, 정의처)
+│   ├── rowset.ts             # 목록 Realtime 병합 규칙 한 벌 (제네릭, 키만 주입)
 │   ├── settings.ts           # settings 행 → 앱 도메인 + Realtime 리듀서 (순수)
 │   ├── useSettings.ts        # 그 리듀서에 I/O 를 붙인 훅 (추첨 시각·쿨다운 단일 출처)
-│   ├── restaurants.ts        # 매장 폼 검증·링크 판정·정렬·Realtime 리듀서 (순수)
+│   ├── restaurants.ts        # 매장 폼 검증·링크 판정·정렬 + rowset 인스턴스 (순수)
 │   ├── useRestaurants.ts     # 매장 목록 SELECT 1회 + 3분기 구독 (읽기 전용 훅)
+│   ├── candidates.ts         # 후보 조인·정렬·필터·당첨 인덱스·재회전 판정 (순수)
+│   ├── useCandidates.ts      # 오늘 후보 SELECT 1회 + 2분기 구독 (읽기 전용 훅)
 │   └── supabase/client.ts    # supabase 싱글턴 + DB row 타입 정의처
 ├── supabase/                 # 서버 측 (tsconfig/eslint에서 제외됨)
 │   ├── config.toml           # CLI 설정. verify_jwt=false 고정
@@ -68,15 +74,14 @@ lunch_roulette/
 **`components/`:**
 - Purpose: 재사용 프레젠테이션 컴포넌트
 - Contains: `PascalCase.tsx` 파일들. 전부 `"use client"`, 전부 named export
-- Key files: `components/Wheel.tsx`(가장 복잡), `components/MenuList.tsx`(유일하게 로컬 입력 state 보유)
+- Key files: `components/Wheel.tsx`(가장 복잡), `components/CandidateList.tsx`(유일하게 로컬 입력 state 보유 — 이름 필터)
 - 규칙: **supabase를 호출하지 않는다.** `lib/supabase/client.ts`에서 타입만 import하고 데이터는 props로 받는다
 
 **`lib/`:**
 - Purpose: 타임존·페이즈·색·DB 접점의 단일 정의처
 - Contains: 소문자 `.ts` 파일. `"use client"`는 `lib/supabase/client.ts`에만
-- Key files: `lib/time.ts`(모든 KST 변환), `lib/supabase/client.ts`(`MenuRow`/`ResultRow`/`PinnedMenuRow`/`RestaurantRow`/`CandidateRow`/`SettingsRow`), `lib/constants.ts`(길이 상한 — `MENU_NAME_MAX_LEN` 은 Phase 1 에서 여기로 옮겨졌다)
-- 규칙: `lib/`는 `app/`·`components/`를 import하지 않는다 (단방향)
-- **예외 1곳:** `lib/restaurants.ts`가 `components/MenuList.tsx`의 `parseMenuInput`을 import한다. 쉼표 파싱을 두 벌로 만들지 않으려는 의도적 예외(CATL-06, Phase 5 D-13)이고 근거는 그 파일 머리 주석에 있다. **후속 조건:** Phase 6이 `MenuList`를 지울 때 `parseMenuInput`·`truncateToCodePoints`를 `lib/`로 옮겨야 예외가 사라진다
+- Key files: `lib/time.ts`(모든 KST 변환), `lib/supabase/client.ts`(`ResultRow`/`RestaurantRow`/`CandidateRow`/`SettingsRow`), `lib/constants.ts`(길이 상한 — `MENU_NAME_MAX_LEN` 은 Phase 1 에서 여기로 옮겨졌다)
+- 규칙: `lib/`는 `app/`·`components/`를 import하지 않는다 (단방향). **예외 없음** — `grep -rn '@/components/' lib` 가 0줄이다. 쉼표 파싱의 정의처가 `lib/menus.ts` 로 내려오며 마지막 예외가 사라졌다(Phase 6 D-24)
 
 **`supabase/migrations/`:**
 - Purpose: 스키마 + RLS + pg_cron 잡 정의
@@ -115,14 +120,17 @@ lunch_roulette/
 - `.vscode/settings.json`: 인덱서 제외 규칙
 
 **Core Logic:**
-- `lib/supabase/client.ts`: DB 클라이언트 + row 타입 + `MENU_NAME_MAX_LEN`
-- `lib/time.ts`: `todayKstDate`, `kstParts`, `formatHhMm`, `formatHhMmSs`, `formatKstLongDay`
-- `lib/phase.ts`: `currentPhase`, `Phase` 타입, `SPIN_HH/SPIN_MM` 상수
-- `app/page.tsx:37-125`: 초기 로드 + realtime 구독 (6개 `postgres_changes` 핸들러)
-- `app/page.tsx:147-209`: 쓰기 핸들러 `addMenus`/`removeMenu`/`togglePin`/`respin`
+- `lib/supabase/client.ts`: DB 클라이언트 + row 타입
+- `lib/time.ts`: `todayKstDate`, `kstParts`, `formatHhMm`, `formatHhMmSs`, `formatKstLongDay`, `formatSpinTime`, `addMinutesToSpinTime`
+- `lib/phase.ts`: `currentPhase`, `displayPhase`, `isCandidateListLocked`, `Phase` 타입
+- `app/page.tsx`: 초기 로드(오늘 결과 1쿼리) + `results` 2분기 구독 + 회전 가드
+- `app/page.tsx`: 쓰기 핸들러 `addCandidate`/`removeCandidate`/`respin`
+- `lib/rowset.ts`: `createRowSetReducer`·`initialRowSetState` (목록 병합 규칙 한 벌, 키만 주입)
 - `lib/restaurants.ts`: `parseRestaurantForm`·`joinMenus`·`parseLocationLink`·`sortRestaurants`·`restaurantsReducer` (매장 도메인의 모든 판단, 순수)
 - `lib/useRestaurants.ts`: 매장 목록 SELECT 1회 + `restaurants-<n>` 토픽 3분기 구독 (판단 0, 읽기 전용)
-- `components/MenuList.tsx:31`: `parseMenuInput` (쉼표 다중 등록 파싱, 순수 함수)
+- `lib/candidates.ts`: `joinCandidates`·`filterRestaurantsByName`·`listTodayRows`·`findWinnerIndex`·`isNewSpin`·`candidatesReducer` (오늘 후보 도메인의 모든 판단, 순수)
+- `lib/useCandidates.ts`: 오늘 후보 SELECT 1회 + `candidates-<n>` 토픽 2분기 구독 (판단 0, 읽기 전용)
+- `lib/menus.ts`: `parseMenuInput`·`truncateToCodePoints` (쉼표 다중 입력 파싱·코드포인트 절단, 순수 함수)
 - `components/RankingView.tsx:13`: `buildRanking` (집계, 순수 함수)
 - `components/CalendarLog.tsx:17`: `buildMonthGrid` (42칸 달력 격자, 순수 함수)
 
@@ -151,7 +159,7 @@ lunch_roulette/
 **Code:**
 - 컴포넌트: named export. **default export는 `page.tsx`/`layout.tsx`에만** (Next.js 요구)
 - 콜백 prop: `on~Action` 접미사 필수 (`onAddAction`, `onChangeMonthAction`)
-- 모듈 상수: `SCREAMING_SNAKE_CASE` (`SPIN_HH`, `SLICE_COLORS`, `MENU_NAME_MAX_LEN`, `INPUT_MAX_LEN`, `SPIN_MS`)
+- 모듈 상수: `SCREAMING_SNAKE_CASE` (`SLICE_COLORS`, `MENU_NAME_MAX_LEN`, `MENU_CHIP_LIMIT`, `RESULT_STEP_OFFSET_MIN`, `SPIN_MS`)
 - 타입: `PascalCase`. DB row는 `~Row` 접미사 (`MenuRow`, `ResultRow`, `PinnedMenuRow`)
 - 스타일 객체: 짧은 파일은 `s`, 여러 그룹이 필요하면 `~Styles` (`pageHeadStyles`, `layoutStyles`, `respinStyles`, `alertStyles`)
 - 주석: **한글, Why만.** 파일 머리에 역할·제약을 블록 주석으로 (`lib/phase.ts:1-8`, `supabase/functions/respin-roulette/index.ts:1-16`이 모범 사례)
@@ -179,7 +187,8 @@ lunch_roulette/
 **새 도메인 헬퍼:**
 - 시간 관련: `lib/time.ts`에 추가 (**새 파일을 만들지 말 것** — KST 변환의 단일 창구)
 - 페이즈/추첨 시각 관련: `lib/phase.ts`
-- 그 외 순수 헬퍼: `lib/<name>.ts`. 단, 특정 컴포넌트에서만 쓰는 순수 함수는 그 컴포넌트 파일 안에 export해 둔다 (`parseMenuInput`, `buildRanking`, `buildMonthGrid` 전례)
+- 오늘 후보 목록·필터·당첨 판정: `lib/candidates.ts`. 목록의 Realtime 병합 규칙 자체는 `lib/rowset.ts` — 새 목록이 생기면 리듀서를 새로 쓰지 말고 키 함수만 주입한다
+- 그 외 순수 헬퍼: `lib/<name>.ts`. 단, 특정 컴포넌트에서만 쓰는 순수 함수는 그 컴포넌트 파일 안에 export해 둔다 (`buildRanking`, `buildMonthGrid` 전례). 둘 이상이 쓰게 되면 `lib/` 로 내린다 (`parseMenuInput` → `lib/menus.ts` 전례)
 
 **새 DB 테이블/컬럼:**
 1. `supabase/migrations/000N_설명.sql` 새로 생성 (기존 파일 수정 금지, 순번 증가)
@@ -203,7 +212,7 @@ lunch_roulette/
 
 **Tests:**
 - vitest 가 있다. `npm test` = `vitest run`(워치는 `npm run test:watch`), 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**`·`supabase/migrations/**` 의 `*.test.ts` 다. CI 는 아직 없다
-- `environment: "node"` 단일 구성이라 **React 렌더 하네스가 없다.** 훅·컴포넌트·페이지 안의 분기는 테스트할 수 없으므로, 판단은 순수 모듈(`lib/*.ts`)로 밀어낸 다음 그곳에서 검증한다 — `lib/settings.ts`·`lib/restaurants.ts` 가 그 결과이고 대응 훅(`lib/useSettings.ts`·`lib/useRestaurants.ts`)에는 I/O 만 남는다
+- `environment: "node"` 단일 구성이라 **React 렌더 하네스가 없다.** 훅·컴포넌트·페이지 안의 분기는 테스트할 수 없으므로, 판단은 순수 모듈(`lib/*.ts`)로 밀어낸 다음 그곳에서 검증한다 — `lib/rowset.ts`·`lib/settings.ts`·`lib/restaurants.ts`·`lib/candidates.ts` 가 그 결과이고 대응 훅(`lib/useSettings.ts`·`lib/useRestaurants.ts`·`lib/useCandidates.ts`)에는 I/O 만 남는다. 세 훅 모두 본문 분기가 0개다
 - 마이그레이션 spec 은 SQL 을 실행하지 않고 텍스트로 파싱해 계약(테이블·제약·RLS·cron)을 검사한다
 
 ## Special Directories

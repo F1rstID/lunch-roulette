@@ -19,11 +19,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### 오늘 후보 (CAND)
 
-- [ ] **CAND-01**: 사용자는 오늘 탭에서 카탈로그 전체 목록을 보고 토글로 오늘 후보에 담고 뺄 수 있다
-- [ ] **CAND-02**: 사용자는 이름 필터로 카탈로그 목록을 좁힐 수 있다
-- [ ] **CAND-03**: 후보 담기·빼기가 모든 접속자에게 Realtime으로 반영된다
+- [x] **CAND-01**: 사용자는 오늘 탭에서 카탈로그 전체 목록을 보고 토글로 오늘 후보에 담고 뺄 수 있다
+- [x] **CAND-02**: 사용자는 이름 필터로 카탈로그 목록을 좁힐 수 있다
+- [x] **CAND-03**: 후보 담기·빼기가 모든 접속자에게 Realtime으로 반영된다
 - [x] **CAND-04**: 자정(KST 00:00)에 오늘 후보가 비워지고 핀 매장만 다시 담긴다. 열린 탭에도 비워짐이 반영된다 (`truncate` → `delete from`)
-- [ ] **CAND-05**: 오늘 결과가 확정된 뒤에는 후보 토글이 잠긴다 (기존 readOnly 동작 유지)
+- [x] **CAND-05**: 오늘 결과가 확정된 뒤에는 후보 토글이 잠긴다 (기존 readOnly 동작 유지)
 
 ### 추첨 (SPIN)
 
@@ -31,8 +31,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SPIN-02**: `cooldown_days` > 0이면 최근 N일 당첨 매장은 후보에서 제외한다. 제외 후 후보가 비면 전체 후보로 폴백한다
 - [x] **SPIN-03**: 추첨 시각에 후보가 0개면 결과가 생기지 않고 UI는 잠기지 않는다. 이후 후보를 담으면 다음 폴링에서 추첨된다
 - [x] **SPIN-04**: 다시 돌리기는 오늘 후보에서 다시 뽑아(쿨다운 적용) 결과를 덮어쓴다. 횟수 무제한
-- [ ] **SPIN-05**: 결과 화면에 당첨 매장명과, 있으면 그 매장의 메뉴 목록·위치를 참고로 표시한다
-- [ ] **SPIN-06**: 휠·페이즈·타임라인·안내 문구가 설정된 추첨 시각을 따른다. 코드에 하드코딩된 "11:55"가 0곳
+- [x] **SPIN-05**: 결과 화면에 당첨 매장명과, 있으면 그 매장의 메뉴 목록·위치를 참고로 표시한다
+- [x] **SPIN-06**: 휠·페이즈·타임라인·안내 문구가 설정된 추첨 시각을 따른다. 코드에 하드코딩된 "11:55"가 0곳
 
 ### 기록·랭킹 (HIST)
 
@@ -103,17 +103,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CATL-05 | Phase 5 — 매장 탭 | Complete |
 | CATL-06 | Phase 5 — 매장 탭 | Complete |
 | CATL-07 | Phase 2 — 데이터 모델 | Complete |
-| CAND-01 | Phase 6 — 오늘 탭 | Pending |
-| CAND-02 | Phase 6 — 오늘 탭 | Pending |
-| CAND-03 | Phase 6 — 오늘 탭 | Pending |
+| CAND-01 | Phase 6 — 오늘 탭 | Complete |
+| CAND-02 | Phase 6 — 오늘 탭 | Complete |
+| CAND-03 | Phase 6 — 오늘 탭 | Complete |
 | CAND-04 | Phase 2 — 데이터 모델 | Complete |
-| CAND-05 | Phase 6 — 오늘 탭 | Pending |
+| CAND-05 | Phase 6 — 오늘 탭 | Complete |
 | SPIN-01 | Phase 4 — 서버 추첨 | Complete |
 | SPIN-02 | Phase 3 — 순수 로직 (순수 필터 `_shared/cooldown.ts` + 테스트) → Phase 4 — 서버 추첨 (Edge Function 배선에서 완료) | Complete |
 | SPIN-03 | Phase 3 — 순수 로직 | Complete |
 | SPIN-04 | Phase 4 — 서버 추첨 | Complete |
-| SPIN-05 | Phase 6 — 오늘 탭 | Pending |
-| SPIN-06 | Phase 6 — 오늘 탭 | Pending |
+| SPIN-05 | Phase 6 — 오늘 탭 | Complete |
+| SPIN-06 | Phase 6 — 오늘 탭 | Complete |
 | HIST-01 | Phase 7 — 기록·랭킹 | Pending |
 | HIST-02 | Phase 7 — 기록·랭킹 | Pending |
 | HIST-03 | Phase 2 — 데이터 모델 | Complete |
