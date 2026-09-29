@@ -24,7 +24,8 @@ begin
 end $$;
 
 -- 2. 구 테이블 복원. 스키마는 0001(menus)·0004(pinned_menus) 그대로 — 구 코드가 기대하는 컬럼 집합을 바꾸지 않는다.
--- 0001 의 인덱스는 이름이 없었다. if not exists 를 쓰려면 이름이 필요해 여기서만 붙인다(구 코드는 인덱스 이름을 모른다).
+-- 인덱스 이름은 0001 의 무명 create index 가 Postgres 에서 자동으로 받은 menus_created_at_idx 와 같게 둔다 — 0005 가 절 8 앞에서
+-- 끊겨 menus 가 살아 있는 상태(롤백 기준 a)에서 실행해도 if not exists 가 no-op 이 되어 중복 인덱스가 생기지 않는다.
 create table if not exists public.menus (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 24),
@@ -71,6 +72,7 @@ begin
 end $$;
 
 -- 3. 구 cron 2종 재등록. 시각은 0002 의 11:55 KST 고정(구 함수가 settings 를 읽지 않으므로 settings.spin_time 은 무시된다).
+-- timeout 5000ms 는 0002 에 없던 인자다 — 하루 한 번 부르는 잡은 콜드스타트에 더 노출되고(0005 절 7 과 같은 이유), 구 함수의 동작은 바뀌지 않는다.
 -- $cmd$ 안에는 주석을 두지 않는다 — 본문이 cron.job.command 에 그대로 저장된다.
 select cron.schedule(
   'spin-lunch-roulette',
@@ -79,7 +81,8 @@ select cron.schedule(
   select net.http_post(
     url := 'https://swxiqytyxjlcgubqlozk.supabase.co/functions/v1/spin-roulette',
     headers := '{"Content-Type": "application/json"}'::jsonb,
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 5000
   );
   $cmd$
 );

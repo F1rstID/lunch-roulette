@@ -48,6 +48,11 @@ describe("0005 롤백 스크립트 계약", () => {
   it("publication 가드가 두 테이블을 존재 검사 뒤에 넣는다", () => {
     expect(code).toMatch(/array\['menus', 'pinned_menus'\]/);
     expect(code).toMatch(/pg_publication_tables/);
+    expect(code).toMatch(/execute format\('alter publication supabase_realtime add table public\.%I', t\)/);
+  });
+
+  it("reset-menus 본문이 0004 형태다 — truncate 뒤 pinned_menus 재시드(0002 의 맨 truncate 로 퇴행하지 않았다)", () => {
+    expect(code).toMatch(/truncate table public\.menus;\s*insert into public\.menus \(name\)\s*select name from public\.pinned_menus order by created_at;/);
   });
 
   it("데이터를 지우지 않는다 — drop table·drop column 은 주석 밖에 0건", () => {
@@ -57,14 +62,20 @@ describe("0005 롤백 스크립트 계약", () => {
     expect(sql).toMatch(/^-- drop table if exists public\.candidates;/m);
   });
 
-  it("menus 재생성이 cron 재등록보다 앞이다 — 구 함수와 reset-menus 가 그 테이블을 읽는다", () => {
+  it("unschedule 루프 → 두 테이블 재생성 → cron 재등록 순서다 — 구 함수와 reset-menus 가 두 테이블을 읽고, 루프가 뒤면 잡이 중복된다", () => {
+    const unscheduleAt = code.indexOf("perform cron.unschedule(jid)");
     const menusAt = code.indexOf("create table if not exists public.menus (");
+    const pinnedAt = code.indexOf("create table if not exists public.pinned_menus (");
     const firstSchedule = code.indexOf("cron.schedule(");
-    expect(menusAt).toBeGreaterThan(-1);
+    expect(unscheduleAt).toBeGreaterThan(-1);
+    expect(menusAt).toBeGreaterThan(unscheduleAt);
+    expect(pinnedAt).toBeGreaterThan(unscheduleAt);
     expect(menusAt).toBeLessThan(firstSchedule);
+    expect(pinnedAt).toBeLessThan(firstSchedule);
   });
 
-  it("spin 잡이 같은 프로젝트의 spin-roulette 함수를 부른다", () => {
+  it("spin 잡이 같은 프로젝트의 spin-roulette 함수를 콜드스타트 여유(5000ms)를 두고 부른다", () => {
     expect(code).toMatch(/https:\/\/swxiqytyxjlcgubqlozk\.supabase\.co\/functions\/v1\/spin-roulette/);
+    expect(code).toMatch(/timeout_milliseconds := 5000/);
   });
 });
