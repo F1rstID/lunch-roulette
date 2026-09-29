@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 planned (2 plans, 2 waves) — ready to execute 05-01
-last_updated: "2026-09-29T00:33:06.999Z"
-last_activity: 2026-09-29 -- Phase 5 planning complete (빠른 레인: 리서치·체커·패턴맵 생략, 플랜 2개·5태스크)
+stopped_at: Phase 5 executing — 05-01 complete, 05-02 next
+last_updated: "2026-09-29T00:49:08.900Z"
+last_activity: 2026-09-29 -- Phase 05 — 05-01 complete (순수 로직 GREEN, 279 tests)
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 50
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 5 — 매장 탭
+**Current focus:** Phase 05 — restaurants-tab
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-29 -- Phase 5 planning complete (빠른 레인: 리서치·체커·패턴맵 생략, 플랜 2개·5태스크)
+Phase: 05 (restaurants-tab) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 05
+Last activity: 2026-09-29 -- Phase 05 — 05-01 complete (순수 로직 GREEN, 279 tests)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100%
 | Phase 04 P02 | 6min | 2 tasks | 3 files |
 | Phase 04 P03 | 11min | 3 tasks | 4 files |
 | Phase 04 P04 | 6min | 2 tasks | 7 files |
+| Phase 05 P01 | 17min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -120,15 +121,20 @@ Progress: [██████████] 100%
 - [Phase 4]: 04-04 — deno.lock 의 비핀 @2 명세자 줄은 손편집이 아니라 삭제 후 재생성으로 지운다 — deno check 는 명세자를 추가만 하고 정리하지 않으며 lock 은 생성물이다
 - [Phase 4]: 04-04 — VALIDATION 의 Manual-Only 항목은 pending 을 비우되 green 으로 칠하지 않고 manual-only 로 판정한다 — 거짓 초록은 재검증 비용을 숨긴다 (T-04-22)
 - [Phase 4]: 04-04 — 요구사항 마킹(SPIN-01·SPIN-02·SPIN-04·SETT-04)은 페이즈 검증을 닫는 마지막 플랜이 한 번에 찍는다 — Phase 2 선례이고 04-01·04-03 이 같은 근거로 미뤘다
+- [Phase 5]: 05-01 — lib/restaurants.ts 가 components/MenuList.tsx 의 parseMenuInput 을 import 한다: lib/ 단방향 규칙의 의도적 예외다. 파싱 구현을 두 벌로 만들지 않으려는 선택이고, Phase 6 이 MenuList 를 지울 때 그 함수를 lib/ 로 옮겨야 예외가 사라진다
+- [Phase 5]: 05-01 — 길이 판정·절단의 단위를 코드포인트로 통일했다: DB char_length 와 같은 단위라야 클라이언트가 통과시킨 이모지 이름이 DB 에서 23514 로 튕기지 않는다. 절단 구현은 truncateToCodePoints 한 벌뿐이고 오늘 탭도 그것을 부른다
+- [Phase 5]: 05-01 — 이름·위치·메뉴 개수 초과는 절단이 아니라 거부다: 말없이 짧아진 매장명은 다른 가게가 되고, 31번째 메뉴를 버리면 사용자는 전부 등록된 줄 안다. 원소 24자 절단만 기존 parseMenuInput 의 계약으로 남긴다
+- [Phase 5]: 05-01 — restaurantsReducer 의 changed 는 error 를 지우지 않는다: 이벤트 하나가 도착했다는 사실이 목록 전체를 읽을 수 있다는 증거가 아니라서, 조회 실패 배너를 여기서 걷으면 반쪽짜리 목록이 정상처럼 보인다 (단일행인 settings 와 갈리는 지점)
+- [Phase 5]: 05-01 — 위치 링크 판정을 URL 파싱 + http/https 화이트리스트로 좁혔다: javascript: 와 data: 는 URL 생성자를 통과하므로 '파싱되면 링크' 로 두면 클릭 한 번에 스크립트가 도는 앵커가 목록에 생긴다 (T-05-03)
 
 ### Pending Todos
 
-`.planning/todos/pending/` 에 **6건** (2026-09-28 04-04 실측 — 04-03 이 `wr-02-respin-error-body.md` 를 해소하며 7건에서 줄였다. 이전의 "없음" 기재는 사실과 달랐다):
+`.planning/todos/pending/` 에 **6건** (2026-09-29 05-01 실측 — 05-01 이 `wr-01-char-length-truncation.md` 를 해소하며 7건에서 줄였다. 직전 기재의 "6건" 은 `in-06` 을 목록에서 빠뜨린 집계 오류였다):
 
 - `wr-01-cutover-window.md` — 컷오버 창(SQL → 배포 → 머지) 체크리스트. 04-04 가 **7번(임베드 함정 수동 invoke 확인)** 을 추가했다 → Phase 8
-- `wr-01-char-length-truncation.md` — `parseMenuInput` 의 `slice(0,24)` UTF-16 절단을 코드포인트 기준으로 → Phase 5
 - `wr-02-pinned-reseed-order.md` — 후보 정렬을 `candidates.created_at` + `restaurants.created_at` 조인 순서로 → Phase 6
 - `in-02-settings-loaded-first-paint.md`(페이즈 라벨을 `settings.loaded` 로 가리기) · `in-03-usesettings-branches-to-reducer.md`(훅 분기 2개를 리듀서로) → Phase 6
+- `in-06-results-update-on-delete-set-null.md` — 오늘 탭 realtime UPDATE 가드(`results.restaurant_id` on delete set null) → Phase 6
 - `in-05-history-since-same-day.md` — 전환일 당일 `results`(`restaurant_id` null)를 기록·랭킹이 어떻게 다룰지 → Phase 7
 
 ### Blockers/Concerns
@@ -149,6 +155,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T09:40:37.684Z
-Stopped at: Phase 5 planned (2 plans, 2 waves) — ready to execute 05-01
-Resume file: .planning/phases/05-restaurants-tab/05-CONTEXT.md
+Last session: 2026-09-29T00:45:40.789Z
+Stopped at: Phase 5 executing — 05-01 complete, 05-02 next
+Resume file: .planning/phases/05-restaurants-tab/05-02-PLAN.md
