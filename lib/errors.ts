@@ -14,9 +14,10 @@ const ERROR_SEPARATOR = " · ";
 // (formatRestaurantWriteError)가 함께 쓰므로, 상한은 한 함수가 아니라 배너 한 줄의 성질이다.
 const BANNER_MESSAGE_MAX_LEN = 200;
 
+// 읽기 실패 원문도 쓰기 쪽과 같은 상한을 지난다 — 상한은 한 함수가 아니라 배너 한 줄의 성질이다(아래 readableMessage).
 export function formatLoadError(label: string, error: { message: string } | null): string | null {
   if (!error) return null;
-  return `${label} 불러오기 실패: ${error.message}`;
+  return `${label} 불러오기 실패: ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
 }
 
 export function joinLoadErrors(parts: (string | null)[]): string | null {

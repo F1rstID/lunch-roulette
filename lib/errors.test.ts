@@ -23,6 +23,16 @@ describe("formatLoadError", () => {
       "메뉴 목록 불러오기 실패: permission denied",
     );
   });
+
+  it("읽기 실패 원문도 배너 상한(200자)을 지나 말줄임표로 잘린다 — 쓰기 쪽과 같은 규칙", () => {
+    const long = "x".repeat(250);
+    const out = formatLoadError("랭킹", { message: long });
+    expect(out).toBe(`랭킹 불러오기 실패: ${"x".repeat(200)}…`);
+  });
+
+  it("원문이 공백뿐이면 접두만 남기지 않고 대체 문구를 쓴다", () => {
+    expect(formatLoadError("설정", { message: "   " })).toBe("설정 불러오기 실패: 알 수 없는 오류");
+  });
 });
 
 describe("joinLoadErrors", () => {
