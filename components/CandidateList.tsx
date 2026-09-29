@@ -99,6 +99,12 @@ export function CandidateList({
           다시 실패할 시도로 사용자를 떠민다(05 WR-03). */}
       {status !== "failed" && (
         <ul style={s.list}>
+          {/* 로드 중에는 안내 문구만 둔다 — 문구는 매장 탭(RestaurantList)과 같은 것을 쓴다. */}
+          {status === "loading" && (
+            <li style={s.empty}>
+              <div style={s.emptyText}>불러오는 중…</div>
+            </li>
+          )}
           {status === "ready" && catalog.length === 0 && (
             <li style={s.empty}>
               <div style={s.emptyIllu}>
@@ -121,26 +127,32 @@ export function CandidateList({
               <div style={s.emptyText}>{`"${query}" 에 맞는 매장이 없어요`}</div>
             </li>
           )}
-          {rows.map((row) => (
-            <CandidateRowView
-              key={row.restaurant.id}
-              row={row}
-              readOnly={readOnly}
-              busy={busyId === row.restaurant.id}
-              onToggle={async () => {
-                // 행 단위로 잠근다 — 다른 행의 토글은 그대로 눌릴 수 있어야 한다.
-                if (busyId === row.restaurant.id) return;
-                setBusyId(row.restaurant.id);
-                try {
-                  const { id, name } = row.restaurant;
-                  // 성공·실패 어느 쪽에서도 목록을 직접 건드리지 않는다. 갱신은 구독이 한다.
-                  await (row.slice !== null ? onRemoveAction(id, name) : onAddAction(id, name));
-                } finally {
-                  setBusyId(null);
-                }
-              }}
-            />
-          ))}
+          {/* 행은 status 가 ready 일 때만 그린다. 두 훅이 따로 도착하므로 카탈로그가 먼저 오고 후보가
+              아직 안 온 수백 ms 동안에는 모든 매장이 "안 담김 + 담기 버튼 활성" 으로 보인다 — 헤더
+              카운터 00 과 함께 스치는 거짓 화면이고, 그때 담긴 매장을 다시 담으면 23505 가 성공으로
+              흡수돼 사용자는 자기가 무엇을 눌렀는지도 모른다. 이 가드가 곧 토글 비활성이다(행 자체가
+              없으므로 CandidateRowView 에 status 를 또 넘겨 죽은 분기를 만들지 않는다). */}
+          {status === "ready" &&
+            rows.map((row) => (
+              <CandidateRowView
+                key={row.restaurant.id}
+                row={row}
+                readOnly={readOnly}
+                busy={busyId === row.restaurant.id}
+                onToggle={async () => {
+                  // 행 단위로 잠근다 — 다른 행의 토글은 그대로 눌릴 수 있어야 한다.
+                  if (busyId === row.restaurant.id) return;
+                  setBusyId(row.restaurant.id);
+                  try {
+                    const { id, name } = row.restaurant;
+                    // 성공·실패 어느 쪽에서도 목록을 직접 건드리지 않는다. 갱신은 구독이 한다.
+                    await (row.slice !== null ? onRemoveAction(id, name) : onAddAction(id, name));
+                  } finally {
+                    setBusyId(null);
+                  }
+                }}
+              />
+            ))}
         </ul>
       )}
 
