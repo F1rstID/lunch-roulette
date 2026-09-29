@@ -230,7 +230,11 @@ function RestaurantForm({
   const canSubmit = name.trim().length > 0 && !busy;
 
   return (
-    <form onSubmit={submit} style={mode === "create" ? s.formCreate : s.formEdit}>
+    <form
+      onSubmit={submit}
+      aria-label={mode === "create" ? "매장 등록" : `${initial.name} 수정`}
+      style={mode === "create" ? s.formCreate : s.formEdit}
+    >
       <div style={s.fields}>
         {/* 이름·위치에 maxLength 를 걸지 않는다: HTML maxlength 는 UTF-16 코드유닛이라 이모지 하나를
             2로 세고, DB·parseRestaurantForm 은 코드포인트로 센다. 코드유닛으로 막으면 DB 가 허용하는
@@ -240,6 +244,9 @@ function RestaurantForm({
         <input
           ref={nameRef}
           type="text"
+          // placeholder 는 값이 차면 사라져 스크린리더가 어떤 칸인지 읽지 못한다. 편집 모드는 세 칸이
+          // 모두 채워진 채 열리므로 이름표가 없으면 그 순간 칸의 정체가 통째로 사라진다.
+          aria-label="매장 이름"
           placeholder="매장 이름 (필수)"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -247,6 +254,7 @@ function RestaurantForm({
         />
         <input
           type="text"
+          aria-label="메뉴 (쉼표로 구분)"
           placeholder="메뉴 (선택) 예) 김치찌개, 제육"
           maxLength={MENUS_INPUT_MAX_LEN}
           value={menusText}
@@ -255,6 +263,7 @@ function RestaurantForm({
         />
         <input
           type="text"
+          aria-label="위치"
           placeholder="위치 (선택) 주소 또는 링크"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
