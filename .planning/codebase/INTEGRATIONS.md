@@ -57,9 +57,10 @@
 
 | 채널명 | 구독처 | 구독 이벤트 |
 |---|---|---|
-| `lunch-realtime` | `app/page.tsx:69` | `menus` INSERT/DELETE, `results` INSERT/UPDATE, `pinned_menus` INSERT/DELETE |
-| `log-results` | `app/log/page.tsx:54` | `results` INSERT/UPDATE |
-| `rank-results` | `app/rank/page.tsx:37` | `results` INSERT/UPDATE |
+| `results-<n>` | `app/page.tsx` | `results` INSERT/UPDATE (구독마다 effect 안에서 번호) |
+| `results-log-<n>` | `app/log/page.tsx` | `results` INSERT/UPDATE |
+| `results-rank-<n>` | `app/rank/page.tsx` | `results` INSERT/UPDATE |
+| `settings-changes-<n>` · `restaurants-<n>` · `candidates-<n>` | `lib/useSettings.ts` · `lib/useRestaurants.ts` · `lib/useCandidates.ts` | 각 테이블 변경 |
 
 세 페이지 모두 `useEffect` 정리 단계에서 `supabase.removeChannel(...)`을 호출한다. 새 실시간 화면을 추가할 때 이 패턴을 따를 것.
 

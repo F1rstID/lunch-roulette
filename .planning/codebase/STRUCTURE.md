@@ -32,6 +32,7 @@ lunch_roulette/
 │   ├── colors.ts             # 룰렛 슬라이스 팔레트
 │   ├── constants.ts          # 환경변수 없이 import 되는 순수 상수 (길이 상한 3개)
 │   ├── errors.ts             # 읽기·쓰기·함수 실패 → 한 줄 한국어 문장 (순수)
+│   ├── history.ts            # 전환일 필터·매장 기준 집계·월 격자 (순수, 기록·랭킹 정의처)
 │   ├── menus.ts              # 쉼표 파싱·코드포인트 절단 (순수, 정의처)
 │   ├── rowset.ts             # 목록 Realtime 병합 규칙 한 벌 (제네릭, 키만 주입)
 │   ├── settings.ts           # settings 행 → 앱 도메인 + Realtime 리듀서 (순수)
@@ -121,7 +122,7 @@ lunch_roulette/
 
 **Core Logic:**
 - `lib/supabase/client.ts`: DB 클라이언트 + row 타입
-- `lib/time.ts`: `todayKstDate`, `kstParts`, `formatHhMm`, `formatHhMmSs`, `formatKstLongDay`, `formatSpinTime`, `addMinutesToSpinTime`
+- `lib/time.ts`: `todayKstDate`, `kstParts`, `formatHhMmSs`, `formatKstLongDay`, `formatSpinTime`, `addMinutesToSpinTime`
 - `lib/phase.ts`: `currentPhase`, `displayPhase`, `isCandidateListLocked`, `Phase` 타입
 - `app/page.tsx`: 초기 로드(오늘 결과 1쿼리) + `results` 2분기 구독 + 회전 가드
 - `app/page.tsx`: 쓰기 핸들러 `addCandidate`/`removeCandidate`/`respin`
@@ -131,8 +132,7 @@ lunch_roulette/
 - `lib/candidates.ts`: `joinCandidates`·`filterRestaurantsByName`·`listTodayRows`·`findWinnerIndex`·`isNewSpin`·`candidatesReducer` (오늘 후보 도메인의 모든 판단, 순수)
 - `lib/useCandidates.ts`: 오늘 후보 SELECT 1회 + `candidates-<n>` 토픽 2분기 구독 (판단 0, 읽기 전용)
 - `lib/menus.ts`: `parseMenuInput`·`truncateToCodePoints` (쉼표 다중 입력 파싱·코드포인트 절단, 순수 함수)
-- `components/RankingView.tsx:13`: `buildRanking` (집계, 순수 함수)
-- `components/CalendarLog.tsx:17`: `buildMonthGrid` (42칸 달력 격자, 순수 함수)
+- `lib/history.ts`: `filterSince`·`buildRanking`·`buildMonthGrid` (기록·랭킹의 모든 판단, 순수 — Phase 7 이 두 컴포넌트에서 내렸다)
 
 **Styling:**
 - `app/globals.css:12-31`: CSS 변수 토큰(`--bg`, `--ink`, `--accent`, `--line`, `--radius`, `--font-sans` 등)
@@ -188,7 +188,8 @@ lunch_roulette/
 - 시간 관련: `lib/time.ts`에 추가 (**새 파일을 만들지 말 것** — KST 변환의 단일 창구)
 - 페이즈/추첨 시각 관련: `lib/phase.ts`
 - 오늘 후보 목록·필터·당첨 판정: `lib/candidates.ts`. 목록의 Realtime 병합 규칙 자체는 `lib/rowset.ts` — 새 목록이 생기면 리듀서를 새로 쓰지 말고 키 함수만 주입한다
-- 그 외 순수 헬퍼: `lib/<name>.ts`. 단, 특정 컴포넌트에서만 쓰는 순수 함수는 그 컴포넌트 파일 안에 export해 둔다 (`buildRanking`, `buildMonthGrid` 전례). 둘 이상이 쓰게 되면 `lib/` 로 내린다 (`parseMenuInput` → `lib/menus.ts` 전례)
+- 기록·랭킹의 필터·집계·격자: `lib/history.ts`
+- 그 외 순수 헬퍼: `lib/<name>.ts`. 특정 컴포넌트에서만 쓰는 순수 함수라도 테스트가 필요하면 `lib/` 로 내린다 (`buildRanking`·`buildMonthGrid` → `lib/history.ts`, `parseMenuInput` → `lib/menus.ts` 전례) — 컴포넌트 파일은 러너가 수집하지 않는다
 
 **새 DB 테이블/컬럼:**
 1. `supabase/migrations/000N_설명.sql` 새로 생성 (기존 파일 수정 금지, 순번 증가)

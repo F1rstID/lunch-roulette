@@ -169,7 +169,7 @@
 ### [P2] 1초 tick × Intl.DateTimeFormat 매회 신규 생성
 
 - Problem: 3개 페이지 모두 1초마다 `setNow(new Date())`로 전체 트리를 리렌더한다. 그 리렌더마다 `lib/time.ts`의 헬퍼가 **매 호출 새 `Intl.DateTimeFormat` 인스턴스를 만든다**(`lib/time.ts:6-7`은 팩토리 함수이지 캐시가 아니다, `lib/time.ts:39-49`도 인라인 생성).
-- Files: `lib/time.ts:6-7,39-49`, `app/page.tsx:19-25` (`todayKstDate`+`currentPhase`+`formatHhMmSs`+`formatKstLongDay` = 초당 최소 4개 생성), 구 `MenuList` (`formatHhMm(new Date(...))` — 메뉴 N개면 초당 N개 추가 생성), `app/log/page.tsx:12-19`, `app/rank/page.tsx:12-18`
+- Files: `lib/time.ts:6-7,39-49`, `app/page.tsx:19-25` (`todayKstDate`+`currentPhase`+`formatHhMmSs`+`formatKstLongDay` = 초당 최소 4개 생성), `app/log/page.tsx:12-19`, `app/rank/page.tsx:12-18`
 - Cause: `Intl.DateTimeFormat` 생성은 포맷 실행보다 수십 배 비싸다. 메뉴 20개 기준 초당 25개 내외의 포맷터가 생성·폐기되며, 여기에 `Wheel`의 SVG(슬라이스 N개 + 눈금 N개 + 라벨 N그룹)가 `React.memo` 없이 매초 전체 재조정된다.
 - Improvement path:
   1. `lib/time.ts`의 포맷터를 모듈 레벨 상수로 캐시한다(옵션 조합이 4종뿐이라 단순 상수화로 충분). 가장 비용 대비 효과가 크다.
@@ -177,12 +177,10 @@
   3. `Wheel`을 `React.memo`로 감싸고, `app/page.tsx`가 넘기는 props가 초당 변하지 않게 유지한다(현재 `items`/`phase`/`winnerIndex`는 이미 안정적).
   4. 근본적으로는 `lib/phase.ts:29-38`의 미사용 `msToNextPhase`를 써서 "다음 전환까지 한 번만 타이머"로 바꾸되, 시계 표시(`clockTime`)는 별도 컴포넌트로 분리해 1초 리렌더 범위를 좁힌다.
 
-### [P2] `app/rank/page.tsx`가 `results` 전체를 무제한 조회
+### [P2 → 완화됨, Phase 7] `app/rank/page.tsx`의 `results` 조회 범위
 
-- Problem: `select("*")`에 `limit`도 기간 필터도 없다. `candidates` jsonb까지 전부 끌어오는데, 랭킹 계산에는 `menu`·`date`만 필요하다.
-- Files: `app/rank/page.tsx:24-28`, `components/RankingView.tsx:13-26` (`buildRanking`은 전체를 매번 순회하나 `useMemo`로 감싸져 있어 리렌더 비용은 없음)
-- Cause: 하루 1행씩 영구 누적. 현재 규모(60행 내외)에선 무해하지만 3년이면 1,000행을 넘어 PostgREST 기본 행 상한에 걸리고, 그 시점에 랭킹이 **에러 없이 조용히 틀려진다**.
-- Improvement path: `select("date, menu")`로 컬럼을 좁히고, 집계는 Postgres view(`create view result_ranking as select menu, count(*) ...`)로 옮긴다. 최소한 명시적 `limit`과 "최근 N년" 필터를 넣어 상한 도달을 눈에 보이게 만든다.
+- 현재: 컬럼 4개(`id,date,menu,restaurant_id`)로 좁혔고 `.gte("date", min(history_since, 오늘))` 로 기간을 잘랐다. 전환일 이후 하루 1행이라 PostgREST 행 상한(1,000)까지 약 3년.
+- 남은 것: 상한에 닿아도 **에러 없이 조용히 틀린다**는 성질은 그대로다. 그 전에 명시적 `limit` 또는 서버 집계 view 로 옮긴다.
 
 ### [P3] 외부 CDN 폰트 2종을 CSS `@import`로 로드
 
@@ -301,8 +299,8 @@
 | `parseMenuInput` | `lib/menus.ts:20` | 전각/반각 쉼표, 24자 절단, 중복 제거 분기. **회귀 spec 13건이 붙었다**(`lib/menus.test.ts`, Phase 1) |
 | `currentPhase` | `lib/phase.ts:18-26` | 페이즈 경계(11:54:59 / 11:55:00 / 11:55:05)가 전체 UI 동작을 가른다 |
 | `kstParts` / `todayKstDate` | `lib/time.ts:10-65` | 24시→0시 보정(`lib/time.ts:60`), 날짜 경계, 비 KST 브라우저 동작 |
-| `buildRanking` | `components/RankingView.tsx:13-26` | 동점 처리·share 계산. 전환 후 집계 기준이 바뀌면 여기가 먼저 깨진다 |
-| `buildMonthGrid` | `components/CalendarLog.tsx:17-40` | 월 경계·42셀 패딩·윤년 |
+| `buildRanking` · `filterSince` | `lib/history.ts` | 집계 키(`restaurant_id ?? menu`)·동점·share·전환일 당일 포함. **spec 20건으로 고정됨(Phase 7)** |
+| `buildMonthGrid` | `lib/history.ts` | 월 경계·42셀 패딩·윤년. spec 으로 고정됨(Phase 7) |
 | `spinJitter` / `arcPath` | `components/Wheel.tsx:25-40` | 각도 계산. 틀리면 당첨 조각과 포인터가 어긋난다 |
 
 **단위 테스트가 어려운 미검증 영역 — 우선순위 Medium:**
@@ -323,8 +321,7 @@
 - 대응: 전환 전에 `select date, menu from results order by date;` 전체를 덤프해 육안 검토 → 매핑 테이블을 **수작업으로 확정** → 매핑 불가 행은 `restaurant_id = null` + `legacy_name` 보존으로 남긴다. `results` 컬럼을 파괴적으로 바꾸지 말고 **추가 컬럼 + 백필** 방식을 쓴다.
 
 **2. 이름 기준 조인이 코드 6곳에 박혀 있다**
-- `components/RankingView.tsx:14-22` (`tally` 키), `components/CalendarLog.tsx:60` (월간 최다 메뉴), `components/CalendarLog.tsx:251` (후보 목록). **오늘 탭 쪽은 Phase 6 이 닫았다** — `winnerIndex` 는 `restaurant_id` 매칭이고 핀은 카탈로그 행의 속성이라 이름을 키로 쓰지 않는다. 남은 두 컴포넌트(기록·랭킹)는 **Phase 7 소관**이고, 그때까지 legacy 행(이름만 있는)과 신규 행(id 있는)을 함께 다뤄야 한다.
-- 전부 id 기준으로 바뀌어야 하고, 그중 `RankingView`·`CalendarLog`는 **legacy 행(이름만 있는)과 신규 행(id 있는)을 동시에** 다뤄야 한다. 분기 처리를 빠뜨리면 랭킹이 두 갈래로 쪼개져 보인다(같은 식당이 "김치찌개"와 `#42`로 따로 집계).
+- **해소됨(Phase 6·7).** 오늘 탭의 `winnerIndex` 는 `restaurant_id` 매칭, 기록·랭킹의 집계 키는 `lib/history.ts` 의 `restaurant_id ?? menu` 다(삭제된 매장은 이름 스냅샷으로 한 덩어리, 개명은 최근 스냅샷 이름으로 합쳐짐). legacy 행(이름만 있는)은 `filterSince` 가 전환일 이전으로 잘라 화면에 오지 않는다 — 전환일 당일의 구 모델 행 한 줄은 컷오버 절차(`wr-01` 8번, `history_since + 1`)가 뺀다. 남은 이름 기준 표시는 기록 상세의 후보 목록(`results.candidates[].name`)뿐이고 그것은 스냅샷 표시라 의도다.
 
 **3. `pinned_menus`의 PK가 `name`이다**
 - `supabase/migrations/0004_pinned_menus.sql:4-7`. 식당 FK로 바꾸려면 PK 교체 = 테이블 재생성이고, 여기에 걸린 **자정 재시드 cron 잡 본문**(`0004_pinned_menus.sql:28-36`)도 함께 재작성해야 한다. cron 잡은 마이그레이션 파일이 아니라 DB에 살아 있으므로, 새 마이그레이션에서 unschedule → 재등록 패턴을 반드시 지킬 것.

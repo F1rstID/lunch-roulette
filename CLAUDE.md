@@ -7,7 +7,8 @@
 ## 엔트리포인트·핵심 흐름
 
 - `app/page.tsx` — 오늘 탭. 카탈로그 토글로 후보 담기·빼기 + 룰렛 + 매장 결과. 앱의 중심. 후보 소스는 `candidates`⋈`restaurants`(훅 2개 + 클라이언트 순수 조인)이고, 결과 구독은 `results-<n>` 토픽의 INSERT/UPDATE **2분기** + 추첨 시각 비교 가드(`todayResultRef`·`isNewSpin`)다. 후보 쓰기 2종(담기·빼기)은 여기서 직접 PostgREST 를 부르고 실패는 전부 `formatCandidateWriteError` 를 지난다.
-- `app/log/page.tsx` — 캘린더 기록. `app/rank/page.tsx` — 랭킹.
+- `app/log/page.tsx` — 캘린더 기록. `app/rank/page.tsx` — 랭킹. 둘 다 `settings.history_since` **이후**(당일 포함) 결과만 보이고, 화면에 올리는 행은 전부 `lib/history.ts` 의 `filterSince` 를 지난다(`null` 이면 자르지 않는다 — 컷오버 전 라이브가 그 상태). 랭킹은 설정 로드 뒤에만 조회하고 `.gte("date", …)` + 컬럼 4개(`id,date,menu,restaurant_id`)로 좁힌다 — 조회 경계는 대역폭이고 정의는 `filterSince` 다. 기록은 월 창 조회를 유지하고 필터만 건다. 두 페이지의 results 토픽은 `results-log-<n>`·`results-rank-<n>`(구독마다).
+- `lib/history.ts` — 기록·랭킹의 판단(순수): `filterSince`(전환일 필터) · `buildRanking`(집계 키 **`restaurant_id ?? menu`**, 이름은 최근 당첨일 스냅샷, 정렬 wins ↓ → lastDate ↓ → key ↑) · `buildMonthGrid`(6×7 격자, 로컬 `Date` 산술의 허용 예외). `RankingView`·`CalendarLog` 는 호출만 한다 — 달력 헤더의 "이번 달 최다 매장" 도 같은 `buildRanking` 이다.
 - `app/restaurants/page.tsx` — 매장 탭. 매장 카탈로그 CRUD + 📌 고정. 쓰기 4종(등록·수정·삭제·핀)이 여기서 직접 PostgREST 를 부르고 실패는 전부 `formatRestaurantWriteError` 를 지나 한 배너로 모인다. 페이즈 잠금이 없다 — 매장 편집은 추첨 시각과 무관하다. 오늘 후보 담기는 오늘 탭에 있다 — 📌 토글은 여기 한 곳뿐이고 후보 목록에서는 읽기 전용 표시다.
 - `lib/supabase/client.ts` — 브라우저용 supabase 클라이언트 + `ResultRow`/`RestaurantRow`/`CandidateRow`/`SettingsRow` 타입. **DB 타입의 유일한 정의처** (자동 생성 아님, 수동 유지).
 - `lib/rowset.ts` — 목록의 Realtime 병합 규칙 한 벌(제네릭). 매장 카탈로그와 오늘 후보가 이 구현 하나를 **키 함수만 주입해** 쓴다(`id` / `restaurant_id`). `pending` 버퍼 재적용·중복 INSERT 멱등·DELETE 키 없음·UPDATE upsert 가 전부 여기 있다.
@@ -70,14 +71,14 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 |---|---|
 | `lib/supabase/client.ts` `ResultRow` | 4개 파일 + 2개 Edge Function이 같은 스키마를 가정. 컬럼 바꾸면 전부 손봐야 하고 타입은 수동 동기화 |
 | `app/page.tsx` realtime 핸들러 | `results` INSERT/UPDATE **2분기**(INSERT 가 먼저) + `initialLoadedRef`로 초기 로드/실시간 구분 + `todayResultRef`·`isNewSpin` 회전 가드. 순서를 바꾸거나 두 분기를 하나로 합치면 휠 이중 회전이 돌아오고, 가드를 빼면 매장 삭제가 내보내는 `on delete set null` UPDATE 마다 열린 모든 탭의 휠이 5초씩 돈다. 토픽(`results-<n>`)은 **effect 안에서** 만든다 — `useState` 로 올리면 자정에 `todayKey` 가 바뀌며 재구독할 때 realtime-js 가 leave 중인 옛 채널을 같은 토픽으로 돌려주고 `subscribe()` 가 join 을 건너뛰어, 밤새 열어 둔 탭이 다음 날 결과를 못 받는다 |
-| `app/log`, `app/rank` realtime | INSERT/UPDATE 두 분기 구독. 분기 하나를 지우면 다시 돌리기(UPDATE)가 반영 안 된다 |
+| `app/log`, `app/rank` realtime | INSERT/UPDATE 두 분기 구독. 분기 하나를 지우면 다시 돌리기(UPDATE)가 반영 안 된다. 토픽은 effect 안에서 `results-log-<n>`·`results-rank-<n>` 으로 매긴다(고정 문자열로 되돌리면 개발 이중 마운트·라우트 왕복에서 leave 중인 채널에 붙는다). 랭킹 조회의 아래 경계는 `min(history_since, 오늘)` 이다 — 전환일이 오늘보다 뒤인 하루(컷오버 절차 8번)에 오늘 행이 빠지면 상단 라벨이 "추첨 대기" 로 틀린다. 그 행을 랭킹에서 빼는 것은 `filterSince` 이지 조회가 아니다 |
 | `components/Wheel.tsx` 회전 각도 | 회전 각도를 props 에서 파생한다(`isSpinning`·`restRotation`). state+effect 로 되돌리면 `react-hooks/set-state-in-effect` 와 재회전 루프가 함께 돌아온다 |
 | `supabase/migrations/0002_cron.sql` | 프로젝트 ref 하드코딩. 다른 Supabase로 옮기면 치환 필수 (README 참조) |
 | `winnerIndex` (`app/page.tsx`) | 오늘 후보 조인 목록에서 **`restaurant_id` 로** 찾는다(이름 폴백 없음). 매장이 삭제돼 `restaurant_id` 가 null 이 되면 -1 → 휠 하이라이트만 사라지고 결과의 이름 스냅샷은 남는다. 이름으로 되찾게 바꾸면 동명 매장이 당첨으로 오인된다 |
 | `lib/rowset.ts` + `lib/useRestaurants.ts`·`lib/useCandidates.ts` | 매장 3분기·후보 2분기 구독 + 인스턴스별 유일 토픽(`restaurants-<n>`·`candidates-<n>`). 분기 하나를 지우면 그 이벤트가 조용히 반영되지 않고, 토픽을 고정 문자열로 바꾸면 라우트 전환에서 구독이 에러 없이 죽는다(초기 조회는 정상이라 눈에 띄지 않는다). 조회보다 먼저 온 이벤트는 `lib/rowset.ts` 의 `pending` 버퍼가 흡수한다 — 그 버퍼를 지우고 이벤트가 `loaded` 를 올리게 되돌리면 초기 조회 결과 전체가 버려지고, 이제 그 회귀는 **두 목록에 동시에** 생긴다 |
 | 클라이언트 에러 표면화 | 쓰기는 `actionError`, 초기 SELECT는 `loadError`(`lib/errors.ts` + `components/ErrorBanner.tsx`)로 배너 표시. 둘을 합치면 쓰기 성공이 읽기 실패 배너를 지운다. Realtime 구독 실패는 여전히 조용함 |
 
-미사용 코드: `Wheel` `onSpinCompleteAction` prop (참조 0) · `lib/time.ts` `formatHhMm` (참조 0 — Phase 6 이 화면 문구를 `formatSpinTime` 으로 옮기며 소비처가 없어졌다. Phase 7 삭제 후보).
+미사용 코드: `Wheel` `onSpinCompleteAction` prop (참조 0).
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project

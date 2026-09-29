@@ -18,8 +18,8 @@
 
 **Functions:**
 - camelCase. 컴포넌트만 PascalCase.
-- 순수 헬퍼는 동사 접두어로 의도를 드러낸다: `buildMonthGrid`(`components/CalendarLog.tsx:17`), `buildRanking`(`components/RankingView.tsx:13`), `parseMenuInput`(`lib/menus.ts:20`), `spinJitter`/`arcPath`/`polar`(`components/Wheel.tsx:25,30,35`).
-- 포맷터는 `format~` 접두어: `formatHhMm`, `formatHhMmSs`, `formatKstLongDay` (`lib/time.ts`).
+- 순수 헬퍼는 동사 접두어로 의도를 드러낸다: `buildMonthGrid`·`buildRanking`·`filterSince`(`lib/history.ts`), `parseMenuInput`(`lib/menus.ts:20`), `spinJitter`/`arcPath`/`polar`(`components/Wheel.tsx:25,30,35`).
+- 포맷터는 `format~` 접두어: `formatHhMmSs`, `formatKstLongDay`, `formatSpinTime` (`lib/time.ts`).
 - 로컬 축약 헬퍼 허용: `pad2`, `fmtDate` (`components/CalendarLog.tsx:10,13`).
 
 **Variables:**
@@ -134,7 +134,7 @@
 - 경계를 넘는 쓰기 콜백은 `Promise<boolean>` 으로 통일한다: `(id: string, name: string) => Promise<boolean>`. 호출부가 성공 여부로 입력을 비울지·진행 표시를 풀지 정한다.
 
 **메모이제이션:**
-- 4개 페이지 전부 1초 `setInterval`로 `now`를 갱신해 리렌더한다(`app/page.tsx:27`, `app/restaurants/page.tsx:18`, `app/log/page.tsx:17`, `app/rank/page.tsx:17`). **매초 전체 리렌더가 일어나므로 비싼 파생 계산은 `useMemo`로 감싼다** — `winnerIndex`(`app/page.tsx:152`), `logMap`(`app/log/page.tsx:93`), `buildRanking`(`components/RankingView.tsx:29`), `sortRestaurants`(`app/restaurants/page.tsx`).
+- 4개 페이지 전부 1초 `setInterval`로 `now`를 갱신해 리렌더한다(`app/page.tsx:27`, `app/restaurants/page.tsx:18`, `app/log/page.tsx:17`, `app/rank/page.tsx:17`). **매초 전체 리렌더가 일어나므로 비싼 파생 계산은 `useMemo`로 감싼다** — `winnerIndex`(`app/page.tsx:152`), `logMap`(`app/log/page.tsx:93`), `buildRanking`(`components/RankingView.tsx`), `filterSince`(`app/log/page.tsx`·`app/rank/page.tsx`), `sortRestaurants`(`app/restaurants/page.tsx`).
 - 반대로 **핸들러는 `useCallback`으로 감싸지 않는다.** 소비자가 memo 컴포넌트가 아니라 이득이 없고, React Compiler lint가 async 핸들러의 수동 memo를 막는다. 근거가 `app/page.tsx:142-144`에 주석으로 남아 있다.
 - `React.memo` 사용 0건.
 
@@ -145,7 +145,7 @@
 - **`lib/time.ts`의 포맷터는 `now: Date = new Date()`를 기본 인자로 받는다**(`lib/time.ts:17,22,31`). 호출부는 보통 생략하지만 테스트에서 고정 시각을 주입할 수 있다 — 의도된 seam이다.
 - **예외 2곳(기본 인자를 일부러 버렸다):** `currentPhase(now, spinTime, hasResult)`(`lib/phase.ts:22`)와 `kstParts(now)`(`supabase/functions/_shared/kst.ts`)는 시각을 **반드시 주입받는다**. 기본값을 두면 설정(`settings.spin_time`)에서 온 추첨 시각이 다시 모듈 안에 숨고, `decided` 를 결정하는 것이 결과 행의 존재라는 사실도 시그니처에서 사라진다.
 - 날짜 키는 `"yyyy-mm-dd"` KST 문자열이고 `results.date`와 문자열 그대로 비교한다(`app/page.tsx:60`, `app/log/page.tsx:84`).
-- **허용된 예외 1곳:** `components/CalendarLog.tsx:18-21,222`는 `new Date(year, month-1, 1).getDay()` 등 로컬 `Date` 메서드로 달력 그리드를 만든다. 명시적 y/m/d 숫자로부터 요일·일수를 계산하는 순수 캘린더 산술이고 "현재 시각"에 의존하지 않으므로 타임존 버그가 나지 않는다. **"지금"을 다루는 코드는 반드시 `lib/time.ts`로.**
+- **허용된 예외:** `lib/history.ts` 의 `buildMonthGrid` 와 `components/CalendarLog.tsx` 의 `DetailView` 요일 계산은 `new Date(year, month-1, 1).getDay()` 등 로컬 `Date` 메서드로 달력을 만든다. 명시적 y/m/d 숫자로부터 요일·일수를 계산하는 순수 캘린더 산술이고 "현재 시각"에 의존하지 않으므로 타임존 버그가 나지 않는다. **"지금"을 다루는 코드는 반드시 `lib/time.ts`로.**
 - 추첨 시각의 **코드상 정의처는 한 곳**이다: `supabase/functions/_shared/spinTime.ts:9-11`의 `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`. 런타임 값은 `settings.spin_time`(대시보드 편집)이 이기고, **네 페이지 전부** `useSettings()` → `displayPhase(currentPhase(now, settings.spinTime, …), settingsLoaded)` 로 그 값을 받는다. 화면 문구는 `lib/time.ts` 의 `formatSpinTime`·`addMinutesToSpinTime` 가 조립해 prop 으로 내려간다(`Wheel`·`ResultBlock`·`CandidateList`·`PhaseTimeline`·`phaseSubhead`) — **화면 하드코딩 갈래는 SPIN-06 이 해소했고** `app/`·`components/`·`lib/` 에 사용자에게 보이는 시각 리터럴이 0곳이다. 남은 중복은 DB 쪽 기본값 한 갈래뿐이다(`supabase/migrations/0002_cron.sql`의 `'55 2 * * *'`, `0005`의 `spin_time` 기본값).
 
 ## Data Access
@@ -161,7 +161,7 @@
   }, [dep]);
   ```
   (`app/page.tsx:37-55`, `app/log/page.tsx:30-49`, `app/rank/page.tsx:21-33`). 병렬 쿼리는 `Promise.all`로 묶는다(`app/page.tsx:41-45`).
-- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 페이지 채널 2개(`"log-results"`, `"rank-results"`)는 아직 이름으로, 나머지는 카운터로(`app/page.tsx` → `results-<n>`, `lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`, `lib/useCandidates.ts` → `candidates-<n>`). 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다 — 오늘 탭의 고정 토픽은 그 이유로 Phase 6 이 카운터로 바꿨다.
+- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 전부 카운터로 매긴다(`app/page.tsx` → `results-<n>`, `app/log/page.tsx` → `results-log-<n>`, `app/rank/page.tsx` → `results-rank-<n>`, `lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`, `lib/useCandidates.ts` → `candidates-<n>`). 재구독이 있는 자리(`app/page.tsx`·두 페이지)는 effect 안에서, 없는 훅은 `useState` 초기화로. 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다 — 오늘 탭의 고정 토픽은 그 이유로 Phase 6 이 카운터로 바꿨다.
 - Realtime payload는 제네릭이라 **행 타입으로 단언한다**: `payload.new as ResultRow`. DELETE는 부분 행만 오므로 `payload.old as Partial<MenuRow>`로 받고 키 존재를 확인한 뒤 쓴다(`app/page.tsx:84-85,110-111`).
 - 상태 갱신은 항상 함수형 업데이터 + 멱등 처리. INSERT 이벤트는 중복 삽입을 막는다: `prev.some((m) => m.id === row.id) ? prev : [...prev, row]` (`app/page.tsx:75-77`, `app/log/page.tsx:60`).
 - **낙관적 업데이트를 하지 않는다.** 쓰기는 supabase에 보내고, 화면 갱신은 realtime 이벤트가 돌아올 때 일어난다. 근거 주석: `app/page.tsx:172-173`.
@@ -249,7 +249,7 @@ if (!cancelled && data) setResults(data as ResultRow[]);
 
 **Barrel Files:** 없다. 만들지 말 것.
 
-**순수 로직의 위치:** 렌더와 무관한 계산은 컴포넌트 밖 모듈 스코프 함수로 뺀다. 재사용되면 `lib/`로 승격한다(`lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`가 그 결과). 한 화면에서만 쓰이면 컴포넌트 파일 상단에 둔다(`buildRanking`, `buildMonthGrid`).
+**순수 로직의 위치:** 렌더와 무관한 계산은 컴포넌트 밖 모듈 스코프 함수로 뺀다. 재사용되면 `lib/`로 승격한다(`lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`가 그 결과). 한 화면에서만 쓰여도 테스트가 필요하면 `lib/` 로 내린다(`buildRanking`·`buildMonthGrid` → `lib/history.ts`) — 컴포넌트 파일은 러너가 수집하지 않는다.
 
 ## SQL / Migration Conventions
 

@@ -36,8 +36,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### 기록·랭킹 (HIST)
 
-- [ ] **HIST-01**: 기록 캘린더는 전환일(`settings.history_since`) 이후 결과만 매장명으로 표시한다
-- [ ] **HIST-02**: 랭킹은 전환일 이후 결과만 매장 기준으로 집계한다
+- [x] **HIST-01**: 기록 캘린더는 전환일(`settings.history_since`) 이후 결과만 매장명으로 표시한다
+- [x] **HIST-02**: 랭킹은 전환일 이후 결과만 매장 기준으로 집계한다
 - [x] **HIST-03**: 전환 이전 `results` 60행은 DB에 그대로 보존된다 (삭제·변환 없음)
 
 ### 설정 (SETT)
@@ -114,8 +114,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPIN-04 | Phase 4 — 서버 추첨 | Complete |
 | SPIN-05 | Phase 6 — 오늘 탭 | Complete |
 | SPIN-06 | Phase 6 — 오늘 탭 | Complete |
-| HIST-01 | Phase 7 — 기록·랭킹 | Pending |
-| HIST-02 | Phase 7 — 기록·랭킹 | Pending |
+| HIST-01 | Phase 7 — 기록·랭킹 | Complete |
+| HIST-02 | Phase 7 — 기록·랭킹 | Complete |
 | HIST-03 | Phase 2 — 데이터 모델 | Complete |
 | SETT-01 | Phase 2 — 데이터 모델 | Complete |
 | SETT-02 | Phase 3 — 순수 로직 | Complete |

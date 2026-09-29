@@ -62,7 +62,7 @@ npm run dev   # http://localhost:3000
 | `currentPhase(now)` | `lib/phase.ts:18` | 경계값 3개(11:54:59 / 11:55:00 / 11:55:05). `now: Date` 주입 가능 |
 | `msToNextPhase(now)` | `lib/phase.ts:29` | 자정 롤오버 계산. **현재 참조 0건인 미사용 코드** — 테스트를 쓸지 지울지 먼저 결정할 것 |
 | `todayKstDate(now)` | `lib/time.ts:10` | 타임존 경계(UTC 15:00 = KST 익일 00:00)에서 날짜 키가 넘어가는지 |
-| `formatHhMm` / `formatHhMmSs` | `lib/time.ts:15,20` | 24시간제 포맷 |
+| `formatHhMmSs` | `lib/time.ts` | 24시간제 포맷 (`formatHhMm` 은 Phase 7 이 참조 0 으로 삭제) |
 | `kstParts(now)` | `lib/time.ts:30` | `hour % 24` 보정(자정을 24시로 주는 로케일 대응), weekday 매핑 |
 | `formatKstLongDay(now)` | `lib/time.ts:68` | 한글 요일 문자열 |
 
@@ -80,8 +80,8 @@ currentPhase(new Date("2026-09-18T02:55:00Z")); // KST 11:55:00 → "spinning"
 
 | 함수 | 파일 | 내용 |
 |---|---|---|
-| `buildRanking(results)` | `components/RankingView.tsx:13` | 집계 + 동점 시 최근 당첨일 역순 정렬 + share 비율 |
-| `buildMonthGrid(year, month)` | `components/CalendarLog.tsx:17` | 42칸 달력 그리드. 연말연초 롤오버 분기 다수 |
+| `buildRanking(results)` · `filterSince` | `lib/history.ts` | **테스트됨(Phase 7, `lib/history.test.ts` 20건)** — 집계 키·동점·share·전환일 당일 포함 |
+| `buildMonthGrid(year, month)` | `lib/history.ts` | **테스트됨(Phase 7)** — 42칸·연말연초 롤오버·윤년·첫 칸 요일 |
 | `pad2` / `fmtDate` | `components/CalendarLog.tsx:10,13` | 사소함. 굳이 테스트할 필요 없음 |
 | `spinJitter(winnerIndex, sliceDeg)` | `components/Wheel.tsx:25` | 황금비 기반 **결정적** 지터. 난수가 아니라서 테스트 가능하고, ±30% 범위 보장이 계약이다 |
 | `polar` / `arcPath` | `components/Wheel.tsx:30,35` | SVG 기하. large-arc 플래그 경계(180°) |
@@ -126,7 +126,7 @@ currentPhase(new Date("2026-09-18T02:55:00Z")); // KST 11:55:00 → "spinning"
 
 1. **`lib/time.ts` + `lib/phase.ts`** — 의존성 0, 시각 주입 seam이 이미 있음, 타임존·경계 버그가 가장 비싼 영역(추첨 시각·날짜 키가 여기서 나온다). 환경변수 문제도 없다.
 2. **`parseMenuInput`** — 이미 export 돼 있고 분기가 많다. 스크래치 테스트가 이미 존재하므로 커밋만 하면 된다. 단 위 4번(환경변수) 처리 필요.
-3. **`buildRanking` / `buildMonthGrid` export 후 테스트** — 연말연초 롤오버와 동점 정렬은 눈으로 잡기 어려운 버그다.
+3. ~~**`buildRanking` / `buildMonthGrid` export 후 테스트**~~ — Phase 7 이 `lib/history.ts` 로 내리고 spec 20건으로 고정했다.
 4. 그 다음에야 컴포넌트/realtime 테스트를 고민한다. mocking 비용이 급격히 올라가므로 먼저 이득을 확인하고 진행한다.
 
 ## Coverage

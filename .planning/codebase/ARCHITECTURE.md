@@ -61,8 +61,8 @@
 | `RootLayout` | 유일한 서버 컴포넌트. `<html lang="ko">` · metadata · `globals.css` 로드 | `app/layout.tsx` |
 | `Wheel` | 룰렛 SVG 렌더 + 회전. 각도를 `phase`/`winnerIndex` props에서 **파생**(state 아님) | `components/Wheel.tsx` |
 | `MenuList` | 후보 입력 폼 + 목록 + 핀 토글. `parseMenuInput`으로 쉼표 다중 등록 파싱 | `components/MenuList.tsx` |
-| `CalendarLog` | 월 격자 생성(`buildMonthGrid`) + 날짜별 결과 표시 | `components/CalendarLog.tsx` |
-| `RankingView` | results 집계(`buildRanking`) → 포디움 + 전체 순위 | `components/RankingView.tsx` |
+| `CalendarLog` | 월 격자(`lib/history.ts` `buildMonthGrid`) + 날짜별 결과 표시 + 이번 달 최다 매장(`buildRanking`) | `components/CalendarLog.tsx` |
+| `RankingView` | 전환일 이후 행의 매장 기준 집계(`lib/history.ts` `buildRanking`) → 포디움 + 전체 순위 | `components/RankingView.tsx` |
 | `ResultBlock` | 페이즈별 결과/카운트다운/확률 배너 | `components/ResultBlock.tsx` |
 | `TopBar` | 탭 내비게이션 + 페이즈 뱃지 + 시계 | `components/TopBar.tsx` |
 | `PhaseTimeline` | 모집→룰렛→결과→리셋 4단계 진행 표시 | `components/PhaseTimeline.tsx` |
@@ -97,7 +97,7 @@
 **프레젠테이션 계층:**
 - Purpose: props를 받아 그리고, 사용자 의도를 `~Action` 콜백으로 되돌려준다
 - Location: `components/`
-- Contains: named export 함수 컴포넌트, 파일 하단 `satisfies Record<string, CSSProperties>` 스타일 객체, 순수 헬퍼(`parseMenuInput`, `buildMonthGrid`, `buildRanking`)
+- Contains: named export 함수 컴포넌트, 파일 하단 `satisfies Record<string, CSSProperties>` 스타일 객체, 순수 헬퍼는 `lib/` 로 내린다(`parseMenuInput` → `lib/menus.ts`, `buildMonthGrid`·`buildRanking` → `lib/history.ts`)
 - Depends on: `lib/phase.ts`(타입), `lib/colors.ts`, `lib/time.ts`, `lib/supabase/client.ts`(타입만)
 - Used by: Route 계층. **컴포넌트는 supabase를 직접 호출하지 않는다** (타입만 import)
 
@@ -245,7 +245,7 @@
 
 **What happens:** `new Date().getHours()`, `toISOString().slice(0,10)` 등으로 "오늘"을 계산한다.
 **Why it's wrong:** 사용자의 브라우저 타임존에 따라 날짜 키가 달라져 `results.date`와 어긋난다. 서버는 항상 KST로 판단한다.
-**Do this instead:** `lib/time.ts`의 `todayKstDate`/`kstParts`만 쓴다. 예외는 `components/CalendarLog.tsx:18-21`의 `buildMonthGrid` — 여기서 쓰는 `new Date(year, month-1, 1)`은 "지금"을 읽는 게 아니라 주어진 연/월의 격자를 계산하는 순수 달력 산술이므로 허용된다.
+**Do this instead:** `lib/time.ts`의 `todayKstDate`/`kstParts`만 쓴다. 예외는 `lib/history.ts`의 `buildMonthGrid` — 여기서 쓰는 `new Date(year, month-1, 1)`은 "지금"을 읽는 게 아니라 주어진 연/월의 격자를 계산하는 순수 달력 산술이므로 허용된다.
 
 ### 브라우저에서 `results`에 직접 쓰기
 
@@ -287,7 +287,7 @@
 
 **Authentication:** 없음. 완전 익명 서비스이며 RLS 정책이 "누구나"로 열려 있다. 인증 대신 **쓰기 대상 테이블 분리**(anon: `menus`/`pinned_menus`, service_role: `results`)로 무결성을 지킨다. `respin-roulette`에는 레이트리밋도 없다 — 익명 사내 도구로서 수용한 트레이드오프.
 
-**Realtime 구독:** 페이지마다 고유 채널명을 쓴다 — `"lunch-realtime"`(`app/page.tsx:69`), `"log-results"`(`app/log/page.tsx:54`), `"rank-results"`(`app/rank/page.tsx:37`). 세 페이지 모두 cleanup에서 `supabase.removeChannel(ch)`를 호출한다. `results`는 세 페이지 모두 INSERT와 UPDATE를 함께 구독해 재추첨이 즉시 반영된다.
+**Realtime 구독:** 토픽은 구독 인스턴스마다 유일하다 — `results-<n>`(`app/page.tsx`), `results-log-<n>`(`app/log/page.tsx`), `results-rank-<n>`(`app/rank/page.tsx`), 전부 effect 안에서 번호를 매긴다. 세 페이지 모두 cleanup에서 `supabase.removeChannel(ch)`를 호출한다. `results`는 세 페이지 모두 INSERT와 UPDATE를 함께 구독해 재추첨이 즉시 반영된다.
 
 ---
 
