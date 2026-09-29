@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 executing — 05-01 complete, 05-02 next
-last_updated: "2026-09-29T00:49:08.900Z"
-last_activity: 2026-09-29 -- Phase 05 — 05-01 complete (순수 로직 GREEN, 279 tests)
+stopped_at: Phase 5 executed — all 2 plans complete, review next
+last_updated: "2026-09-29T01:04:46.996Z"
+last_activity: 2026-09-29 -- Phase 05 — 05-02 complete (매장 탭 UI 배선, 279 tests 유지)
 progress:
   total_phases: 8
   completed_phases: 4
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 Phase: 05 (restaurants-tab) — EXECUTING
 Plan: 2 of 2
 Status: Executing Phase 05
-Last activity: 2026-09-29 -- Phase 05 — 05-01 complete (순수 로직 GREEN, 279 tests)
+Last activity: 2026-09-29 -- Phase 05 — 05-02 complete (매장 탭 UI 배선, 279 tests 유지)
 
 Progress: [█████████░] 94%
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 94%
 | Phase 04 P03 | 11min | 3 tasks | 4 files |
 | Phase 04 P04 | 6min | 2 tasks | 7 files |
 | Phase 05 P01 | 17min | 2 tasks | 8 files |
+| Phase 05 P02 | 10min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,11 @@ Progress: [█████████░] 94%
 - [Phase 5]: 05-01 — 이름·위치·메뉴 개수 초과는 절단이 아니라 거부다: 말없이 짧아진 매장명은 다른 가게가 되고, 31번째 메뉴를 버리면 사용자는 전부 등록된 줄 안다. 원소 24자 절단만 기존 parseMenuInput 의 계약으로 남긴다
 - [Phase 5]: 05-01 — restaurantsReducer 의 changed 는 error 를 지우지 않는다: 이벤트 하나가 도착했다는 사실이 목록 전체를 읽을 수 있다는 증거가 아니라서, 조회 실패 배너를 여기서 걷으면 반쪽짜리 목록이 정상처럼 보인다 (단일행인 settings 와 갈리는 지점)
 - [Phase 5]: 05-01 — 위치 링크 판정을 URL 파싱 + http/https 화이트리스트로 좁혔다: javascript: 와 data: 는 URL 생성자를 통과하므로 '파싱되면 링크' 로 두면 클릭 한 번에 스크립트가 도는 앵커가 목록에 생긴다 (T-05-03)
+- [Phase 5]: 05-02 — 훅에 판단을 한 줄도 남기지 않았다: useRestaurants 는 SELECT 1회 + INSERT/UPDATE/DELETE 3분기 + cleanup 만 갖고, 3분기를 한 분기로 합치지 않은 이유는 합치면 eventType 단언이 렌더 하네스가 없는 자리로 되돌아오기 때문이다
+- [Phase 5]: 05-02 — 편집 폼의 key 를 행 id 로 줬다: Realtime UPDATE 로 props 가 바뀌어도 폼이 remount 되지 않아 편집 초안이 살아남고 저장이 마지막 쓰기로 덮는다 (익명 서비스라 충돌 UI 없음)
+- [Phase 5]: 05-02 — 폼 검증 실패는 페이지 배너가 아니라 폼 안 role=alert 로 띄운다: 쓰기 실패가 아니고 고쳐야 할 입력 칸 옆에 있어야 사용자가 어디를 손볼지 안다. 쓰기 실패만 actionError 로 모인다
+- [Phase 5]: 05-02 — 매장 탭은 results 를 구독하지 않는다: 잠금이 없어(D-12) 페이즈 필은 표시용이고, 구독을 하나 더 늘리면 얻는 것(필 갱신)보다 실패 경로가 늘어나는 비용이 크다. 탭을 열어 둔 채 추첨 시각이 지나면 필이 새로고침 전까지 지연된다
+- [Phase 5]: 05-02 — 게이트 토큰(useCallback)을 주석 문안에서 뺐다: 인수 조건이 파일 전체 grep 으로 0건을 요구하는데 근거 주석이 자기 자신을 세면 게이트가 무력화된다 (Phase 3 의 같은 결정 재적용)
 
 ### Pending Todos
 
@@ -155,6 +161,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29T00:45:40.789Z
-Stopped at: Phase 5 executing — 05-01 complete, 05-02 next
-Resume file: .planning/phases/05-restaurants-tab/05-02-PLAN.md
+Last session: 2026-09-29T01:04:46.991Z
+Stopped at: Phase 5 executed — all 2 plans complete, review next
+Resume file: None
