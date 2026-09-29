@@ -58,9 +58,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### 전환·문서 (SHIP)
 
 - [x] **SHIP-01**: 컷오버 마이그레이션 1개: `restaurants`·`candidates`·`settings` 생성, RLS·Realtime 등록, cron 교체(spin 매분 폴링, reset은 `delete from` + 핀 재시드), `menus`·`pinned_menus` 제거. 재실행 가능
-- [ ] **SHIP-02**: 롤백 절차가 문서화된다 (구 테이블·구 cron 복원 SQL 포함)
-- [ ] **SHIP-03**: `CLAUDE.md`·`README.md`가 현행화된다 (낡은 항목 4건 수정 + 새 컨벤션: settings 단일 소스, `_shared` 모듈, 마이그레이션 동작불변 원칙)
-- [ ] **SHIP-04**: 배포 체크리스트가 문서화된다: 마이그레이션(사용자, 대시보드) → Edge Function 2개 deploy → PR 머지 → 라이브 확인
+- [x] **SHIP-02**: 롤백 절차가 문서화된다 (구 테이블·구 cron 복원 SQL 포함)
+- [x] **SHIP-03**: `CLAUDE.md`·`README.md`가 현행화된다 (낡은 항목 4건 수정 + 새 컨벤션: settings 단일 소스, `_shared` 모듈, 마이그레이션 동작불변 원칙)
+- [x] **SHIP-04**: 배포 체크리스트가 문서화된다: 마이그레이션(사용자, 대시보드) → Edge Function 2개 deploy → PR 머지 → 라이브 확인
 
 ## v2 Requirements
 
@@ -127,9 +127,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUAL-04 | Phase 1 — 안전망 | Complete |
 | QUAL-05 | Phase 8 — 컷오버 | Pending |
 | SHIP-01 | Phase 2 — 데이터 모델 | Complete |
-| SHIP-02 | Phase 8 — 컷오버 | Pending |
-| SHIP-03 | Phase 8 — 컷오버 | Pending |
-| SHIP-04 | Phase 8 — 컷오버 | Pending |
+| SHIP-02 | Phase 8 — 컷오버 | Complete |
+| SHIP-03 | Phase 8 — 컷오버 | Complete |
+| SHIP-04 | Phase 8 — 컷오버 | Complete |
 
 **Coverage:**
 - v1 requirements: 34 total
