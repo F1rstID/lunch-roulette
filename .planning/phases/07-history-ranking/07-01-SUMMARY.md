@@ -72,11 +72,11 @@ completed: 2026-09-29
 
 - `npm test` 378/378 · 14 files (기준 361 − 3 + 20) · `npx tsc --noEmit` · `npm run lint` · `npm run build` · `npm run check:edge` 전부 exit 0.
 - `grep -rn 'formatHhMm\b' lib app components` → 0 · `grep -n '"log-results"\|"rank-results"' app` → 0.
-- 컷오버 전 라이브 동작: 설정 실패 → `loaded` 참·`historySince` null → 두 페이지 전체 기간 표시(현행과 동일). main·라이브·Edge Function·마이그레이션 무변경.
+- 컷오버 전 라이브 동작: 설정 실패 → `loaded` 참·`historySince` null → **기록 페이지는** 전체 기간 표시(현행과 동일). **랭킹 페이지는** `results.restaurant_id` 가 라이브에 없어 명시 컬럼 조회가 42703 → "랭킹 불러오기 실패" 배너 + 빈 랭킹(리뷰 WR-01, 컷오버 전 정상). main·라이브·Edge Function·마이그레이션 무변경.
 
 ## Manual-only (사용자)
 
-가드런처 `npm run dev` → `/log`·`/rank` 렌더. 컷오버 전엔 "설정 불러오기 실패" 배너 + 기존 기록 전체가 정상. 랭킹 제목 "가장 많이 당첨된 매장", 달력 부제 "가장 많이 간 매장". 컷오버 후에는 전환일 이전 달이 비고 기록 부제가 "yyyy.mm.dd 부터의 매장 기록" 이어야 한다.
+가드런처 `npm run dev` → `/log`·`/rank` 렌더. 컷오버 전엔 `/log` 는 "설정 불러오기 실패" 배너 + 기존 기록 전체, `/rank` 는 거기에 "랭킹 불러오기 실패: column results.restaurant_id does not exist" 배너 + 빈 랭킹이 정상(0005 미적용). 랭킹 제목 "가장 많이 당첨된 매장", 달력 부제 "가장 많이 간 매장". 컷오버 후에는 전환일 이전 달이 비고 기록 부제가 "yyyy.mm.dd 부터의 매장 기록" 이어야 한다.
 
 ## Next Phase Readiness
 

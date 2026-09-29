@@ -11,7 +11,7 @@ resolves_phase: 8
 2. 적용 직전 `menus`·`pinned_menus` 0행 육안 확인(가정 A2).
 3. 대시보드 SQL Editor 에서 `0005_restaurants_settings.sql` 1회 실행.
 4. **곧바로** Edge Function 2종 재배포. `supabase/config.toml` 에 `verify_jwt = false` 가 고정돼 있으므로(63fae89) CLI 가 그 값을 읽는다 — `--no-verify-jwt` 를 같이 주는 것은 이중 안전이다. config.toml 을 건드리거나 플래그를 빼지 말 것(true 로 배포되면 401 로 추첨이 조용히 멈춘다).
-5. **곧바로** PR 머지(Vercel 배포).
+5. **곧바로** PR 머지(Vercel 배포). 랭킹 페이지의 `select("id,date,menu,restaurant_id")` 는 3번(0005 의 `results.restaurant_id`)이 먼저 적용돼야 동작한다 — 3 앞에 5 를 두지 않는 또 하나의 이유(07 리뷰 WR-01).
 6. 3~5 를 나눠서 하지 않는다. 한 세션 안에서 몇 분 내 연속 수행하고, 다음 날 11:55 전에 끝낸다.
 7. 배포 직후 `respin-roulette` 를 수동 invoke 해 응답을 눈으로 확인한다 — `menu` 가 실제 매장명 문자열이고 `restaurant_id` 가 uuid 여야 한다(`ok: true` 와 `candidate_count` > 0 도 함께 본다). PostgREST 의 매장 임베드가 배열로 오느냐 객체로 오느냐는 `deno check` 도 계약 테스트도 잡지 못하고 **첫 실호출에서만** 드러난다. `menu` 가 빈 문자열이거나 `restaurant_id` 가 없으면 임베드 접기가 틀린 것이다 — 그 상태로 다음 추첨 시각을 넘기지 않는다(`spin-roulette` 는 시간 가드 때문에 사전 확인이 불가능하므로 이 한 번이 유일한 창이다).
 

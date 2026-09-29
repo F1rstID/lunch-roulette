@@ -8,7 +8,7 @@
 
 기록 캘린더(`app/log`)와 랭킹(`app/rank`)이 `settings.history_since` **이후** 결과만 **매장 기준**으로 보여준다(HIST-01·HIST-02). 과거 60행은 DB 에 그대로 남고 화면·집계에서만 빠진다(HIST-03, Phase 2 완료). 집계·달력 산술은 `lib/history.ts` 순수 모듈로 내려 단위 테스트로 고정한다.
 
-하지 않는 것: 컷오버·README·배포(Phase 8), 결과 행에 매장 상세(메뉴·위치) 표시(요구 없음), `settings` 편집 UI(v2), Realtime 구독 실패 표면화(전 페이지 공통, 범위 밖). 컷오버 전 라이브에서 두 페이지는 "설정 불러오기 실패" 배너 + 전체 기간 표시가 정상이다(`historySince === null` → 자르지 않는다, SETT-03).
+하지 않는 것: 컷오버·README·배포(Phase 8), 결과 행에 매장 상세(메뉴·위치) 표시(요구 없음), `settings` 편집 UI(v2), Realtime 구독 실패 표면화(전 페이지 공통, 범위 밖). 컷오버 전 라이브 DB 에서는 **기록 페이지만** 현행과 같다("설정 불러오기 실패" 배너 + 전체 기간, `historySince === null` → 자르지 않는다, SETT-03). **랭킹 페이지는 0005 의 `results.restaurant_id` 가 아직 없어 명시 컬럼 조회가 42703 으로 실패한다** — "랭킹 불러오기 실패" 배너 + 빈 랭킹이 컷오버 전의 정상 상태다(리뷰 WR-01). 프로덕션은 `wr-01` 순서(SQL 3번 → PR 머지 5번)가 지키므로 영향 없다.
 
 </domain>
 
@@ -19,7 +19,7 @@
 
 ### 필터·집계 정의처 — `lib/history.ts`(순수, `import type { ResultRow }` 만)
 - **D-01** `filterSince<T extends { date: string }>(rows: T[], historySince: string | null): T[]` — `null` 이면 전부(전환일 미확정·컷오버 전), 아니면 `date >= historySince`(둘 다 KST `"yyyy-mm-dd"` 라 문자열 비교, **당일 포함**). 두 페이지가 화면에 올리는 행은 전부 이 함수를 지난다 — 정의처가 하나여야 "전환일 이후" 의 뜻(포함/미포함)이 페이지마다 갈리지 않는다.
-- **D-02 (랭킹 키)** `buildRanking` 의 집계 키는 **`restaurant_id ?? menu`** 다. 표시 이름은 그 키의 **가장 최근 당첨일 행의 `menu` 스냅샷**(개명하면 새 이름으로 합쳐 보인다). 매장이 지워지면 `on delete set null` 이 그 매장의 **모든** 행을 한 번에 null 로 바꾸므로 이름 키로 다시 한 덩어리가 된다 — 갈라지지 않는다. 같은 이름을 새로 등록하면 새 id → 별도 줄(다른 매장이 맞다). 대안 "이름으로만 키잉" 기각: 개명 시 두 줄로 갈라진다. 대안 "id 로만" 기각: 삭제된 매장의 기록이 랭킹에서 통째로 사라진다(CATL-03 스냅샷 전제와 충돌).
+- **D-02 (랭킹 키)** `buildRanking` 의 집계 키는 **`restaurant_id ?? menu`** 다. 표시 이름은 그 키의 **가장 최근 당첨일 행의 `menu` 스냅샷**(개명하면 새 이름으로 합쳐 보인다). 매장이 지워지면 `on delete set null` 이 그 매장의 **모든** 행을 한 번에 null 로 바꾸므로 이름 키로 다시 한 덩어리가 된다 — 갈라지지 않는다. 같은 이름을 새로 등록하면 새 id → 별도 줄(다른 매장이 맞다). 단서(리뷰 WR-03): 이 "한 덩어리" 는 **개명한 적이 없는** 매장에만 참이다 — 개명 뒤 삭제된 매장은 스냅샷 이름 수만큼 갈라지고, 같은 이름으로 등록됐다 삭제된 서로 다른 매장은 합쳐진다. 개명 이력이 데이터에 없어 읽는 쪽이 복원할 수 없는 한계이고 spec 이 그 경계를 고정한다. 대안 "이름으로만 키잉" 기각: 개명 시 두 줄로 갈라진다. 대안 "id 로만" 기각: 삭제된 매장의 기록이 랭킹에서 통째로 사라진다(CATL-03 스냅샷 전제와 충돌).
 - **D-03 (정렬)** `wins` 내림차순 → `lastDate` 내림차순(기존 규칙 유지) → 키 문자열 오름차순(결정성 보장 — `lastDate` 는 날짜당 결과 1행이라 실제로는 동률이 없지만 spec 이 순서를 못 박는다). `share = wins / total`, `total` 은 필터 통과 행 수.
 - **D-04** `buildRanking`·`buildMonthGrid` 를 `components/RankingView.tsx`·`components/CalendarLog.tsx` 에서 **`lib/history.ts` 로 옮겨 export** 한다(ROADMAP 성공 기준 4). `CalendarLog` 헤더의 "이번 달 최다" 도 `buildRanking(entriesThisMonth).list[0]` 로 바꿔 집계 정의처를 하나로 한다(이름 키 `counts[e.menu]` 삭제). `buildMonthGrid` 의 로컬 `Date` 산술은 "지금" 을 읽지 않는 순수 달력 산술이라 그대로 두고 Why 주석을 옮긴다(CONVENTIONS 허용 예외).
 - **D-05 (타입)** `HistoryRow = Pick<ResultRow, "date" | "menu" | "restaurant_id">` 를 `lib/history.ts` 가 export 하고 `buildRanking`·`RankingView` 는 이 타입을 받는다. 랭킹 페이지 state 는 `RankRow = Pick<ResultRow, "id" | "date" | "menu" | "restaurant_id">`(id 는 Realtime 멱등 병합용). `CalendarLog` 는 상세에 `candidates` 를 쓰므로 `ResultRow` 그대로.
@@ -64,7 +64,7 @@
 <specifics>
 ## Specific Ideas
 
-- 컷오버 전 라이브에서는 설정 실패로 `historySince` 가 null → 두 페이지가 현행과 동일하게 전체 기간을 보인다. 그래서 이 페이즈도 main·라이브에 영향이 없다.
+- 컷오버 전 라이브에서는 설정 실패로 `historySince` 가 null → 기록 페이지는 현행과 동일하게 전체 기간을 보인다. 랭킹 페이지는 `results.restaurant_id` 부재로 조회가 실패해 배너 + 빈 랭킹(오늘 탭·매장 탭의 컷오버 전 배너와 같은 성질). main 은 이 페이즈에서도 불변이라 실사용자 영향은 없다.
 - 랭킹 대기: 설정 로드 전에는 결과를 조회하지 않으므로 첫 페인트는 빈 상태(현행도 조회 전엔 빈 상태).
 
 </specifics>
