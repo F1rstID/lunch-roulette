@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 6 review fixes applied - ready for phase.complete
-last_updated: "2026-09-29T03:57:42.472Z"
-last_activity: 2026-09-29
+status: ready_to_plan
+stopped_at: Phase 6 complete (2/2) — ready to discuss Phase 7
+last_updated: 2026-09-29T04:33:13.442Z
+last_activity: 2026-09-29 -- Phase 6 complete (빠른 레인: 리뷰 CR1/WR2/IN7 → fixed 9·WR-02 todo in-07 이관, 게이트 5종 green, 361 tests, 검증자·보안감사 생략)
 progress:
   total_phases: 8
   completed_phases: 6
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 06 — today-tab
+**Current focus:** Phase 7 — 기록·랭킹
 
 ## Current Position
 
-Phase: 06 (today-tab) — REVIEWED · FIXED
-Plan: 2 of 2
-Status: Phase 6 review fixes applied — 발견 10건 중 9건 수정·1건(WR-02) todo 이관, 게이트 5종 초록(test 361). ready for phase.complete
-Last activity: 2026-09-29
+Phase: 7
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-29 -- Phase 6 complete (빠른 레인: 리뷰 CR1/WR2/IN7 → fixed 9·WR-02 todo in-07 이관, 게이트 5종 green, 361 tests, 검증자·보안감사 생략)
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 18
+- Total plans completed: 20
 - Average duration: —
 - Total execution time: —
 
