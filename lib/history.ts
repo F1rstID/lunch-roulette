@@ -67,7 +67,8 @@ export type MonthCell = { y: number; m: number; d: number; dim: boolean };
 const GRID_CELLS = 42; // 6주 × 7일 — 어떤 달도 6주 안에 들어가고, 높이가 달마다 흔들리지 않는다.
 
 /** 달력 6×7 격자. 앞뒤 패딩은 이웃 달의 날짜이고 dim 으로 표시한다 */
-// 로컬 Date 메서드를 쓰는 유일한 자리(lib/time.ts 경유 규칙의 허용 예외): "지금" 을 읽는 것이 아니라 주어진
+// 로컬 Date 메서드를 쓰는 두 자리 중 하나(lib/time.ts 경유 규칙의 허용 예외 — 나머지는 components/CalendarLog.tsx
+// DetailView 의 요일 계산): "지금" 을 읽는 것이 아니라 주어진
 // 연·월의 요일·일수를 구하는 순수 달력 산술이라 실행 환경의 타임존이 결과를 바꾸지 못한다.
 export function buildMonthGrid(year: number, month: number): MonthCell[] {
   const first = new Date(year, month - 1, 1);
