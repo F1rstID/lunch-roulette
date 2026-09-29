@@ -7,8 +7,9 @@
 // 그 가름(에러가 있으면 행이 와도 실패, 없으면 0행도 정상 로드)은 여기가 아니라 리듀서가 한다. 아직 시드되지
 // 않은 정상 상태에서 배너가 뜨면 안 되고 테이블이 통째로 없는 상태는 반대로 반드시 떠야 하는데, 그 판정이
 // 훅에 남으면 렌더 하네스가 없어 영원히 검증되지 않는다 — 조회 결과를 그대로 한 액션에 실어 보내는 이유다.
-// 채널을 settings-changes 계열로 분리한 이유: app/page.tsx 의 lunch-realtime 은 휠 이중 회전 가드
-// (initialLoadedRef)가 걸린 위험 지점이라(CLAUDE.md 위험 지점 표) 실패 경로를 섞지 않는다.
+// 채널을 settings-changes 계열로 분리한 이유: app/page.tsx 의 results 구독(토픽을 effect 안에서 매기는
+// results-<n>)은 휠 이중 회전 가드(initialLoadedRef·todayResultRef)가 걸린 위험 지점이라
+// (CLAUDE.md 위험 지점 표) 실패 경로를 섞지 않는다.
 // 토픽 뒤에 번호를 붙이는 이유는 따로 있다 — 토픽은 페이지가 아니라 **구독 인스턴스마다** 유일해야 한다.
 // realtime-js 는 토픽으로 채널을 dedup 하는데, 이미 join 된 채널의 leave 는 서버 ack 가 올 때까지 목록에서
 // 빠지지 않는다. 라우트 전환은 "떠나는 트리 cleanup → 새 트리 effect" 순서라, 세 라우트가 같은 이름을 쓰면
