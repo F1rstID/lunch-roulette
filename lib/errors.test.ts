@@ -144,6 +144,12 @@ describe("formatRestaurantWriteError", () => {
     );
   });
 
+  it("에러 없이 영향 행이 0이면(null) 이미 지워진 매장이라고 말한다 (침묵을 성공으로 보고하지 않는다)", () => {
+    // PostgREST 의 update/delete 는 대상 행이 사라졌어도 error: null 로 돌아온다. 그 침묵에 줄
+    // 문장이 없으면 페이지가 "저장됨" 으로 끝내고 편집 모드만 닫힌다.
+    expect(formatRestaurantWriteError("수정", "김밥천국", null)).toBe("이미 삭제된 매장이에요: 김밥천국");
+  });
+
   it("공백뿐인 원문은 알 수 없는 오류로 대체된다 (접두만 남은 배너를 막는다)", () => {
     expect(formatRestaurantWriteError("삭제", "김밥천국", { message: "   " })).toBe(
       '매장 "김밥천국" 삭제 실패: 알 수 없는 오류',

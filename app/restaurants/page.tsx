@@ -91,12 +91,20 @@ export default function RestaurantsPage() {
 
   async function updateRestaurant(id: string, input: RestaurantInput): Promise<boolean> {
     try {
-      const { error } = await supabase
+      // .select("id") 를 붙이는 이유: update/delete 는 대상 행이 이미 지워졌어도 error: null 로
+      // 돌아온다. 영향 행 수를 보지 않으면 아무것도 저장하지 않고 편집 모드만 닫힌다(B-5).
+      const { data, error } = await supabase
         .from("restaurants")
         .update({ name: input.name, menus: input.menus, location: input.location })
-        .eq("id", id);
+        .eq("id", id)
+        .select("id");
       if (error) {
         setActionError(formatRestaurantWriteError("수정", input.name, error));
+        return false;
+      }
+      if ((data?.length ?? 0) === 0) {
+        // 편집 모드를 닫지 않으려고 false 를 돌려준다 — 사용자가 치던 값이 남아야 다른 곳에 옮겨 적는다.
+        setActionError(formatRestaurantWriteError("수정", input.name, null));
         return false;
       }
       setActionError(null);
@@ -110,9 +118,14 @@ export default function RestaurantsPage() {
   async function removeRestaurant(id: string, name: string): Promise<boolean> {
     try {
       // 오늘 후보·과거 결과에 대한 뒤처리를 하지 않는다 — 두 파급은 DB 의 외래키 규칙(0005)이 이미 처리한다.
-      const { error } = await supabase.from("restaurants").delete().eq("id", id);
+      const { data, error } = await supabase.from("restaurants").delete().eq("id", id).select("id");
       if (error) {
         setActionError(formatRestaurantWriteError("삭제", name, error));
+        return false;
+      }
+      // 이미 없는 행을 지운 것도 error: null 이다. 지웠다고 말하지 않고 사라진 사실을 알린다.
+      if ((data?.length ?? 0) === 0) {
+        setActionError(formatRestaurantWriteError("삭제", name, null));
         return false;
       }
       setActionError(null);

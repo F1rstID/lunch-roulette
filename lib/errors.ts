@@ -68,8 +68,12 @@ export type RestaurantWriteAction = "등록" | "수정" | "삭제" | "고정" | 
 export function formatRestaurantWriteError(
   action: RestaurantWriteAction,
   name: string,
-  error: { code?: string; message: string },
+  // null 은 "에러는 없는데 영향 행이 0" 이다. PostgREST 의 update/delete 는 대상 행이 이미 사라져도
+  // error: null 로 돌아오므로, 그 침묵을 성공으로 보고하지 않으려면 호출부에 줄 문장이 있어야 한다.
+  error: { code?: string; message: string } | null,
 ): string {
+  // 실패한 쪽은 쓰기가 아니라 대상이다 — 동사(등록/수정/…)를 붙이면 원인이 흐려진다.
+  if (error === null) return `이미 삭제된 매장이에요: ${name}`;
   // unique 위반은 원인이 하나로 정해져 있어 동사도 원문도 필요 없다.
   if (error.code === "23505") return `이미 등록된 매장이에요: ${name}`;
   // check 위반은 어느 필드인지 코드로 알 수 없다. 상한 셋을 다 보여 주는 편이 사용자가 빨리 찾는다.
