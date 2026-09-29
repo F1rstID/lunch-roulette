@@ -264,6 +264,7 @@ describe("restaurantsReducer — Realtime 병합", () => {
       rows: [ROW_A, ROW_B],
       loaded: true,
       error: null,
+      pending: [],
     });
   });
 
@@ -272,6 +273,7 @@ describe("restaurantsReducer — Realtime 병합", () => {
       rows: [],
       loaded: true,
       error: "boom",
+      pending: [],
     });
   });
 
@@ -318,5 +320,39 @@ describe("restaurantsReducer — Realtime 병합", () => {
   it("id 가 없는 DELETE 는 아무 행도 지우지 않는다 (무엇을 지울지 알 수 없다)", () => {
     const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A, ROW_B] });
     expect(restaurantsReducer(live, { type: "changed", event: "DELETE", id: null }).rows).toHaveLength(2);
+  });
+});
+
+// 훅은 초기 조회와 구독을 동시에 띄우므로 남의 INSERT/UPDATE/DELETE 가 조회 응답보다 먼저 도착하는 창이
+// 매 마운트마다 열린다. 그 창에서 이벤트를 곧바로 적용하고 loaded 를 올리면 뒤이어 온 조회 응답이
+// "늦게 온 옛 값" 으로 버려져 카탈로그가 이벤트에 실린 한 행으로 쪼그라든다(CR-01). 아래 네 건이 그
+// 순서를 고정한다 — 리듀서가 순수하므로 훅 없이도 결정적으로 재현된다.
+describe("restaurantsReducer — 조회 응답보다 먼저 온 이벤트 (CR-01)", () => {
+  it("loaded 전 INSERT 는 버려지지도 즉시 적용되지도 않고 조회 결과 위에 얹힌다", () => {
+    const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "INSERT", row: ROW_B });
+    // 아직 목록을 읽지 못했으므로 loaded 는 거짓이고 행도 세우지 않는다.
+    expect([early.rows, early.loaded]).toEqual([[], false]);
+    expect(restaurantsReducer(early, { type: "loaded", rows: [ROW_A] }).rows).toEqual([ROW_A, ROW_B]);
+  });
+
+  it("loaded 전 UPDATE 는 조회 결과의 같은 행을 새 값으로 바꾼다", () => {
+    const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "UPDATE", row: ROW_A_NEXT });
+    expect(restaurantsReducer(early, { type: "loaded", rows: [ROW_A, ROW_B] }).rows).toEqual([ROW_A_NEXT, ROW_B]);
+  });
+
+  it("loaded 전 DELETE 는 조회 결과에서 그 행을 지운다 (조회가 아직 들고 있는 행이다)", () => {
+    const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "DELETE", id: "r1" });
+    const merged = restaurantsReducer(early, { type: "loaded", rows: [ROW_A, ROW_B] });
+    expect([merged.rows.map((r) => r.id), merged.pending]).toEqual([["r2"], []]);
+  });
+
+  it("loaded 전 이벤트가 있어도 조회 실패는 배너를 세운다 (같은 창의 SELECT 실패를 삼키지 않는다)", () => {
+    const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "INSERT", row: ROW_B });
+    expect(restaurantsReducer(early, { type: "failed", message: "boom" })).toEqual({
+      rows: [],
+      loaded: true,
+      error: "boom",
+      pending: [],
+    });
   });
 });

@@ -90,19 +90,48 @@ export function sortRestaurants(rows: RestaurantRow[]): RestaurantRow[] {
   });
 }
 
+// 리듀서가 목록에 적용하는 최소 단위. DELETE 만 행이 아니라 id 인 비대칭은 Realtime 페이로드 그대로다.
+export type RestaurantChange =
+  | { event: "INSERT" | "UPDATE"; row: RestaurantRow }
+  | { event: "DELETE"; id: string | null };
+
 export type RestaurantsState = {
   // 조회 순서(created_at)를 그대로 유지한다. 표시 순서는 sortRestaurants 가 화면 쪽에서 따로 정한다 —
   // 정렬을 여기에 넣으면 같은 규칙의 정의처가 둘이 된다.
   rows: RestaurantRow[];
   loaded: boolean;
   error: string | null;
+  // 조회 응답보다 먼저 도착한 Realtime 이벤트를 도착 순서대로 쌓아 둔 것. 응답이 오면 그 목록 위에
+  // 다시 적용한다. 목록에서는 이벤트 하나가 전체 상태가 아니라는 점이 단일행(lib/settings.ts:78-81)과
+  // 갈리는 지점이다 — "이벤트가 먼저 왔으니 그쪽이 더 새 값" 으로 조회 결과를 버리면 카탈로그가 그
+  // 한 행으로 쪼그라들고, 같은 창의 조회 실패는 배너조차 없이 삼켜진다.
+  pending: RestaurantChange[];
 };
 
 export const INITIAL_RESTAURANTS_STATE: RestaurantsState = {
   rows: [],
   loaded: false,
   error: null,
+  pending: [],
 };
+
+// 이벤트 한 건을 목록에 적용한다. 즉시 적용(조회 후)과 재적용(조회 전 버퍼)이 이 함수 하나를 같이 쓰는
+// 것이 "조회 전후의 병합 규칙이 같다" 는 보장이다 — 두 벌로 나누면 한쪽만 고쳐지는 날이 온다.
+function applyChange(rows: RestaurantRow[], change: RestaurantChange): RestaurantRow[] {
+  if (change.event === "DELETE") {
+    // id 마저 없으면 무엇을 지울지 알 수 없다. 목록을 비우는 대신 그대로 둔다.
+    return change.id === null ? rows : rows.filter((row) => row.id !== change.id);
+  }
+  if (change.event === "INSERT") {
+    // 같은 행이 두 번 와도 늘지 않게 한다 — 구독 재연결 직후 같은 이벤트가 되풀이될 수 있고,
+    // 조회 응답에 이미 들어 있는 행이 버퍼에도 남아 있는 것은 정상 경로다.
+    if (rows.some((row) => row.id === change.row.id)) return rows;
+    return [...rows, change.row];
+  }
+  // payload.new 는 이미 전체 새 행이다. 얕은 병합({ ...prev, ...row })은 "빠진 필드는 이전 값" 이라는
+  // 틀린 가정을 코드에 심으므로 통째로 교체한다. 모르는 id 면 바꿀 행이 없어 목록이 그대로 남는다.
+  return rows.map((row) => (row.id === change.row.id ? change.row : row));
+}
 
 // DELETE 만 행이 아니라 id 를 받는 비대칭이 계약이다 — Realtime 의 DELETE 페이로드에는 PK 밖에 오지 않는다.
 // 그 사실을 액션 타입에 박아 두면 훅·컴포넌트는 그것을 몰라도 된다.
@@ -114,43 +143,36 @@ export type RestaurantsAction =
 
 export function restaurantsReducer(state: RestaurantsState, action: RestaurantsAction): RestaurantsState {
   switch (action.type) {
-    case "loaded":
-      // 훅은 초기 조회 결과를 정확히 한 번 보낸다. 그런데도 도착 시점에 loaded 가 이미 참이면 그 사이
-      // Realtime 이벤트가 먼저 들어왔다는 뜻이고 그쪽이 더 새 값이다 — 늦게 온 조회 응답이 목록을
-      // 옛 상태로 되돌리지 않게 버린다(lib/settings.ts:78-81 의 논증).
+    case "loaded": {
+      // loaded 를 참으로 올리는 것은 loaded·failed 두 액션뿐이고 훅은 그중 하나만 정확히 한 번 보낸다.
+      // 그러므로 여기서 state.loaded 가 참이면 진짜 중복 응답이라 버린다.
       if (state.loaded) return state;
-      return { rows: action.rows, loaded: true, error: null };
+      // 조회 결과 **위에** 그 사이 도착한 이벤트를 도착 순서대로 다시 적용한다. 순서를 지켜야
+      // "INSERT 뒤 DELETE" 가 지워진 행이 되살아나는 결과로 뒤집히지 않는다.
+      return {
+        rows: state.pending.reduce(applyChange, action.rows),
+        loaded: true,
+        error: null,
+        pending: [],
+      };
+    }
     case "failed":
-      // 같은 이유로 무시한다. 방금 Realtime 으로 살아 있는 목록을 받았는데 뒤늦은 조회 실패가 그것을
-      // 실패 배너로 덮으면 화면이 사실과 반대되는 상태를 말하게 된다.
+      // 같은 이유로 중복 응답만 버린다.
       if (state.loaded) return state;
       // 빈 목록 + 에러다. 실패를 "매장 0개" 로 위장하지 않는 것이 여기서 error 를 남기는 이유다.
-      return { rows: [], loaded: true, error: action.message };
+      // 버퍼도 함께 버린다 — 이벤트 몇 건으로 만든 부분 목록을 남기면 배너와 화면이 서로 다른 말을 한다.
+      return { rows: [], loaded: true, error: action.message, pending: [] };
     case "changed": {
-      // 세 갈래 모두 loaded 를 참으로 올린다 — 이벤트가 왔다는 것은 현재 상태를 알게 됐다는 뜻이고,
-      // 위 두 가드가 "초기 조회보다 앞섰다" 를 판정하는 근거가 바로 이 값이다.
+      const change: RestaurantChange =
+        action.event === "DELETE"
+          ? { event: "DELETE", id: action.id }
+          : { event: action.event, row: action.row };
+      // 조회 전이면 적용하지 않고 버퍼에 쌓는다. 여기서 loaded 를 올리지 않는 것이 CR-01 수정의 핵심이다 —
+      // 올리면 뒤늦게 도착한 조회 응답(목록의 정본)과 조회 실패(배너의 정본)가 통째로 버려진다.
+      if (!state.loaded) return { ...state, pending: [...state.pending, change] };
       // error 는 그대로 둔다: 이벤트 하나가 도착했다는 사실이 목록 전체를 읽을 수 있다는 증거는 아니라서,
       // 조회 실패 배너를 여기서 지우면 반쪽짜리 목록이 정상처럼 보인다(설정 단일행과 다른 점이다).
-      if (action.event === "DELETE") {
-        // id 마저 없으면 무엇을 지울지 알 수 없다. 목록을 비우는 대신 그대로 둔다.
-        const rows = action.id === null ? state.rows : state.rows.filter((row) => row.id !== action.id);
-        return { rows, loaded: true, error: state.error };
-      }
-      if (action.event === "INSERT") {
-        // 같은 행이 두 번 와도 늘지 않게 한다 — 구독 재연결 직후 같은 이벤트가 되풀이될 수 있다.
-        if (state.rows.some((row) => row.id === action.row.id)) {
-          return { rows: state.rows, loaded: true, error: state.error };
-        }
-        return { rows: [...state.rows, action.row], loaded: true, error: state.error };
-      }
-      // payload.new 는 이미 전체 새 행이다. 얕은 병합({ ...prev, ...row })은 "빠진 필드는 이전 값" 이라는
-      // 틀린 가정을 코드에 심으므로 통째로 교체한다. 모르는 id 면 바꿀 행이 없어 목록이 그대로 남는다.
-      const updated = action.row;
-      return {
-        rows: state.rows.map((row) => (row.id === updated.id ? updated : row)),
-        loaded: true,
-        error: state.error,
-      };
+      return { ...state, rows: applyChange(state.rows, change) };
     }
     default: {
       // 액션이 더 늘면 이 대입이 컴파일 에러가 된다. 이 리듀서가 갱신을 강제당하는 지점.
