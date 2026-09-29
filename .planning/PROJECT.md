@@ -37,23 +37,26 @@
 - ✓ `respin()` 이 `invoke()` 반환의 `response` 로 500 본문을 읽어 함수 문장을 배너에 표시(`lib/errors.ts` `formatRespinError`, `{error}`→`{message}`→fallback, 200자 상한). 페이즈 마감 시 234 tests / 10 files — Phase 4
 - ✓ 매장 탭 `/restaurants`: 카탈로그 등록(이름·쉼표 메뉴·위치)·행 인라인 편집·2단계 인라인 삭제 확인·📌 즉시 토글, Realtime 3분기(`lib/useRestaurants.ts` 읽기 전용 훅 + `lib/restaurants.ts` 순수 리듀서 — 조회 전 이벤트는 `pending` 버퍼로 재적용), 정렬 핀 먼저·이름순, 쓰기 실패·중복(23505)·0행 수정/삭제를 한국어 배너로. TopBar 순서 오늘·매장·기록·랭킹 — Phase 5 (CATL-01~06). **미배포**(Phase 8), 컷오버 전 라이브에선 배너+빈 목록이 정상
 - ✓ `parseMenuInput`·`addMenus` 절단을 코드포인트 기준으로(todo wr-01), `parseRestaurantForm` 이 DB check(0005)와 1:1, 위치 링크는 `http(s)` 화이트리스트만 `<a>`. 페이즈 마감 시 296 tests / 11 files — Phase 5
+- ✓ 오늘 탭이 `candidates`⋈`restaurants` 로 후보를 읽는다: `lib/useCandidates.ts`(INSERT/DELETE 2분기) + `lib/useRestaurants.ts` 두 훅 + `lib/candidates.ts` 순수 조인(3단 정렬 candidates.created_at → restaurants.created_at → id, todo wr-02)·이름 필터(NFC·소문자)·`findWinnerIndex`(id 만)·`isNewSpin`(spun_at 동일 → 휠 안 돎, todo in-06). `components/CandidateList.tsx` 단일 목록 토글(담긴 매장이 휠 순서로 위 + 배지, 안 담긴 매장 흐리게, 필터·잠금·행 단위 busy). 결과는 이름 스냅샷 + 현재 카탈로그의 메뉴 칩·위치 링크(`MenuChips`·`LocationLink` 공유). `MenuList`·`MenuRow`·`PinnedMenuRow` 삭제 — Phase 6 (CAND-01·02·03·05, SPIN-05). **미배포**(Phase 8), 컷오버 전 라이브에선 배너 3개 + 빈 휠·목록이 정상
+- ✓ 화면의 `11:55` 리터럴 0곳: `formatSpinTime(settings.spinTime)` 을 `Wheel`·`ResultBlock`·`PhaseTimeline`(결과 단계 = 추첨 시각 + 5분, 24h 순환)·`CandidateList`·헤드라인 문구에 prop 으로, `app/layout.tsx` description 은 시각 제거. `displayPhase(phase, settings.loaded)` 로 설정 로드 전 `stalled` 라벨 깜빡임 제거(4 페이지, todo in-02) — Phase 6 (SPIN-06)
+- ✓ 목록 리듀서 일반화 `lib/rowset.ts`(`createRowSetReducer(keyOf)`, pending 버퍼·UPDATE upsert·`fetched` error 우선) 를 `restaurants`·`candidates` 가 공유, `settings`·훅 3개의 조회 판정도 리듀서로(todo in-03), `parseMenuInput`·`truncateToCodePoints` → `lib/menus.ts`(단방향 예외 해소). 리뷰 CR-01: results 토픽을 구독 effect 안에서 매겨 자정 `todayKey` 재구독이 죽지 않게. 페이즈 마감 시 361 tests / 13 files — Phase 6
 
 ### Active
 
 **매장 모델**
 - [x] 매장 카탈로그(`restaurants`): 이름 필수, 메뉴 목록·위치 선택, 핀 플래그. 영구 보관, 자정에 안 지워짐 — Phase 2(스키마)·Phase 5(UI) 완료
 - [x] 별도 "매장" 탭에서 익명 누구나 등록·수정·삭제·핀 토글 — Phase 5 완료
-- [ ] 오늘 후보(`candidates`)는 카탈로그 목록에서 토글로 담고 뺌. 이름 필터. 핀 매장은 자정에 자동 후보
-- [ ] 룰렛은 매장을 뽑는다. 결과 아래 그 매장의 메뉴 목록을 참고로 표시
+- [x] 오늘 후보(`candidates`)는 카탈로그 목록에서 토글로 담고 뺌. 이름 필터. 핀 매장은 자정에 자동 후보 — Phase 6 완료(자정 재시드는 0005 cron)
+- [x] 룰렛은 매장을 뽑는다. 결과 아래 그 매장의 메뉴 목록을 참고로 표시 — 서버 Phase 4, 화면 Phase 6 완료(이름은 스냅샷, 메뉴·위치는 현재 카탈로그)
 - [ ] 기록·랭킹은 매장 기준. 집계는 **전환일 이후** 결과만. 과거 60행은 보존
 
 **설정 테이블**
-- [ ] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정 — cron 은 0005(Phase 2), 함수 판정은 Phase 4 완료. 남은 하드코딩 11:55 는 화면 문구 6곳(Phase 6)과 DB 기본값(0002·0005, 유지)
+- [x] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정 — cron 은 0005(Phase 2), 함수 판정은 Phase 4, 화면 문구는 Phase 6 완료. 남은 `11:55` 는 `_shared/spinTime.ts` 기본값 정의처와 DB 기본값(0002·0005)뿐(유지)
 - [ ] 쿨다운: 최근 N일 당첨 매장은 후보에서 제외. 제외 후 후보가 비면 전체로 폴백 — 순수 필터 `_shared/cooldown.ts`(창 = 오늘 제외 `[today−N, today−1]`) Phase 3 완료, Edge 배선 Phase 4 완료(쿨다운 0이면 조회 생략). 실호출 확인은 Phase 8
 
 **품질·버그**
-- [ ] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정 — 클라이언트 반(`stalled`) Phase 3 완료, 서버 반(`no_candidates` → 행 없음 → 다음 폴링 추첨) Phase 4 완료. `stalled` 화면의 다시 돌리기 버튼은 Phase 6
-- [ ] P2: 자정 `truncate`가 Realtime DELETE를 안 내서 열린 탭에 어제 후보 잔존 → `delete from`으로
+- [x] P1: 추첨 시각에 후보 0개면 UI가 decided로 잠기고 다시돌리기 버튼이 안 뜨는 문제 수정 — 클라이언트 반(`stalled`) Phase 3, 서버 반(`no_candidates` → 행 없음 → 다음 폴링 추첨) Phase 4 완료. `stalled` 수동 버튼은 두지 않기로(Phase 6 D-19: 서버가 매분 폴링, 문구 "후보를 담으면 1분 안에 자동으로 뽑아요")
+- [x] P2: 자정 `truncate`가 Realtime DELETE를 안 내서 열린 탭에 어제 후보 잔존 → `delete from`으로 — 0005 `reset-candidates`(Phase 2, CAND-04), 오늘 탭 DELETE 분기 배선 Phase 6
 
 **문서·전환**
 - [ ] `CLAUDE.md`·`README.md` 현행화 (config.toml 존재, pinned 테이블, lint 해결, 새 컨벤션: settings 단일 소스·`_shared` 모듈) — CLAUDE.md의 `_shared`·훅·검증 범위 항목은 Phase 3에서 반영, README·GSD 블록 잔여는 Phase 8
@@ -125,8 +128,15 @@
 | respin 은 POST 전용(405), 던져진 예외도 `json()` 500 으로 착지 | 리뷰 실측: GET/HEAD(링크 미리보기)로 오늘 결과 덮어쓰기 가능, 예외는 CORS 없이 나가 배너가 사유를 못 읽음 | ✓ Good (Phase 4 리뷰 WR-01·IN-08) |
 | 매장 탭: 상단 상시 폼 + 행 인라인 편집 + 2단계 인라인 삭제 확인(`window.confirm` 금지), 페이즈 잠금 없음 | 등록 중 입력을 잃지 않고 목록 맥락 유지. 카탈로그는 영구 데이터라 즉시 삭제 전례를 따르지 않음. 브라우저 모달은 스타일·자동화 밖 | ✓ Good (Phase 5, 사용자 위임 D-04~D-07·D-12) |
 | 목록 리듀서는 이벤트 하나로 `loaded` 를 올리지 않고 조회 전 이벤트를 `pending` 버퍼에 쌓아 조회 결과 위에 재적용 | 리뷰 실측: `settings` 단일행 논증을 목록에 복제하면 초기 SELECT 보다 먼저 온 Realtime 이벤트가 목록 전체를 버림 | ✓ Good (Phase 5 리뷰 CR-01) |
-| `lib/restaurants.ts` → `components/MenuList.tsx` `parseMenuInput` import 는 `lib/` 단방향 규칙의 의도적 예외 | 쉼표 파싱을 두 벌로 만들지 않음(CATL-06). Phase 6 이 `MenuList` 를 지울 때 `lib/` 로 이동 | ✓ Good (Phase 5, 문서 3곳 기록) |
+| `lib/restaurants.ts` → `components/MenuList.tsx` `parseMenuInput` import 는 `lib/` 단방향 규칙의 의도적 예외 | 쉼표 파싱을 두 벌로 만들지 않음(CATL-06). Phase 6 이 `MenuList` 를 지울 때 `lib/` 로 이동 | ✓ Good (Phase 5) → Phase 6 에서 `lib/menus.ts` 로 이동, 예외 소멸 |
 | Phase 5~7 빠른 레인: 리서치·플랜체커·패턴맵·discuss·검증자·보안감사 생략, 플랜 2개, 리뷰(fable)+fixer(opus) 만. Phase 8 은 전체 루틴 | 사용자 2026-09-29 속도 불만. Phase 4 실측 5h vs Phase 5 실측 ~1.7h(계획 19m·실행 31m·리뷰 11m·fix 16m·마감 10m). 검증자·감사자는 Phase 4 에서 발견 0 | ✓ Good (Phase 5 실측) |
+| 오늘 탭은 훅 2개(`useRestaurants` + `useCandidates`) + 클라이언트 순수 조인 | `candidates` 행이 키·시각뿐이라 이벤트만으로 매장명을 알 수 없고 카탈로그는 토글 목록에 어차피 전부 필요. 임베드 조회는 이벤트마다 재조회 | ✓ Good (Phase 6 D-01) |
+| 목록 리듀서를 `lib/rowset.ts` 제네릭으로 일반화, UPDATE 는 upsert, 조회 판정(`fetched`)도 리듀서 안 | 두 번째 사용처(candidates)가 생겨 두 벌이면 CR-01 급 버그가 한쪽에만 고쳐짐. 놓친 INSERT 를 UPDATE 로 복구. 훅에 판단 분기 0(취소 가드 제외) | ✓ Good (Phase 6 D-03~D-05, 리뷰 WR-01 로 취소 가드 관용구 복원) |
+| 후보 UI = 단일 목록 + 행 토글, 담긴 매장이 휠 순서로 위(배지) | 담기/빼기가 한 동작이고 휠↔배지 매핑이 유지됨. 두 섹션·고정 순서 대안 기각 | ✓ Good (Phase 6 D-10) |
+| 결과 이름은 `results.menu` 스냅샷, 메뉴·위치는 현재 카탈로그 | CATL-03 스냅샷 전제 유지 + 상세는 최신값. 삭제·개명돼도 기록·랭킹과 어긋나지 않음 | ✓ Good (Phase 6 D-18) |
+| 추첨 시각 문구는 전부 `spinTimeText` prop(기본값 없음), `layout.tsx` metadata 는 시각 제거, `stalled` 수동 돌리기 버튼 없음 | 기본값을 두면 시각이 다시 컴포넌트에 숨음. 정적 metadata 는 설정을 따를 수 없음. 서버가 매분 폴링하므로 버튼 불필요 | ✓ Good (Phase 6 D-19~D-22) |
+| Realtime 토픽은 마운트당이 아니라 **구독마다** 새로 매긴다(`results-<n>` 을 effect 안에서 `++topicSeq`) | 리뷰 실측: 같은 인스턴스가 `todayKey` 로 재구독할 때 토픽이 같으면 realtime-js 가 leave 중인 채널을 돌려주고 join 을 건너뜀 → 밤새 연 탭이 다음 날 결과를 못 받음(구 코드부터 있던 버그) | ✓ Good (Phase 6 리뷰 CR-01) |
+| 재연결 후 재조회(구독 확정 전 창) 는 미해결 — todo in-07, 컷오버 전 결정 | `rowset` 중복 응답 가드(D-04)를 바꿔야 하는 설계 항목이라 리뷰 fixer 스코프 밖 | — Pending (Phase 6 리뷰 WR-02) |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
 ## Evolution
@@ -147,4 +157,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-29 after Phase 5 (매장 탭) completion*
+*Last updated: 2026-09-29 after Phase 6 (오늘 탭) completion*
