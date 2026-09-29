@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 7 complete (1/1) - ready to plan Phase 8 (cutover, full routine)
-last_updated: 2026-09-29T05:43:24.680Z
-last_activity: 2026-09-29 -- Phase 7 complete (직접 실행 레인 ~55m: 리뷰 CR0/WR3/IN7 → 10/10 처리, 게이트 5종 green, 380 tests, 검증자·보안감사 생략 → Phase 8 직전 5~7 묶음)
+status: executing
+stopped_at: Phase 8 executing (08-01) - cutover preparation, no live changes
+last_updated: "2026-09-29T05:50:08.485Z"
+last_activity: 2026-09-29 -- Phase 8 execution started
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 19
+  total_plans: 20
   completed_plans: 19
   percent: 88
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 8 — 컷오버 (전체 루틴: 리서치·체커·검증·보안감사 5~7 묶음)
+**Current focus:** Phase 8 — 컷오버
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-09-29 -- Phase 7 complete (직접 실행 레인 ~55m: 리뷰 CR0/WR3/IN7 → 10/10 처리, 게이트 5종 green, 380 tests, 검증자·보안감사 생략 → Phase 8 직전 5~7 묶음)
+Phase: 8 (컷오버) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 8
+Last activity: 2026-09-29 -- Phase 8 execution started
 
 Progress: [██████████] 100%
 
