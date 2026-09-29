@@ -78,22 +78,23 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
 - Edge Function 2개 (`supabase/config.toml` 에 `verify_jwt = false` 고정 — true 로 배포되면 401 로 추첨이 조용히 멈춘다):
   - `spin-roulette` — 매분 호출됨. `settings.spin_time` 이후·그날 결과 없음·후보 있음일 때만 추첨(쿨다운 `_shared/cooldown.ts`). 실패는 `console.error` 로 Edge Function Logs 에
   - `respin-roulette` — 클라이언트 "다시 돌리기". POST 만(405), 시간 가드 없음, `results` upsert(`onConflict: date`). 컷오버 직후 새 스키마 경로를 사람이 확인할 수 있는 유일한 함수
+- 마이그레이션 동작불변 원칙: `0005` 의 기본값(`spin_time` 11:55 · `cooldown_days` 0)은 전환 전 동작과 같다 — 동작 변경은 마이그레이션이 아니라 `settings` UPDATE 로만 한다.
 - 설정 바꾸기(대시보드 SQL Editor):
   ```sql
   update public.settings set spin_time = '12:10', cooldown_days = 3 where id = 1;
   ```
   앱·함수 모두 Realtime/조회로 즉시 따른다. 재배포 불필요.
-- 다른 Supabase 프로젝트로 옮길 때 `swxiqytyxjlcgubqlozk` 치환 위치: `supabase/migrations/0002_cron.sql`, `supabase/migrations/0005_restaurants_settings.sql`(spin 잡 URL), `supabase/rollback/0005_restaurants_settings.rollback.sql`, 이 README
+- 다른 Supabase 프로젝트로 옮길 때 `swxiqytyxjlcgubqlozk` 치환 위치(전수): `supabase/migrations/0002_cron.sql`, `supabase/migrations/0005_restaurants_settings.sql`(spin 잡 URL), `supabase/rollback/0005_restaurants_settings.rollback.sql`, `supabase/config.toml`(주석), `CLAUDE.md`(deploy 명령), 이 README
 
 ## 컷오버 절차 (메뉴 모델 → 매장 모델, 1회)
 
 라이브를 바꾸는 것은 이 절차뿐이다. Claude 는 원격 SQL 을 실행할 수 없으므로 **사람이** 순서대로 한다. 3~6 은 한 세션 안에 몇 분 내 연속 수행 — 그 사이가 벌어지면 구 코드가 사라진 `menus` 를 읽어 42P01, 매분 폴링이 500 을 낸다(`0005` 머리 주석).
 
-0. **사전 기록** — `git rev-parse main` 결과(컷오버 전 해시)를 적어 둔다(롤백 3번에 필요). `gh auth status` 활성 계정이 `F1rstID` 인지, Vercel env 2개가 있는지 확인. 대시보드 Table Editor 에서 `menus`·`pinned_menus` 가 0행인지 육안 확인(0005 는 두 테이블을 이관 없이 떨군다).
-1. **`results` 덤프 보관** — SQL Editor 에서 `select * from public.results order by date;` 결과를 CSV 로 내려받아 보관(Table Editor → Export 도 가능). 행 수를 적어 둔다(7번에서 대조).
+0. **사전 기록** — `git rev-parse main` 결과(컷오버 전 해시)를 적어 둔다(롤백 2번에 필요). `gh auth status` 활성 계정이 `F1rstID` 인지, Vercel env 2개가 있는지 확인. 대시보드 Table Editor 에서 `menus`·`pinned_menus` 가 0행인지 육안 확인(0005 는 두 테이블을 이관 없이 떨군다).
+1. **`results` 덤프 보관** — SQL Editor 에서 `select * from public.results order by date;` 결과를 CSV 로 내려받아 보관(Table Editor → Export 도 가능). 행 수를 적어 둔다(7번에서 대조). 함께 `select count(*) from public.results where date = (now() at time zone 'Asia/Seoul')::date;` 의 값(**0 또는 1** — 그날 추첨이 있었는가)을 적어 둔다: 3b·5·7 의 판정이 이 값으로 갈린다(주말·후보 0개인 날은 0 이다).
 2. **12:00 KST 이후에 시작** — 그날 추첨이 이미 끝나 있으면 매분 폴링이 멱등 skip 으로 떨어져 잃을 추첨이 없다.
 3. **0005 적용** — SQL Editor 에 `supabase/migrations/0005_restaurants_settings.sql` 전체를 붙여 1회 실행. 에러로 끊기면 원인을 고치고 **같은 파일을 다시** 실행한다(모든 문이 재실행 안전형).
-   - 3b. 그날 추첨 **이후** 적용했다면(2번대로면 항상) 전환일을 다음 날로 민다 — 그날의 구 모델 결과(메뉴명, `restaurant_id` null)가 기록·랭킹에 섞이지 않게:
+   - 3b. **1번의 오늘 행이 1일 때만**(0이면 건너뛴다) 전환일을 다음 날로 민다 — 그날의 구 모델 결과(메뉴명, `restaurant_id` null)가 기록·랭킹에 섞이지 않게. 0인 날에 밀면 그날의 정당한 매장 결과가 하루치 숨는다:
      ```sql
      update public.settings set history_since = history_since + 1 where id = 1;
      ```
@@ -110,12 +111,13 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
    ```
    ```bash
    curl -s -X POST https://swxiqytyxjlcgubqlozk.supabase.co/functions/v1/respin-roulette \
-     -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Content-Type: application/json" -d '{}'
+     -H "Content-Type: application/json" -d '{}'
    ```
-   응답에 `ok: true`, `menu` 가 `"컷오버 확인용"`(문자열), `restaurant_id` 가 uuid 이면 통과. `menu` 가 빈 문자열이거나 `restaurant_id` 가 없으면 PostgREST 임베드 접기가 틀린 것 — **머지하지 말고 롤백 판단**(아래). 이 호출은 **그날의 구 모델 결과 행을 덮어쓴다**(`upsert onConflict: date`) — 원본은 1번 덤프에 있고, 3b 로 전환일을 다음 날로 밀었으므로 기록·랭킹에는 오지 않는다. 확인 뒤 `delete from public.restaurants where name = '컷오버 확인용';` (후보는 cascade, 오늘 결과 행은 `restaurant_id` 가 null 로 바뀌어 남고 7번의 실사용 다시 돌리기가 덮어쓴다).
-6. **PR 머지** — `feat/restaurant-roulette` → `main`. Vercel 이 자동 배포(1~2분). 기록·랭킹의 명시 컬럼 조회는 3번이 먼저여야 동작한다(`results.restaurant_id`).
-7. **라이브 확인** — 매장 탭에서 매장 등록 → 오늘 탭에서 후보 담기 → "다시 돌리기" → 매장명이 결과로 뜨고 휠이 그 조각을 가리키는지. 기록 탭에서 과거 날짜가 비어 있고(전환일 이전은 집계 제외), SQL Editor 에서 `select count(*) from public.results;` 가 1번 행 수와 **같은지**(오늘 행은 새로 생긴 것이 아니라 5·7번이 덮어쓴 것이다 — 행이 줄었으면 잘못된 것).
-8. **익일 확인** — 다음 날 추첨 시각 + 5분에 `results` 에 그날 행이 있는지. 없으면 대시보드 Edge Function Logs 의 `spin-roulette` `console.error` 를 본다.
+   (`verify_jwt = false` 라 인증 헤더가 필요 없다 — pg_cron 의 `http_post` 도 `Content-Type` 만 싣고 부른다.)
+   응답이 `ok: true` + `menu: "컷오버 확인용"`(문자열) + `restaurant_id`(uuid) 면 통과. `skipped: "no_candidates"` 인데 `excluded_count > 0` 이면 PostgREST 임베드 접기가 틀린 것(Logs 에 `매장 조인 형태 불일치` 1건) — **머지하지 말고 롤백 판단**(아래). `excluded_count: 0` 이면 후보 insert 가 안 된 것이니 위 SQL 을 다시 본다. `settings_fallback`·`cooldown_skipped` 가 `true` 면 Logs 를 본다. 이 호출은 1번의 오늘 행이 1이면 **그날의 구 모델 결과 행을 덮어쓰고**(`upsert onConflict: date`, 원본은 1번 덤프에 있고 3b 로 기록·랭킹에는 오지 않는다), 0이면 **새 행을 만든다**. 확인용 매장·후보는 지우지 않고 7번까지 그대로 둔다(7번의 후보로 쓴다).
+6. **PR 머지** — `feat/restaurant-roulette` → `main`, **"Create a merge commit"** 으로(롤백 3번의 `git revert -m 1` 이 그 전제 — squash/rebase 로 머지했다면 롤백 3번의 분기를 따른다). Vercel 이 자동 배포(1~2분). 랭킹의 명시 컬럼 조회(`results.restaurant_id`)는 3번이 먼저여야 동작한다.
+7. **라이브 확인(컷오버 당일)** — 매장 탭에서 실제 매장 1개 등록(매장 탭은 잠금이 없다). **오늘 결과 행이 있는 동안 오늘 탭의 담기/빼기는 잠긴다**(`decided`) — 그래서 당일 후보는 5번의 확인용 후보를 그대로 쓰거나 SQL Editor 로 담는다: `insert into public.candidates (restaurant_id) select id from public.restaurants where name = '<등록한 매장>';`. 오늘 탭 "다시 돌리기" → 매장명이 결과로 뜨고 휠이 그 조각을 가리키는지. 기록 탭에서 전환일 이전 날짜가 비어 있는지. SQL Editor 에서 `select count(*) from public.results;` 가 **1번 행 수와 같아야 한다**(1번의 오늘 행이 0이었던 날은 +1) — 줄었으면 잘못된 것. 끝나면 `delete from public.restaurants where name = '컷오버 확인용';` (후보는 cascade 로 사라지고, 그 매장이 당첨이었던 결과 행은 `restaurant_id` 만 null 로 남는다 — 실제 매장으로 한 번 더 "다시 돌리기" 해 두면 깔끔하다).
+8. **익일 확인** — (a) 추첨 시각 **전**에 오늘 탭에서 토글로 후보를 1개 이상 담는다(잠금 해제 확인 겸. 전날 매장 탭에서 📌 하나를 고정해 두면 자정 재시드가 보장한다). (b) 추첨 시각 + 5분에 `results` 에 그날 행이 있는지. 없으면 Edge Function Logs: `no_candidates` 만 있고 `console.error` 가 없으면 후보가 없었던 것(실패 아님), `console.error` 가 있으면 그 원인.
 9. 문제가 생기면 아래 **롤백** 판단 기준으로.
 
 ## 롤백 (매장 모델 → 메뉴 모델)
@@ -123,7 +125,7 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
 **되돌리는 기준** — 다음 셋 중 하나면 롤백, 그 외 화면 문제는 hotfix:
 - (a) 3번 0005 가 에러로 끊겼고 원인을 고쳐 재실행해도 넘어가지 않는다
 - (b) 5번 `respin-roulette` 가 `ok: true` + 매장명 + uuid 를 주지 않는다
-- (c) 8번 익일 추첨 시각 + 5분까지 `results` 행이 없고 Logs 의 `console.error` 로 원인을 바로 못 고친다
+- (c) 8번에서 후보가 1개 이상 담겨 있었는데 익일 추첨 시각 + 5분까지 `results` 행이 없고, Logs 의 `console.error` 로 원인을 바로 못 고친다(`no_candidates` 만 있으면 후보가 없었던 것 — 롤백 사유가 아니다)
 
 **순서** (컷오버의 역순 — SQL 먼저, 그다음 함수, 마지막 앱):
 1. SQL Editor 에서 `supabase/rollback/0005_restaurants_settings.rollback.sql` 1회 실행 — 새 cron 3종 제거 → `menus`·`pinned_menus` 재생성(RLS·publication 포함) → 구 cron 2종 재등록(`spin-lunch-roulette` 11:55 고정, `reset-menus`). 재실행 안전형. `restaurants`·`candidates`·`settings`·`results.restaurant_id` 는 **남긴다**(구 코드에 무해, 재컷오버 때 데이터 보존). 파기는 파일 끝 주석 블록을 풀어 따로.
@@ -134,7 +136,7 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
    npx supabase@2.117.0 functions deploy respin-roulette --project-ref swxiqytyxjlcgubqlozk --no-verify-jwt
    git checkout HEAD -- supabase/functions
    ```
-3. 앱 롤백 — 머지 전이면 아무것도 안 해도 된다. 머지 뒤면 Vercel 대시보드에서 이전 배포 "Promote to Production" 또는 `git revert -m 1 <머지 커밋>` 을 `main` 에 PR 로.
+3. 앱 롤백 — 머지 전이면 아무것도 안 해도 된다. 머지 뒤면 Vercel 대시보드에서 이전 배포 "Promote to Production"(가장 빠르다) 또는 revert PR: merge commit 으로 머지했으면 `git revert -m 1 <머지 커밋>`, squash/rebase 였으면 `git revert <해당 커밋>`.
 4. 확인 — 오늘 탭이 메뉴 입력 폼으로 돌아오고 `menus` 에 insert 가 되는지, 다음 11:55 에 `results` 행이 생기는지.
 
 ## 메모리 사용 주의
