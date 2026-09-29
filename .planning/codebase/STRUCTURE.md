@@ -45,9 +45,9 @@ lunch_roulette/
 ├── supabase/                 # 서버 측 (함수 디렉터리 2개만 tsconfig/eslint 제외)
 │   ├── rollback/             # 0005 롤백 SQL + 계약 spec (migrations/ 밖 — db push 가 읽지 않게)
 │   ├── config.toml           # CLI 설정. verify_jwt=false 고정
-│   ├── migrations/           # 0001~0004, 순번 적용
+│   ├── migrations/           # 0001~0005, 순번 적용 (+ 0005 텍스트 계약 spec)
 │   └── functions/            # Deno Edge Functions
-│       ├── spin-roulette/index.ts    # 11:55 자동 추첨 (cron 호출)
+│       ├── spin-roulette/index.ts    # 설정 시각 자동 추첨 (매분 cron 호출)
 │       └── respin-roulette/index.ts  # 다시 돌리기 (브라우저 호출)
 ├── design/                   # React CDN 프로토타입 + 스크린샷 — 빌드 대상 아님
 │   ├── *.jsx                 # 시각 참조용 (Babel standalone)

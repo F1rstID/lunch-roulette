@@ -322,7 +322,7 @@
 - 대응: 전환 전에 `select date, menu from results order by date;` 전체를 덤프해 육안 검토 → 매핑 테이블을 **수작업으로 확정** → 매핑 불가 행은 `restaurant_id = null` + `legacy_name` 보존으로 남긴다. `results` 컬럼을 파괴적으로 바꾸지 말고 **추가 컬럼 + 백필** 방식을 쓴다.
 
 **2. 이름 기준 조인이 코드 6곳에 박혀 있다**
-- **해소됨(Phase 6·7).** 오늘 탭의 `winnerIndex` 는 `restaurant_id` 매칭, 기록·랭킹의 집계 키는 `lib/history.ts` 의 `restaurant_id ?? menu` 다(삭제된 매장은 이름 스냅샷으로 한 덩어리, 개명은 최근 스냅샷 이름으로 합쳐짐). legacy 행(이름만 있는)은 `filterSince` 가 전환일 이전으로 잘라 화면에 오지 않는다 — 전환일 당일의 구 모델 행 한 줄은 컷오버 절차(`wr-01` 8번, `history_since + 1`)가 뺀다. 남은 이름 기준 표시는 기록 상세의 후보 목록(`results.candidates[].name`)뿐이고 그것은 스냅샷 표시라 의도다.
+- **해소됨(Phase 6·7).** 오늘 탭의 `winnerIndex` 는 `restaurant_id` 매칭, 기록·랭킹의 집계 키는 `lib/history.ts` 의 `restaurant_id ?? menu` 다(삭제된 매장은 이름 스냅샷으로 한 덩어리, 개명은 최근 스냅샷 이름으로 합쳐짐). legacy 행(이름만 있는)은 `filterSince` 가 전환일 이전으로 잘라 화면에 오지 않는다 — 전환일 당일의 구 모델 행 한 줄은 컷오버 절차(README 3b, `history_since + 1`)가 뺀다. 남은 이름 기준 표시는 기록 상세의 후보 목록(`results.candidates[].name`)뿐이고 그것은 스냅샷 표시라 의도다.
 
 **3. `pinned_menus`의 PK가 `name`이다**
 - `supabase/migrations/0004_pinned_menus.sql:4-7`. 식당 FK로 바꾸려면 PK 교체 = 테이블 재생성이고, 여기에 걸린 **자정 재시드 cron 잡 본문**(`0004_pinned_menus.sql:28-36`)도 함께 재작성해야 한다. cron 잡은 마이그레이션 파일이 아니라 DB에 살아 있으므로, 새 마이그레이션에서 unschedule → 재등록 패턴을 반드시 지킬 것.
@@ -333,11 +333,11 @@
 
 **5. Edge Function 의 스키마 가정은 이제 컴파일 에러를 내지만, 임베드 형태는 그래도 못 잡는다**
 - 두 함수는 `candidates` → `restaurants` 조인으로 후보를 읽고 `results`에 매장명 스냅샷 + `restaurant_id`를 쓴다(Phase 4 재작성). 스키마를 바꾸면 `npm run check:edge`가 타입 에러를 준다 — "컴파일 에러 없이 다음 추첨에서 처음 터지는" 상태는 아니다.
-- **단 PostgREST 임베드가 배열로 오느냐 객체로 오느냐는 정적 검사가 못 잡는다.** 추론 타입은 배열이고 실제 응답은 객체라 `row.restaurants[0].name`은 타입 검사를 통과하고 런타임에 `undefined`를 준다. 두 함수 모두 `Array.isArray`로 접어 뒀지만 그게 옳은지는 **첫 실호출에서만** 드러난다 → `.planning/todos/pending/wr-01-cutover-window.md` 7번이 그 확인 항목이다.
+- **단 PostgREST 임베드가 배열로 오느냐 객체로 오느냐는 정적 검사가 못 잡는다.** 추론 타입은 배열이고 실제 응답은 객체라 `row.restaurants[0].name`은 타입 검사를 통과하고 런타임에 `undefined`를 준다. 두 함수 모두 `Array.isArray`로 접어 뒀지만 그게 옳은지는 **첫 실호출에서만** 드러난다 → README `## 컷오버 절차` 5번이 그 확인 항목이다.
 - 대응 순서: 앱 배포보다 **Edge Function 재배포를 먼저** 하고, `respin-roulette`를 수동 호출해 새 스키마 경로를 검증한 뒤 UI를 내보낸다(`spin-roulette`는 시간 가드 때문에 사전 검증이 불가능하므로 `respin` 경로로 대신 확인).
 
 **6. 검증 수단이 없다 → 대부분 해소(Phase 1~8)**
-- 현재: vitest 389건(15 files), 롤백 SQL(`supabase/rollback/`, 텍스트 계약 spec), `results` 덤프가 컷오버 절차 1번. 남은 것: CI 0, 로컬 Supabase 스택 없음(마이그레이션·롤백은 리허설 없이 프로덕션에서 첫 실행 — 재실행 안전형으로 대체).
+- 현재: vitest 15 files(건수는 `npm test` 가 정본), 롤백 SQL(`supabase/rollback/`, 텍스트 계약 spec), `results` 덤프가 컷오버 절차 1번. 남은 것: CI 0, 로컬 Supabase 스택 없음(마이그레이션·롤백은 리허설 없이 프로덕션에서 첫 실행 — 재실행 안전형으로 대체).
 - 당시: 테스트 0, CI 0, 로컬 Supabase 스택 없음, 마이그레이션은 프로덕션 직접 적용(보안 정책상 사용자가 수동 적용), down 마이그레이션 없음, `results` 백업 절차 미문서화.
 - 대응: (a) 전환 착수 전 `results` 전체 덤프를 파일로 보관, (b) 위 [Test Coverage Gaps]의 순수 함수 6개에 러너를 먼저 도입, (c) 마이그레이션을 "추가만 하는" 단계와 "제거하는" 단계로 분리해 최소 하루 이상 간격을 둔다.
 
