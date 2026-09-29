@@ -298,8 +298,11 @@ function RestaurantRowView({
         <div style={s.name}>{row.name}</div>
         {row.menus.length > 0 && (
           <div style={s.chips}>
-            {shownMenus.map((menu) => (
-              <span key={menu} title={allMenus} style={s.chip}>
+            {/* key 에 인덱스를 섞는 이유: UI 경로는 parseMenuInput 이 중복을 지우지만 DB check 는
+                배열 안 중복을 막지 않는다(0005:26). RLS 가 열려 있어 PostgREST 직접 쓰기로
+                ["김밥","김밥"] 이 들어오면 이름만으로는 key 가 겹쳐 칩 하나가 사라진다. */}
+            {shownMenus.map((menu, i) => (
+              <span key={`${menu}-${i}`} title={allMenus} style={s.chip}>
                 {menu}
               </span>
             ))}
