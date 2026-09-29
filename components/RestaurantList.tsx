@@ -96,9 +96,13 @@ export function RestaurantList({
             ) : confirmingId === r.id ? (
               <DeleteConfirm
                 onConfirm={async () => {
-                  // 성공하든 실패하든 확인 상태는 닫는다. 실패 문장은 페이지 배너가 띄운다.
-                  await onRemoveAction(r.id, r.name);
-                  setConfirmingId(null);
+                  // 성공하든 실패하든 — 예상 밖 예외로 빠져나가더라도 — 확인 상태는 닫는다.
+                  // 닫지 않으면 삭제도 취소도 못 하는 행이 목록에 남는다. 실패 문장은 페이지 배너가 띄운다.
+                  try {
+                    await onRemoveAction(r.id, r.name);
+                  } finally {
+                    setConfirmingId(null);
+                  }
                 }}
                 onCancel={() => setConfirmingId(null)}
               />
@@ -165,8 +169,18 @@ function RestaurantForm({
     }
     setFormError(null);
     setBusy(true);
-    const ok = await onSubmit(parsed.input);
-    setBusy(false);
+    let ok = false;
+    try {
+      ok = await onSubmit(parsed.input);
+    } catch (e) {
+      // 콜백은 실패를 boolean 으로 돌려주는 규약이지만, 예상 밖 throw 가 여기서 빠져나가면 busy 가
+      // 참으로 갇혀 버튼이 영원히 잠기고 예외는 배너 없는 unhandled rejection 이 된다
+      // (app/page.tsx:236-244 가 같은 이유로 try/catch/finally 를 둔다).
+      setFormError(e instanceof Error ? e.message : String(e));
+    } finally {
+      // 성공·실패·예외 어느 쪽이든 버튼은 다시 눌릴 수 있어야 한다.
+      setBusy(false);
+    }
     // 실패하면 입력을 그대로 둔다. 다시 치게 만들면 사용자는 같은 값을 두 번 입력한다.
     if (!ok) return;
     if (mode === "create") {

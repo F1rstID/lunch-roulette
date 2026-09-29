@@ -64,57 +64,79 @@ export default function RestaurantsPage() {
   // 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가 async 핸들러의
   // 수동 memo 를 보존하지 못해 에러를 낸다(app/page.tsx:167-169 와 같은 논증).
   // 네 핸들러 모두 낙관적 업데이트를 하지 않는다 — 화면은 Realtime 이벤트로만 갱신된다.
+  // 네 핸들러 모두 본문을 try/catch 로 감싼다. supabase-js 는 fetch 실패까지 { error } 로 돌려주므로
+  // 평소에는 던지지 않지만, 예상 밖 throw 가 핸들러를 빠져나가면 배너 없는 unhandled rejection 이 되고
+  // 폼은 boolean 을 받지 못해 busy 에 갇힌다(app/page.tsx:236-244 와 같은 논증).
   async function addRestaurant(input: RestaurantInput): Promise<boolean> {
-    const { error } = await supabase
-      .from("restaurants")
-      .insert({ name: input.name, menus: input.menus, location: input.location });
-    if (error) {
-      setActionError(formatRestaurantWriteError("등록", input.name, error));
+    try {
+      const { error } = await supabase
+        .from("restaurants")
+        .insert({ name: input.name, menus: input.menus, location: input.location });
+      if (error) {
+        setActionError(formatRestaurantWriteError("등록", input.name, error));
+        return false;
+      }
+      setActionError(null);
+      return true;
+    } catch (e) {
+      setActionError(formatRestaurantWriteError("등록", input.name, { message: thrownMessage(e) }));
       return false;
     }
-    setActionError(null);
-    return true;
   }
 
   async function updateRestaurant(id: string, input: RestaurantInput): Promise<boolean> {
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ name: input.name, menus: input.menus, location: input.location })
-      .eq("id", id);
-    if (error) {
-      setActionError(formatRestaurantWriteError("수정", input.name, error));
+    try {
+      const { error } = await supabase
+        .from("restaurants")
+        .update({ name: input.name, menus: input.menus, location: input.location })
+        .eq("id", id);
+      if (error) {
+        setActionError(formatRestaurantWriteError("수정", input.name, error));
+        return false;
+      }
+      setActionError(null);
+      return true;
+    } catch (e) {
+      setActionError(formatRestaurantWriteError("수정", input.name, { message: thrownMessage(e) }));
       return false;
     }
-    setActionError(null);
-    return true;
   }
 
   async function removeRestaurant(id: string, name: string): Promise<boolean> {
-    // 오늘 후보·과거 결과에 대한 뒤처리를 하지 않는다 — 두 파급은 DB 의 외래키 규칙(0005)이 이미 처리한다.
-    const { error } = await supabase.from("restaurants").delete().eq("id", id);
-    if (error) {
-      setActionError(formatRestaurantWriteError("삭제", name, error));
+    try {
+      // 오늘 후보·과거 결과에 대한 뒤처리를 하지 않는다 — 두 파급은 DB 의 외래키 규칙(0005)이 이미 처리한다.
+      const { error } = await supabase.from("restaurants").delete().eq("id", id);
+      if (error) {
+        setActionError(formatRestaurantWriteError("삭제", name, error));
+        return false;
+      }
+      setActionError(null);
+      return true;
+    } catch (e) {
+      setActionError(formatRestaurantWriteError("삭제", name, { message: thrownMessage(e) }));
       return false;
     }
-    setActionError(null);
-    return true;
   }
 
   async function toggleRestaurantPin(id: string, name: string, currentlyPinned: boolean): Promise<boolean> {
-    // 핀 컬럼 하나만 뒤집는다. 오늘 후보를 여기서 담지 않는 이유: 자정 재시드는 DB cron(0005) 몫이고,
-    // 즉시 담기는 오늘 탭의 토글(Phase 6)이다.
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ pinned: !currentlyPinned })
-      .eq("id", id);
-    if (error) {
-      setActionError(
-        formatRestaurantWriteError(currentlyPinned ? "고정 해제" : "고정", name, error),
-      );
+    const action = currentlyPinned ? "고정 해제" : "고정";
+    try {
+      // 핀 컬럼 하나만 뒤집는다. 오늘 후보를 여기서 담지 않는 이유: 자정 재시드는 DB cron(0005) 몫이고,
+      // 즉시 담기는 오늘 탭의 토글(Phase 6)이다.
+      const { error } = await supabase
+        .from("restaurants")
+        .update({ pinned: !currentlyPinned })
+        .eq("id", id);
+      if (error) {
+        setActionError(formatRestaurantWriteError(action, name, error));
+        return false;
+      }
+      setActionError(null);
+      return true;
+    } catch (e) {
+      setActionError(formatRestaurantWriteError(action, name, { message: thrownMessage(e) }));
       return false;
     }
-    setActionError(null);
-    return true;
   }
 
   // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 매장 목록 실패도
@@ -154,6 +176,12 @@ export default function RestaurantsPage() {
       </main>
     </>
   );
+}
+
+// 던져진 값에서 배너에 실을 한 줄을 꺼낸다. Error 가 아닌 값이 던져지는 경우까지 문자열로 떨어뜨려
+// 핸들러의 catch 가 "메시지 없는 실패" 를 만들지 않게 한다.
+function thrownMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 const pageHeadStyles = {
