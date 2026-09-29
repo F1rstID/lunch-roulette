@@ -55,6 +55,9 @@ export function RestaurantList({
   // 열어 두면 어느 폼이 저장됐는지 화면만 보고는 알 수 없다.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  // 핀 토글이 도는 동안 재클릭을 무시할 행. 낙관적 업데이트가 없어 두 번째 클릭도 화면에 남아 있는
+  // 같은 pinned 를 읽으므로, 막지 않으면 두 요청이 같은 값을 쓰고 "두 번 눌러 원복" 이 되지 않는다.
+  const [pinBusyId, setPinBusyId] = useState<string | null>(null);
 
   // 편집·삭제 확인 중인 행이 원격에서 지워지면 목록에서 빠지고 두 id 는 없는 행을 가리킨 채 남는다.
   // effect 로 되돌리지 않고 렌더 시점에 목록 멤버십으로 거른다: effect 안의 setState 는
@@ -139,7 +142,17 @@ export function RestaurantList({
                   setEditingId(null);
                   setConfirmingId(r.id);
                 }}
-                onTogglePin={() => onTogglePinAction(r.id, r.name, r.pinned)}
+                pinBusy={pinBusyId === r.id}
+                onTogglePin={async () => {
+                  // 행 단위로 잠근다 — 다른 행의 핀은 그대로 눌릴 수 있어야 한다.
+                  if (pinBusyId === r.id) return;
+                  setPinBusyId(r.id);
+                  try {
+                    await onTogglePinAction(r.id, r.name, r.pinned);
+                  } finally {
+                    setPinBusyId(null);
+                  }
+                }}
               />
             )}
           </li>
@@ -277,11 +290,13 @@ function RestaurantForm({
 
 function RestaurantRowView({
   row,
+  pinBusy,
   onEdit,
   onAskRemove,
   onTogglePin,
 }: {
   row: RestaurantRow;
+  pinBusy: boolean;
   onEdit: () => void;
   onAskRemove: () => void;
   onTogglePin: () => void;
@@ -325,7 +340,7 @@ function RestaurantRowView({
           </div>
         )}
       </div>
-      <PinButton pinned={row.pinned} onToggle={onTogglePin} />
+      <PinButton pinned={row.pinned} busy={pinBusy} onToggle={onTogglePin} />
       <button type="button" aria-label="수정" title="수정" onClick={onEdit} style={s.editBtn}>
         수정
       </button>
@@ -336,18 +351,22 @@ function RestaurantRowView({
   );
 }
 
-function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: () => void }) {
+function PinButton({ pinned, busy, onToggle }: { pinned: boolean; busy: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
       aria-label={pinned ? "고정 해제" : "고정"}
       aria-pressed={pinned}
+      // 진행 중에는 비활성으로 눌리지 않게 한다. 아이콘은 그대로 두고 커서만 바꾼다 — 토글 하나 때문에
+      // 행이 흔들리면 목록을 훑는 눈이 걸린다.
+      disabled={busy}
       title={pinned ? "고정 해제" : "고정 — 매일 자정 자동으로 오늘 후보에 담겨요"}
       onClick={onToggle}
       style={{
         ...s.pin,
         opacity: pinned ? 1 : 0.32,
         background: pinned ? "var(--accent-soft)" : "transparent",
+        cursor: busy ? "progress" : "pointer",
       }}
     >
       📌
