@@ -45,8 +45,8 @@ findings:
   warning: 2
   info: 7
   total: 10
-fixed: 0
-deferred: 0
+fixed: 9
+deferred: 1
 status: issues_found
 ---
 
@@ -119,6 +119,8 @@ useEffect(() => {
 ```
 렌더 하네스가 없으니 낭독으로 검증하고, CLAUDE.md 위험 지점 표의 `app/page.tsx` 행에 "토픽은 effect 안에서 만든다 — state 로 올리면 자정 재구독이 죽는다" 를 한 줄 더한다. 훅 3개도 같은 형태(effect 안 생성, `useState` 제거)로 맞추면 네 구독이 한 규칙을 쓴다 — 선택이지만 권장.
 
+**처리:** ✅ fixed `10e54a1` — 토픽을 `useState` 에서 빼고 구독 effect 안에서 `results-${++topicSeq}` 로 매긴다(deps 는 `[todayKey]` 그대로). INSERT → UPDATE 분기 순서·`applyResult` 의 `todayResultRef`/`isNewSpin` 회전 가드·`initialLoadedRef` 의 의미는 건드리지 않았다. 권장된 훅 3개 정렬은 하지 않았다 — 세 훅의 구독 effect 는 deps 가 `[topic]` 뿐이라 같은 인스턴스가 재구독하는 경로가 없어 고칠 버그가 없고, 형태만 맞추면 근거 없는 변경이 된다. 대신 세 훅의 토픽 주석에 "왜 여기서는 state 로 둬도 되고 페이지는 다른가" 를 한 문단씩 적었다. `CLAUDE.md` 위험 지점 표의 `app/page.tsx` 행에도 같은 규칙을 더했다.
+
 ## Warnings
 
 ### WR-01: 훅 3개의 언마운트 가드를 `if` 를 피하려고 `send` 재바인딩으로 바꾼 것은 뻔한 코드를 영리한 코드로 바꾼 것이다
@@ -141,6 +143,8 @@ useEffect(() => {
 }, []);
 ```
 `CLAUDE.md:47` 을 "세 훅 모두 **판단** 분기가 0개(언마운트 취소 가드 `if (cancelled)` 한 줄은 예외)" 로, 플랜의 인수 조건은 `grep -cE 'if \((error|!?data|payload\.)' ` 처럼 판단 분기만 세도록 바꾼다. 대안으로 가드를 아예 지우는 것도 성립한다(React 18+ 무해, 리듀서 `:70` 이 중복을 거른다) — 그 경우 주석에 근거를 적는다.
+
+**처리:** ✅ fixed `8d880b8` — 세 훅을 `let cancelled = false; … if (cancelled) return; dispatch(...)` + cleanup `cancelled = true` 로 되돌렸다(가드를 지우는 대안은 고르지 않았다 — 레포의 나머지 비동기 effect 와 같은 관용구를 쓰는 편이 B-9 에 맞는다). `CLAUDE.md:47` 은 "**세 훅 모두 판단 분기가 0개**다 … 남는 `if` 는 `if (cancelled) return;` 한 줄뿐이고 그것은 판단이 아니라 배관이다" 로 고쳤다. 세 파일의 `^\s*if \(` 개수는 각각 1(그 가드)이다.
 
 ### WR-02 [설계 재논의]: 조회는 구독이 확정되기 전에 스냅샷을 뜨고, 재연결 뒤에는 재조회가 없다 — `pending` 버퍼가 덮지 않는 반대 방향의 창
 
@@ -170,6 +174,8 @@ useEffect(() => {
 ```
 재조회가 의미를 가지려면 `lib/rowset.ts:70` 의 `if (state.loaded) return state;`(중복 응답 무시)를 "두 번째 `fetched` 는 목록을 **교체**한다" 로 바꿔야 하고, 그 사이 도착한 이벤트를 새 스냅샷 위에 다시 얹으려면 `resync` 진입 시 `pending` 을 다시 쌓는 상태가 필요하다 — D-04 의 `fetched` 계약을 손대는 결정이라 재논의로 태그한다. `lib/settings.ts:82` 는 단일행이라 "Realtime 이 앞서면 이긴다" 논증을 지키되 재조회를 받는 형태로 따로 봐야 한다. 최소 버전(최초 창만 닫기)은 위 코드만으로 되고 리듀서 변경이 없다.
 
+**처리:** ⏸ not applied — 설계 재논의 → todo `in-07`. `lib/rowset.ts` 의 D-04 `fetched` 계약(`if (state.loaded) return state;` 중복 응답 무시)을 뒤집어야 재조회가 의미를 갖고, `resync` 중 `pending` 재축적·단일행인 `lib/settings.ts` 의 별도 취급까지 함께 정해야 한다. `.planning/todos/pending/in-07-realtime-resync-on-reconnect.md` 에 Issue·Fix·갈림길(최소 버전 vs 재연결 재조회)을 옮겨 적었다 — 컷오버(Phase 8) 전에 결정만 한다.
+
 ## Info
 
 ### IN-01: 빈 휠 문구가 아직 "메뉴 없음 · ADD A MENU" 다
@@ -178,11 +184,15 @@ useEffect(() => {
 **Issue:** 후보 소스가 매장으로 바뀌었는데(D-01) 후보 0개일 때 허브에 그리는 문구는 "메뉴 없음"/"ADD A MENU" 그대로다. 컷오버 전 라이브에서는 이 화면이 **상시** 첫 인상이고, 컷오버 후에도 자정 직후·핀 0개 날에 보인다. D-21 의 치환 목록이 시각 리터럴만 세어 낱말은 빠졌다(B-6 이름=의도).
 **Fix:** `"담긴 매장 없음"` / `"ADD A RESTAURANT"` (또는 `"PICK A PLACE"`) 로 바꾼다. 06-02 SUMMARY 의 "Wheel 4+/1−" 낭독 항목은 이 두 줄을 포함하도록 갱신한다.
 
+**처리:** ✅ fixed `c249a49` — `담긴 매장 없음` / `ADD A RESTAURANT` 로 바꿨다. 텍스트 두 줄만 손댔고 회전 상태 머신은 그대로다. 06-02 SUMMARY 의 낭독 항목은 갱신하지 않았다 — 지나간 플랜의 실행 기록이라 사후 수정이 기록의 뜻을 흐린다.
+
 ### IN-02: `listTodayRows` 를 `useMemo` 없이 부르는 근거 주석이 틀렸다
 
 **File:** `components/CandidateList.tsx:61-63` (컨벤션: `CLAUDE.md:63`)
 **Issue:** 주석은 "입력이 매 렌더 새 배열이 아니고, 감싸면 의존성 배열이 필터 state 까지 끌고 들어와 얻는 것이 없다" 고 하지만, `candidates`·`catalog` 는 페이지가 `useMemo` 로 넘긴 안정 참조이고 `query` 는 셋 중 하나일 뿐이라 `useMemo(() => listTodayRows(candidates, catalog, query), [candidates, catalog, query])` 는 매초 tick 렌더(부모의 `onAddAction`/`onRemoveAction` 이 매 렌더 새 함수라 이 컴포넌트는 매초 다시 그려진다)에서 재계산과 `rows` 재생성을 전부 건너뛴다. 오늘 비용은 수십 행 규모라 무시할 만하지만(성능은 범위 밖), 레포 컨벤션("무거운 계산은 useMemo — 매장 탭의 `sortRestaurants` 가 그 이유")과 같은 자리에서 반대 선택을 하면서 근거가 사실과 다르다(B-8).
 **Fix:** `useMemo` 로 감싸거나, 감싸지 않을 거면 주석을 "행 수가 수십 개라 비용이 무시할 만해 감싸지 않는다" 로 정직하게 바꾼다.
+
+**처리:** ✅ fixed `9815dc6` — 뒤쪽을 골랐다(감싸지 않고 주석을 고친다). 새 주석은 "행 수가 수십 개라 비용이 무시할 만하다" 로 이유를 대고, "감싸도 얻는 것이 없다" 가 거짓이라는 것(안정 참조 + `query` 는 의존성 셋 중 하나)과 카탈로그가 수백 행이 되면 감싼다는 조건까지 함께 적었다.
 
 ### IN-03: 로드 중 상태에 안내 문구가 없고 부분 로드 상태에서 토글이 살아 있다
 
@@ -190,11 +200,15 @@ useEffect(() => {
 **Issue:** `status === "loading"` 이면 빈 `<ul>` 만 그린다 — 매장 탭(`components/RestaurantList.tsx:83-87`)은 같은 상태에 "불러오는 중…" 을 둔다(B-9). 또 `rows.map` 은 `status` 와 무관하게 그려지므로 카탈로그가 먼저 오고 후보가 아직 안 온 수백 ms 동안 모든 매장이 "안 담김 + 담기 버튼 활성" 으로 보인다. 그때 담긴 매장을 다시 담으면 23505 → `null` → 배너 없는 성공으로 흡수돼 실해는 없지만, 헤더 카운터 `00` 과 함께 잠깐 거짓 화면이 스친다.
 **Fix:** `status === "loading"` 에 "불러오는 중…" `<li>` 를 두고, `rows.map` 을 `status === "ready" &&` 로 감싼다(실패는 이미 바깥에서 막는다).
 
+**처리:** ✅ fixed `5bdfcf2` — 둘 다 적용했다(`불러오는 중…` `<li>` + `rows.map` 을 `status === "ready" &&` 로). `CandidateRowView` 에 `status` 를 추가로 넘겨 `disabled` 에 `status !== "ready"` 를 더하지는 않았다 — 행 자체가 `ready` 에서만 렌더되므로 도달 불가능한 분기가 되고, 05 IN-11 이 정확히 그런 죽은 가지를 발견으로 올렸다. D-11 의 3상태는 그대로다.
+
 ### IN-04: `busyId` 가 단일 슬롯이라 두 행을 연달아 누르면 먼저 끝난 쪽이 다른 행의 진행 표시를 지운다
 
 **File:** `components/CandidateList.tsx:58`, `:127-137`
 **Issue:** 행 A 토글 중 행 B 를 누르면 `setBusyId(B)` 가 A 를 덮고, A 의 `finally` 가 `setBusyId(null)` 로 B 의 busy 를 지운다. B 가 아직 진행 중인데 다시 눌리면 같은 방향 요청이 한 번 더 나간다 — 담기는 23505 로 무해, 빼기는 0행으로 무해라 실해는 없다. 05 IN-04 의 `pinBusyId` 와 같은 형태다.
 **Fix:** `Set<string>` 으로 두거나(`setBusyIds(prev => new Set(prev).add(id))` / `delete`), 주석에 "동시 진행은 한 행뿐이라는 가정" 을 적어 둔다.
+
+**처리:** ✅ fixed `ef7099d` — `busyId: string | null` → `busyIds: Set<string>`. 시작에서 `add`, `finally` 에서 `delete` 하고 두 갱신 모두 함수형 업데이터 + 새 `Set` 이라(참조가 바뀌어야 리렌더된다) 그 사이 다른 행이 들어와도 함께 지워지지 않는다. 버튼 비활성은 `busyIds.has(row.restaurant.id)`.
 
 ### IN-05: `created_at`·`spun_at` 문자열 비교가 REST 와 Realtime 의 직렬화가 같다는 전제 위에 있다
 
@@ -202,17 +216,23 @@ useEffect(() => {
 **Issue:** 초기 조회 행은 PostgREST 가, 이후 행은 Realtime 페이로드가 만든다. 후보 목록은 정상 상태에서 **두 출처의 행이 섞인** 배열이고, `isNewSpin` 은 REST 로 읽은 `prev.spun_at` 과 Realtime 으로 온 `next.spun_at` 을 문자열로 비교한다. 두 경로 모두 Postgres JSON 인코딩(UTC 세션, `+00:00`, 소수 초 뒷자리 0 절단)을 쓰므로 현재 같다고 판단하지만, 그 전제는 코드 주석(`:41`)에만 있고 검증 수단이 없다 — 테스트는 같은 리터럴로만 두 함수를 부른다. 형식이 갈리는 날 정렬은 탭마다 다른 조각 번호를 보이고, `isNewSpin` 은 set-null UPDATE 에 `true` 를 돌려 in-06 이 막은 재회전이 소리 없이 돌아온다.
 **Fix:** 비교를 파싱된 시각으로 바꿔 전제를 없앤다 — `Date.parse(a.candidate.created_at) - Date.parse(b.candidate.created_at)` (매장 시각도 같게), `isNewSpin` 은 `Date.parse(prev.spun_at) !== Date.parse(next.spun_at)`. 파싱 불가(NaN)는 "다르다" 로 떨어지므로 회전 쪽이 안전한 기본값이다.
 
+**처리:** ✅ fixed `5f6f251` — `compareInstants` 헬퍼(`Date.parse` 비교)를 두고 3단 정렬의 두 시각 키와 `isNewSpin` 양쪽에 쓴다. **NaN 처리는 제안과 반대로 골랐다**: "다르다" 로 떨어뜨리면 매장 삭제가 내보내는 set-null UPDATE(`spun_at` 문자열이 그대로다)마다 `true` 가 되어 in-06 이 막은 재회전이 바로 돌아온다. 그래서 파싱 불가는 문자열 비교로 떨어뜨린다 — 정렬 쪽도 같은 이유(0 으로 뭉개면 비교기가 전순서를 잃는다)로 문자열 비교다. spec 7건 추가(`Z`·`+09:00`·소수 초가 같은 순간으로 동률인지 · 오프셋이 다를 때 순간으로 앞뒤를 정하는지 · 파싱 불가 두 갈래) — 일곱 건 모두 문자열 비교에서는 반대 답이 난다. 오프셋 없는 형식(`2026-09-28T17:00:00`)은 계약으로 고정하지 않았다: ES 명세상 로컬 시각이라 기대값이 러너 TZ 에 묶이고 Postgres 도 `timestamptz` 를 그렇게 내보내지 않는다. 354 → 361.
+
 ### IN-06: `useSettings` 머리 주석이 사라진 `lunch-realtime` 토픽을 가리킨다
 
 **File:** `lib/useSettings.ts:10-11`
 **Issue:** "채널을 settings-changes 계열로 분리한 이유: app/page.tsx 의 lunch-realtime 은 …" — 그 토픽은 D-09 로 `results-<n>` 이 됐다(`app/page.tsx:60`). 낡은 이름을 따라가면 없는 코드를 찾게 된다(B-8).
 **Fix:** "app/page.tsx 의 results-<n> 구독은" 으로 고친다. CR-01 수정 후에는 "effect 안에서 만드는 results 토픽" 으로 맞춘다.
 
+**처리:** ✅ fixed `90d4818` — CR-01 수정 뒤 상태에 맞춰 "app/page.tsx 의 results 구독(토픽을 effect 안에서 매기는 `results-<n>`)" 으로 고치고, 가드 이름도 실제와 맞게 `initialLoadedRef`·`todayResultRef` 둘로 적었다. 레포 소스에 `lunch-realtime` 은 0건이다.
+
 ### IN-07: CLAUDE.md 에 코드와 어긋나는 문장 세 곳이 남았다
 
 **File:** `CLAUDE.md:74`, `:80`, `:17`
 **Issue:** (a) `:74` 위험 지점 표의 `components/Wheel.tsx` 행 — "lint 에러 있는 곳. `lastSpinRef` 가드 제거하면 재회전 루프" 인데 `lastSpinRef` 는 파일에 없고(`grep -c` 0) lint 는 `:38` 이 스스로 0 이라고 적는다. 회전은 props 파생(`Wheel.tsx:58-66`)이라 지켜야 할 것은 "state+effect 로 되돌리지 말 것" 이다. (b) `:80` "미사용 코드: `Wheel` `onSpinCompleteAction` prop" — `formatHhMm`(`lib/time.ts:29`)이 이 페이즈로 소비처 0 이 됐고 06-02 SUMMARY 도 인정하지만 목록에 없다. (c) `:17` "`lib/settings.ts` 의 값 import 는 `DEFAULT_SPIN_TIME`·`parseSpinTime` 뿐" — `DEFAULT_SPIN_TIME_TEXT` 도 값 import 다(`lib/settings.ts:15-20`, 페이즈 이전부터). 이 페이즈가 같은 표·같은 문단을 고치면서 옆 줄을 그대로 뒀다(D-28 범위).
 **Fix:** (a) 행을 "회전 각도를 props 에서 파생한다(`isSpinning`·`restRotation`). state+effect 로 되돌리면 `react-hooks/set-state-in-effect` 와 재회전 루프가 돌아온다" 로, (b) "미사용 코드: `Wheel` `onSpinCompleteAction` prop(참조 0) · `lib/time.ts` `formatHhMm`(참조 0, Phase 7 후보)" 로, (c) 목록에 `DEFAULT_SPIN_TIME_TEXT` 를 더한다.
+
+**처리:** ✅ fixed `c2a51a7` — 세 곳 모두. (a) `:74` 행을 "회전 각도를 props 에서 파생한다(`isSpinning`·`restRotation`). state+effect 로 되돌리면 `react-hooks/set-state-in-effect` 와 재회전 루프가 함께 돌아온다" 로 바꾸고 행 제목도 `useEffect` → `회전 각도` 로 고쳤다(가리키는 자리가 effect 가 아니다). (b) `:80` 미사용 목록에 `formatHhMm` 추가. (c) `:17` 값 import 목록에 `DEFAULT_SPIN_TIME_TEXT` 추가(셋뿐이다).
 
 ---
 

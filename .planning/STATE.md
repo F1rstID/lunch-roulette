@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 6 executed - all 2 plans complete, review next
+stopped_at: Phase 6 review fixes applied - ready for phase.complete
 last_updated: "2026-09-29T03:57:42.472Z"
 last_activity: 2026-09-29
 progress:
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 
 ## Current Position
 
-Phase: 06 (today-tab) — EXECUTED
+Phase: 06 (today-tab) — REVIEWED · FIXED
 Plan: 2 of 2
-Status: Phase 6 executed — all 2 plans complete, review next
+Status: Phase 6 review fixes applied — 발견 10건 중 9건 수정·1건(WR-02) todo 이관, 게이트 5종 초록(test 361). ready for phase.complete
 Last activity: 2026-09-29
 
 Progress: [██████████] 100%
@@ -150,10 +150,11 @@ Progress: [██████████] 100%
 
 ### Pending Todos
 
-`.planning/todos/pending/` 에 **2건** (2026-09-29 06-02 실측 — 06-02 가 접은 4건을 `git rm` 으로 지웠다):
+`.planning/todos/pending/` 에 **3건** (2026-09-29 06-REVIEW 수정 후 실측 — 06-02 가 접은 4건을 `git rm` 으로 지웠고, 06-REVIEW 가 1건을 더했다):
 
 - `wr-01-cutover-window.md` — 컷오버 창(SQL → 배포 → 머지) 체크리스트. 04-04 가 **7번(임베드 함정 수동 invoke 확인)** 을 추가했다 → Phase 8
 - `in-05-history-since-same-day.md` — 전환일 당일 `results`(`restaurant_id` null)를 기록·랭킹이 어떻게 다룰지 → Phase 7
+- `in-07-realtime-resync-on-reconnect.md` — 조회를 `subscribe` 상태 콜백 안으로 옮겨 구독 전 창·재연결 뒤 재조회 공백을 닫을지. `lib/rowset.ts` 의 `fetched` 중복 응답 가드(D-04)를 뒤집는 결정이라 **컷오버 전에 결정만** 한다 (06-REVIEW WR-02 [설계 재논의]) → Phase 8
 
 접힌 4건(2026-09-29, 06-02 Task 3 에서 `git rm`): `wr-02-pinned-reseed-order.md`(→ 06-01 의 3단 정렬) · `in-02-settings-loaded-first-paint.md`(→ `displayPhase`) · `in-03-usesettings-branches-to-reducer.md`(→ 훅 분기 0개) · `in-06-results-update-on-delete-set-null.md`(→ `isNewSpin` 회전 가드).
 
@@ -176,5 +177,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-09-29T03:57:33.131Z
-Stopped at: Phase 6 executed - all 2 plans complete, review next
+Stopped at: Phase 6 review fixes applied - ready for phase.complete
 Resume file: None
