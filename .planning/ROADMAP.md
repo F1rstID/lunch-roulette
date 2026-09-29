@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성 (completed 2026-09-28)
 - [x] **Phase 5: 매장 탭** - 카탈로그 등록·수정·삭제·핀 UI (completed 2026-09-29)
 - [x] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시 (completed 2026-09-29)
-- [ ] **Phase 7: 기록·랭킹** - 전환일 이후 결과만 매장 기준으로 표시·집계
+- [x] **Phase 7: 기록·랭킹** - 전환일 이후 결과만 매장 기준으로 표시·집계 (completed 2026-09-29)
 - [ ] **Phase 8: 컷오버** - 문서 현행화 + 마이그레이션·배포·머지·롤백 절차 1회 실행
 
 ## Phase Details
@@ -129,7 +129,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 두 페이지가 결과 INSERT/UPDATE와 `settings` 변경(전환일 포함)을 Realtime으로 반영한다.
   4. `buildRanking`·`buildMonthGrid`가 export 되어 전환일 경계·동점 정렬·월 경계 케이스가 단위 테스트로 고정된다.
 **로컬 검증**: `npm test`(전환일 경계·집계) + `npm run dev` 렌더 확인 + `tsc`/`lint`/`build`. 랭킹의 무제한 `select("*")`는 이 페이즈에서 컬럼·기간을 좁혀 PostgREST 행 상한 리스크를 같이 줄인다.
-**Plans**: TBD
+**Plans**: 1 plan (1 wave)
+- [x] 07-01-PLAN.md — `lib/history.ts`(`filterSince`·`buildRanking` 키 `restaurant_id ?? menu`·`buildMonthGrid`) + spec 20 · `app/log`·`app/rank` 전환일 필터·랭킹 조회 좁힘·토픽 `results-log/rank-<n>` · `formatHhMm` 삭제 · todo in-05 종결 · HIST-01/02 마킹 (wave 1)
 **UI hint**: yes
 
 ### Phase 8: 컷오버
@@ -159,7 +160,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. 서버 추첨 | 4/4 | Complete    | 2026-09-28 |
 | 5. 매장 탭 | 2/2 | Complete    | 2026-09-29 |
 | 6. 오늘 탭 | 2/2 | Complete    | 2026-09-29 |
-| 7. 기록·랭킹 | 0/TBD | Not started | - |
+| 7. 기록·랭킹 | 1/1 | Complete   | 2026-09-29 |
 | 8. 컷오버 | 0/TBD | Not started | - |
 
 ## Coverage
