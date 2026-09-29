@@ -36,7 +36,7 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 
 `check:edge` 는 로컬에 설치된 `deno`(2.9.7, Homebrew `/opt/homebrew/bin/deno`)를 전제한다 — npm 의존성이 아니라 외부 도구라 `npm ci` 로 따라오지 않는다.
 
-테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**`·`supabase/migrations/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). `_shared/**`·`migrations/**` 는 각각 Phase 3·2 가 실제 파일을 채웠다 — 마이그레이션 spec 은 SQL 을 실행하지 않고 텍스트로 파싱해 계약을 검사한다. lint는 2026-09-18 기준 에러 0 (`components/Wheel.tsx`는 회전을 props에서 파생하도록 고쳐 `react-hooks/set-state-in-effect` 해결).
+테스트는 vitest — `npm test` = `vitest run`, 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**`·`supabase/migrations/**`·`supabase/rollback/**` 의 `*.test.ts` 뿐이다 (CI는 여전히 없음). `_shared/**`·`migrations/**`·`rollback/**` 는 각각 Phase 3·2·8 이 실제 파일을 채웠다 — 마이그레이션·롤백 spec 은 SQL 을 실행하지 않고 텍스트로 파싱해 계약을 검사한다. lint는 2026-09-18 기준 에러 0 (`components/Wheel.tsx`는 회전을 props에서 파생하도록 고쳐 `react-hooks/set-state-in-effect` 해결).
 
 ## 코드 컨벤션 (이 레포가 이미 내린 선택 — 따른다)
 
@@ -73,7 +73,7 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 | `app/page.tsx` realtime 핸들러 | `results` INSERT/UPDATE **2분기**(INSERT 가 먼저) + `initialLoadedRef`로 초기 로드/실시간 구분 + `todayResultRef`·`isNewSpin` 회전 가드. 순서를 바꾸거나 두 분기를 하나로 합치면 휠 이중 회전이 돌아오고, 가드를 빼면 매장 삭제가 내보내는 `on delete set null` UPDATE 마다 열린 모든 탭의 휠이 5초씩 돈다. 토픽(`results-<n>`)은 **effect 안에서** 만든다 — `useState` 로 올리면 자정에 `todayKey` 가 바뀌며 재구독할 때 realtime-js 가 leave 중인 옛 채널을 같은 토픽으로 돌려주고 `subscribe()` 가 join 을 건너뛰어, 밤새 열어 둔 탭이 다음 날 결과를 못 받는다 |
 | `app/log`, `app/rank` realtime | INSERT/UPDATE 두 분기 구독. 분기 하나를 지우면 다시 돌리기(UPDATE)가 반영 안 된다. 토픽은 effect 안에서 `results-log-<n>`·`results-rank-<n>` 으로 매긴다(고정 문자열로 되돌리면 개발 이중 마운트·라우트 왕복에서 leave 중인 채널에 붙는다). 랭킹 조회의 아래 경계는 `min(history_since, 오늘)` 이다 — 전환일이 오늘보다 뒤인 하루(컷오버 절차 8번)에 오늘 행이 빠지면 상단 라벨이 "추첨 대기" 로 틀린다. 그 행을 랭킹에서 빼는 것은 `filterSince` 이지 조회가 아니다 |
 | `components/Wheel.tsx` 회전 각도 | 회전 각도를 props 에서 파생한다(`isSpinning`·`restRotation`). state+effect 로 되돌리면 `react-hooks/set-state-in-effect` 와 재회전 루프가 함께 돌아온다 |
-| `supabase/migrations/0002_cron.sql` | 프로젝트 ref 하드코딩. 다른 Supabase로 옮기면 치환 필수 (README 참조) |
+| `supabase/migrations/0002_cron.sql` · `0005_restaurants_settings.sql` · `supabase/rollback/0005_restaurants_settings.rollback.sql` | 프로젝트 ref 하드코딩(spin 잡 URL). 다른 Supabase로 옮기면 치환 필수 — 전수 목록은 README |
 | `winnerIndex` (`app/page.tsx`) | 오늘 후보 조인 목록에서 **`restaurant_id` 로** 찾는다(이름 폴백 없음). 매장이 삭제돼 `restaurant_id` 가 null 이 되면 -1 → 휠 하이라이트만 사라지고 결과의 이름 스냅샷은 남는다. 이름으로 되찾게 바꾸면 동명 매장이 당첨으로 오인된다 |
 | `lib/rowset.ts` + `lib/useRestaurants.ts`·`lib/useCandidates.ts` | 매장 3분기·후보 2분기 구독 + 인스턴스별 유일 토픽(`restaurants-<n>`·`candidates-<n>`). 분기 하나를 지우면 그 이벤트가 조용히 반영되지 않고, 토픽을 고정 문자열로 바꾸면 라우트 전환에서 구독이 에러 없이 죽는다(초기 조회는 정상이라 눈에 띄지 않는다). 조회보다 먼저 온 이벤트는 `lib/rowset.ts` 의 `pending` 버퍼가 흡수한다 — 그 버퍼를 지우고 이벤트가 `loaded` 를 올리게 되돌리면 초기 조회 결과 전체가 버려지고, 이제 그 회귀는 **두 목록에 동시에** 생긴다 |
 | 클라이언트 에러 표면화 | 쓰기는 `actionError`, 초기 SELECT는 `loadError`(`lib/errors.ts` + `components/ErrorBanner.tsx`)로 배너 표시. 둘을 합치면 쓰기 성공이 읽기 실패 배너를 지운다. Realtime 구독 실패는 여전히 조용함 |
@@ -94,7 +94,7 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 - **Tech stack**: Next.js 16 App Router, 전부 클라이언트 컴포넌트 + supabase-js 직접 호출, inline style 객체 + CSS 변수, `~Action` 콜백 접미사 — 기존 컨벤션 유지(`.planning/codebase/CONVENTIONS.md`). 새 페이지도 같은 구조
 - **Compatibility**: 앱은 매일 쓰이는 라이브. 컷오버 절차(README) 완료 전까지 라이브 DB·함수·main 불변. 작업은 브랜치 `feat/restaurant-roulette`. 컷오버 마이그레이션은 하위호환 순서(새 테이블 생성 → 데이터 이관 없음 → 구 테이블 제거)로 한 파일, 롤백 SQL 은 `supabase/rollback/`(migrations/ 밖 — `db push` 가 읽지 않게)
 - **Deploy**: 프로덕션 배포는 사용자 명시 지시 때만. DB 마이그레이션은 Claude가 원격 실행 못 함(보안 차단) → 사용자가 대시보드 SQL Editor. Edge Function은 git과 별개로 `npx supabase@2.117.0 functions deploy <name> --project-ref swxiqytyxjlcgubqlozk`. main 직접 푸시 금지, PR 경유
-- **Security**: RLS는 익명 개방(menus 계열·restaurants·candidates 누구나 쓰기), `results` 쓰기 service_role만, `settings` anon select-only. 브라우저 호출 Edge Function은 CORS+OPTIONS 단락 필수(게이트웨이 미주입)
+- **Security**: RLS는 익명 개방(`restaurants`·`candidates` 누구나 쓰기), `results` 쓰기 service_role만, `settings` anon select-only. 브라우저 호출 Edge Function은 CORS+OPTIONS 단락 필수(게이트웨이 미주입)
 - **Testing**: vitest. Edge Function 순수 로직은 Deno import 없는 `supabase/functions/_shared/`에 두어 vitest가 직접 import. tsc/eslint는 함수 디렉터리 2개(`spin-roulette/**`·`respin-roulette/**`)만 제외하고 `_shared/`는 포함(Phase 3 D-12)
 - **Dev**: `npm run dev`는 가드런처로만(과거 커널 패닉). 브라우저 실등록 테스트는 라이브 오염이라 생략
 - **Commit**: 커밋·PR에 AI 표기 금지. `.serena/project.yml` 커밋 금지
