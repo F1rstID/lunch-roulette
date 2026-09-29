@@ -12,7 +12,6 @@
 
 import * as React from "react";
 import { useRef, useState, type CSSProperties } from "react";
-import { MENU_NAME_MAX_LEN, RESTAURANT_LOCATION_MAX_LEN } from "@/lib/constants";
 import { joinMenus, parseLocationLink, parseRestaurantForm, type RestaurantInput } from "@/lib/restaurants";
 // 값이 아니라 타입만 쓴다. `import type` 문장은 트랜스파일에서 통째로 지워져 데이터 클라이언트가
 // 로드되지 않는다 — 이 파일이 환경변수 없이도 정적 검사를 받을 수 있는 근거다.
@@ -184,11 +183,15 @@ function RestaurantForm({
   return (
     <form onSubmit={submit} style={mode === "create" ? s.formCreate : s.formEdit}>
       <div style={s.fields}>
+        {/* 이름·위치에 maxLength 를 걸지 않는다: HTML maxlength 는 UTF-16 코드유닛이라 이모지 하나를
+            2로 세고, DB·parseRestaurantForm 은 코드포인트로 센다. 코드유닛으로 막으면 DB 가 허용하는
+            24 코드포인트 이름("가"×23 + 🍕)을 입력 단계에서 거부하고, 저장된 값이 상한을 넘는 행은
+            편집 폼이 "지우기만 가능" 상태로 열린다. 초과 거절은 parseRestaurantForm 이 이유까지
+            말해 주는 한 곳에서만 한다. */}
         <input
           ref={nameRef}
           type="text"
           placeholder="매장 이름 (필수)"
-          maxLength={MENU_NAME_MAX_LEN}
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{ ...s.input, flex: "1 1 160px" }}
@@ -204,7 +207,6 @@ function RestaurantForm({
         <input
           type="text"
           placeholder="위치 (선택) 주소 또는 링크"
-          maxLength={RESTAURANT_LOCATION_MAX_LEN}
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           style={{ ...s.input, flex: "2 1 200px" }}
