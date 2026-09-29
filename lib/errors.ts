@@ -10,7 +10,9 @@ const ERROR_SEPARATOR = " · ";
 // 배너에 실을 문장의 길이 상한. 이 값이 필요한 이유: 여기서 돌려준 문자열은 가공 없이 한 줄
 // 배너에 그대로 실린다. PostgREST·게이트웨이가 긴 원문을 주면 배너가 화면을 덮어 버리는데,
 // 그 본문의 길이는 이 모듈이 통제하지 못한다(호출자는 네트워크다).
-const RESPIN_ERROR_MAX_LEN = 200;
+// 이름에 RESPIN_ 을 두지 않는 이유: readableMessage 를 다시 돌리기(formatRespinError)와 매장 쓰기
+// (formatRestaurantWriteError)가 함께 쓰므로, 상한은 한 함수가 아니라 배너 한 줄의 성질이다.
+const BANNER_MESSAGE_MAX_LEN = 200;
 
 export function formatLoadError(label: string, error: { message: string } | null): string | null {
   if (!error) return null;
@@ -33,9 +35,9 @@ function readableMessage(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (trimmed.length === 0) return null;
-  if (trimmed.length <= RESPIN_ERROR_MAX_LEN) return trimmed;
+  if (trimmed.length <= BANNER_MESSAGE_MAX_LEN) return trimmed;
   // 잘렸다는 사실을 말줄임표로 남긴다 — 없으면 문장이 원래 거기서 끝난 것처럼 읽힌다.
-  return `${trimmed.slice(0, RESPIN_ERROR_MAX_LEN)}…`;
+  return `${trimmed.slice(0, BANNER_MESSAGE_MAX_LEN)}…`;
 }
 
 // body 를 unknown 으로 받는 이유: 이 값은 신뢰할 수 없는 네트워크 본문이고, 형태 판정을 여기서 끝내야

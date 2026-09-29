@@ -90,7 +90,7 @@ describe("formatRespinError", () => {
   });
 
   it("긴 본문은 상한에서 잘라 말줄임표를 붙인다 (한 줄 배너가 화면을 덮지 않게)", () => {
-    // 200 은 lib/errors.ts 의 RESPIN_ERROR_MAX_LEN 과 같은 값이다. 여기 숫자를 박아 두는 것이
+    // 200 은 lib/errors.ts 의 BANNER_MESSAGE_MAX_LEN 과 같은 값이다. 여기 숫자를 박아 두는 것이
     // 의도다 — 상한을 바꾸면 이 단언이 깨져서 "배너 한 줄" 이라는 전제를 다시 보게 된다.
     const long = "가".repeat(250);
     const formatted = formatRespinError("FB", { error: long });
@@ -154,5 +154,12 @@ describe("formatRestaurantWriteError", () => {
     expect(formatRestaurantWriteError("삭제", "김밥천국", { message: "   " })).toBe(
       '매장 "김밥천국" 삭제 실패: 알 수 없는 오류',
     );
+  });
+
+  it("긴 원문은 쓰기 배너에서도 상한에서 잘린다 (readableMessage 를 respin 과 공유한다)", () => {
+    // 상한이 respin 전용이 아니라는 사실을 이 단언이 붙든다 — 이름만 BANNER_MESSAGE_MAX_LEN 으로
+    // 바꿔 두면 다음 사람이 "쓰기 경로에도 적용되나" 를 다시 읽어야 한다.
+    const formatted = formatRestaurantWriteError("등록", "x", { message: "가".repeat(250) });
+    expect([formatted.endsWith("…"), formatted.includes("가".repeat(200))]).toEqual([true, true]);
   });
 });
