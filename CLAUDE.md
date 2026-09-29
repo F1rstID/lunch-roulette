@@ -14,7 +14,7 @@
 - `lib/candidates.ts` — 오늘 후보 도메인의 판단(순수): 카탈로그 조인 + 3단 정렬(후보 시각 → 매장 시각 → 매장 id) · 이름 필터 · 목록 조립 · 당첨 인덱스 · 새 추첨 판정. 휠 순서·목록 배지·당첨 인덱스의 정의처가 여기 하나다. `lib/useCandidates.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `candidates-<n>` 토픽의 INSERT/DELETE **2분기** 구독, 읽기 전용). 갱신을 구독하지 않는 이유는 이 테이블이 키와 담은 시각뿐이라 앱 경로에 행을 고치는 동작이 없기 때문이다.
 - `lib/menus.ts` — 쉼표 파싱(`parseMenuInput`)·코드포인트 절단(`truncateToCodePoints`)의 정의처.
 - `lib/time.ts` — KST 포맷터 + `_shared/kst` 재수출 + 화면용 추첨 시각 포맷터(`formatSpinTime`·`addMinutesToSpinTime`). `lib/phase.ts` — 시각·추첨 시각·결과 유무 → 페이즈(`accepting|spinning|decided|stalled`) + `displayPhase`(설정 로드 전 `stalled` 라벨 가림, 4개 페이지가 함께 쓴다). `stalled` = 추첨 시각은 지났는데 결과 행이 없는 구간이고, 이때 후보 목록을 잠그지 않는다.
-- `lib/settings.ts` — `settings` 행 → 앱 도메인 변환 + Realtime 병합 리듀서(순수 — supabase·React·환경변수를 **값으로** 끌어오지 않는다. `lib/supabase/client.ts` 에서는 `import type` 만 가져오고, 값 import 는 `_shared/spinTime` 의 `DEFAULT_SPIN_TIME`·`parseSpinTime` 뿐이다). `lib/useSettings.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `settings-changes-<n>` 구독 — 토픽은 구독 인스턴스마다 유일해야 한다). 추첨 시각·쿨다운의 단일 출처.
+- `lib/settings.ts` — `settings` 행 → 앱 도메인 변환 + Realtime 병합 리듀서(순수 — supabase·React·환경변수를 **값으로** 끌어오지 않는다. `lib/supabase/client.ts` 에서는 `import type` 만 가져오고, 값 import 는 `_shared/spinTime` 의 `DEFAULT_SPIN_TIME`·`DEFAULT_SPIN_TIME_TEXT`·`parseSpinTime` 셋뿐이다). `lib/useSettings.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `settings-changes-<n>` 구독 — 토픽은 구독 인스턴스마다 유일해야 한다). 추첨 시각·쿨다운의 단일 출처.
 - `lib/restaurants.ts` — 매장 폼 검증·위치 링크 판정(`http:`/`https:` 화이트리스트)·표시 정렬(핀 먼저·한국어 이름순)·`lib/rowset.ts` 인스턴스(순수 — `lib/supabase/client.ts` 에서 `import type` 만 가져오고, 값 import 는 `lib/constants.ts`·`lib/menus.ts`·`lib/rowset.ts` 셋 다 `lib/` 안쪽이다). 조회 응답보다 먼저 온 이벤트를 `pending` 버퍼에 쌓았다가 응답 목록 위에 재적용하는 규칙은 `lib/rowset.ts` 로 옮겨졌다 — 이벤트 하나로 `loaded` 를 올리지 않는 것이 단일행인 `lib/settings.ts` 와 갈리는 지점이다. `lib/useRestaurants.ts` — 그 리듀서에 I/O 를 붙인 훅(SELECT 1회 + `restaurants-<n>` 토픽의 INSERT/UPDATE/DELETE **3분기** 구독, 읽기 전용). `components/RestaurantList.tsx` — 카드·등록 폼·인라인 편집·핀·2단계 삭제 확인(supabase 미호출, 쓰기는 `~Action` 콜백으로 페이지에 올린다).
 - `components/CandidateList.tsx` — 오늘 후보 카드. 카탈로그 전체가 한 목록이고 담긴 매장이 휠 순서로 위에(슬라이스 색 배지), 안 담긴 매장이 그 아래 흐리게 온다. 이름 필터·빈 상태 3종·페이즈 잠금·행 단위 진행 가드를 갖고 supabase 를 부르지 않는다. `components/MenuChips.tsx`·`components/LocationLink.tsx` — 메뉴 칩과 위치 렌더 한 벌. 결과 화면과 매장 탭이 **같은 구현**을 써서 같은 매장이 화면마다 다르게 보이지 않고, 링크의 `target`/`rel` 보호도 한 곳에서 걸린다.
 - `supabase/functions/_shared/` — Deno 함수와 클라이언트가 **같은 파일로** 공유하는 순수 로직(`kst.ts`·`spinTime.ts`·`cooldown.ts`). 그 **세 모듈**이 import 를 하나도 하지 않는 것이 계약이다 — 서로도 import 하지 않는다 (Deno 는 `.ts` 확장자를 요구하고 tsc 는 거부한다). 같은 디렉터리의 `*.test.ts` 는 예외다 (vitest 만 실행하므로 `./kst` 처럼 확장자 없이 가져온다).
@@ -71,13 +71,13 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 | `lib/supabase/client.ts` `ResultRow` | 4개 파일 + 2개 Edge Function이 같은 스키마를 가정. 컬럼 바꾸면 전부 손봐야 하고 타입은 수동 동기화 |
 | `app/page.tsx` realtime 핸들러 | `results` INSERT/UPDATE **2분기**(INSERT 가 먼저) + `initialLoadedRef`로 초기 로드/실시간 구분 + `todayResultRef`·`isNewSpin` 회전 가드. 순서를 바꾸거나 두 분기를 하나로 합치면 휠 이중 회전이 돌아오고, 가드를 빼면 매장 삭제가 내보내는 `on delete set null` UPDATE 마다 열린 모든 탭의 휠이 5초씩 돈다. 토픽(`results-<n>`)은 **effect 안에서** 만든다 — `useState` 로 올리면 자정에 `todayKey` 가 바뀌며 재구독할 때 realtime-js 가 leave 중인 옛 채널을 같은 토픽으로 돌려주고 `subscribe()` 가 join 을 건너뛰어, 밤새 열어 둔 탭이 다음 날 결과를 못 받는다 |
 | `app/log`, `app/rank` realtime | INSERT/UPDATE 두 분기 구독. 분기 하나를 지우면 다시 돌리기(UPDATE)가 반영 안 된다 |
-| `components/Wheel.tsx` useEffect | 회전 상태 머신. lint 에러 있는 곳. `lastSpinRef` 가드 제거하면 재회전 루프 |
+| `components/Wheel.tsx` 회전 각도 | 회전 각도를 props 에서 파생한다(`isSpinning`·`restRotation`). state+effect 로 되돌리면 `react-hooks/set-state-in-effect` 와 재회전 루프가 함께 돌아온다 |
 | `supabase/migrations/0002_cron.sql` | 프로젝트 ref 하드코딩. 다른 Supabase로 옮기면 치환 필수 (README 참조) |
 | `winnerIndex` (`app/page.tsx`) | 오늘 후보 조인 목록에서 **`restaurant_id` 로** 찾는다(이름 폴백 없음). 매장이 삭제돼 `restaurant_id` 가 null 이 되면 -1 → 휠 하이라이트만 사라지고 결과의 이름 스냅샷은 남는다. 이름으로 되찾게 바꾸면 동명 매장이 당첨으로 오인된다 |
 | `lib/rowset.ts` + `lib/useRestaurants.ts`·`lib/useCandidates.ts` | 매장 3분기·후보 2분기 구독 + 인스턴스별 유일 토픽(`restaurants-<n>`·`candidates-<n>`). 분기 하나를 지우면 그 이벤트가 조용히 반영되지 않고, 토픽을 고정 문자열로 바꾸면 라우트 전환에서 구독이 에러 없이 죽는다(초기 조회는 정상이라 눈에 띄지 않는다). 조회보다 먼저 온 이벤트는 `lib/rowset.ts` 의 `pending` 버퍼가 흡수한다 — 그 버퍼를 지우고 이벤트가 `loaded` 를 올리게 되돌리면 초기 조회 결과 전체가 버려지고, 이제 그 회귀는 **두 목록에 동시에** 생긴다 |
 | 클라이언트 에러 표면화 | 쓰기는 `actionError`, 초기 SELECT는 `loadError`(`lib/errors.ts` + `components/ErrorBanner.tsx`)로 배너 표시. 둘을 합치면 쓰기 성공이 읽기 실패 배너를 지운다. Realtime 구독 실패는 여전히 조용함 |
 
-미사용 코드: `Wheel` `onSpinCompleteAction` prop (참조 0).
+미사용 코드: `Wheel` `onSpinCompleteAction` prop (참조 0) · `lib/time.ts` `formatHhMm` (참조 0 — Phase 6 이 화면 문구를 `formatSpinTime` 으로 옮기며 소비처가 없어졌다. Phase 7 삭제 후보).
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
