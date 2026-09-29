@@ -160,7 +160,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. 서버 추첨 | 4/4 | Complete    | 2026-09-28 |
 | 5. 매장 탭 | 2/2 | Complete    | 2026-09-29 |
 | 6. 오늘 탭 | 2/2 | Complete    | 2026-09-29 |
-| 7. 기록·랭킹 | 1/1 | Complete   | 2026-09-29 |
+| 7. 기록·랭킹 | 1/1 | Complete    | 2026-09-29 |
 | 8. 컷오버 | 0/TBD | Not started | - |
 
 ## Coverage
