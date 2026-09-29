@@ -31,14 +31,21 @@ type Props = {
 // 입력창은 훨씬 길어야 한다. (예전엔 24라 "A, B, C, D," 가 24자에서 잘려 꼬리 쉼표가 남았다.)
 const INPUT_MAX_LEN = 120;
 
+// DB 의 길이 검사가 코드포인트 단위라, 코드유닛으로 자르면 이모지 하나가 반 토막 난 채 저장된다 —
+// 깨진 문자열은 되돌릴 수 없고 결과·기록·랭킹의 이름 스냅샷까지 따라간다.
+// export 하는 이유: 오늘 탭과 매장 탭이 같은 구현 하나를 부르게 해 절단 규칙이 두 벌로 갈리지 않게 한다.
+export function truncateToCodePoints(text: string, max: number): string {
+  return Array.from(text).slice(0, max).join("");
+}
+
 // 쉼표(반각 , / 전각 ，)로 나눠 여러 메뉴를 한 번에 등록한다.
-// trim → 빈 항목 제거 → 항목별 24자 상한 → 입력 내 중복 제거 → 이미 있는 메뉴 제외.
+// trim → 빈 항목 제거 → 항목별 24 코드포인트 상한 → 입력 내 중복 제거 → 이미 있는 메뉴 제외.
 // 순수 함수라 I/O 없이 테스트 가능.
 export function parseMenuInput(input: string, existing: string[]): string[] {
   const seen = new Set(existing);
   const out: string[] = [];
   for (const piece of input.split(/[,，]/)) {
-    const name = piece.trim().slice(0, MENU_NAME_MAX_LEN);
+    const name = truncateToCodePoints(piece.trim(), MENU_NAME_MAX_LEN);
     if (!name || seen.has(name)) continue;
     seen.add(name);
     out.push(name);

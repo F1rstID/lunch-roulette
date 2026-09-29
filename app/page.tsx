@@ -12,7 +12,7 @@ import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
-import { MenuList } from "@/components/MenuList";
+import { MenuList, truncateToCodePoints } from "@/components/MenuList";
 import { ResultBlock } from "@/components/ResultBlock";
 
 // respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다).
@@ -171,7 +171,7 @@ export default function TodayPage() {
   // 단일 insert 문이라 전부 성공하거나 전부 실패한다(원자적). 방어적으로 한 번 더 정규화.
   async function addMenus(names: string[]): Promise<boolean> {
     const rows = names
-      .map((n) => n.trim().slice(0, MENU_NAME_MAX_LEN))
+      .map((n) => truncateToCodePoints(n.trim(), MENU_NAME_MAX_LEN))
       .filter(Boolean)
       .map((name) => ({ name }));
     if (rows.length === 0) return false;

@@ -1,4 +1,4 @@
-// 읽기(SELECT)·Edge Function 실패를 화면에 띄울 한 줄 한국어 문장으로 조립하는 순수 모듈.
+// 읽기(SELECT)·쓰기(INSERT/UPDATE/DELETE)·Edge Function 실패를 화면에 띄울 한 줄 한국어 문장으로 조립하는 순수 모듈.
 // 순수성 자체가 이 파일의 계약이다 — 데이터 클라이언트·React·환경변수를 import 하지 않는다.
 // 그래야 테스트 러너가 브라우저 전역이나 NEXT_PUBLIC_* 키 없이 이 파일만 단독으로 불러올 수 있다.
 // 에러 타입을 라이브러리에서 가져오지 않고 { message: string } 구조적 타입으로만 받는 이유도 같다.
@@ -56,4 +56,24 @@ export function formatRespinError(fallbackMessage: string, body: unknown): strin
     }
   }
   return fallbackMessage;
+}
+
+// 호출부가 오타로 아무 문자열이나 넘기지 못하게 리터럴 유니온으로 묶는다 — 배너 문장의 동사 자리다.
+export type RestaurantWriteAction = "등록" | "수정" | "삭제" | "고정" | "고정 해제";
+
+// 매장 쓰기 실패는 익명 사용자가 그대로 읽는다. 사용자가 손쓸 수 있는 두 경우(이름 중복·입력 규칙 위반)만
+// 한국어로 갈아끼우는 이유: PostgREST 원문은 제약 이름과 SQL 조각을 실어 와 읽을 수도, 고칠 수도 없다.
+// code 를 optional 로 받는 이유: 네트워크·게이트웨이 실패에는 코드가 아예 없고, 그때는 원문을 살려야 원인을 안다.
+// 이 함수도 details·hint 는 보지 않는다 — 머리 주석의 이유가 쓰기 경로에서도 그대로다.
+export function formatRestaurantWriteError(
+  action: RestaurantWriteAction,
+  name: string,
+  error: { code?: string; message: string },
+): string {
+  // unique 위반은 원인이 하나로 정해져 있어 동사도 원문도 필요 없다.
+  if (error.code === "23505") return `이미 등록된 매장이에요: ${name}`;
+  // check 위반은 어느 필드인지 코드로 알 수 없다. 상한 셋을 다 보여 주는 편이 사용자가 빨리 찾는다.
+  if (error.code === "23514") return `입력 규칙에 맞지 않아요(${name}): 이름 1~24자, 메뉴 30개·24자, 위치 200자`;
+  // 원문이 공백뿐이면 접두만 남은 배너가 되므로 대체 문구를 쓴다(formatRespinError 와 같은 논증).
+  return `매장 "${name}" ${action} 실패: ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
 }
