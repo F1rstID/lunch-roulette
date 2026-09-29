@@ -10,7 +10,7 @@ import { useRestaurants } from "@/lib/useRestaurants";
 import { useSettings } from "@/lib/useSettings";
 import { TopBar } from "@/components/TopBar";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { RestaurantList } from "@/components/RestaurantList";
+import { RestaurantList, type RestaurantListStatus } from "@/components/RestaurantList";
 
 export default function RestaurantsPage() {
   const [now, setNow] = useState(() => new Date());
@@ -21,7 +21,7 @@ export default function RestaurantsPage() {
 
   const todayKey = todayKstDate(now);
 
-  const { rows, error: catalogError } = useRestaurants();
+  const { rows, loaded: catalogLoaded, error: catalogError } = useRestaurants();
 
   const [hasTodayResult, setHasTodayResult] = useState(false);
   // 마지막 쓰기(등록·수정·삭제·핀) 실패 메시지. 성공하면 지운다.
@@ -59,6 +59,11 @@ export default function RestaurantsPage() {
 
   // 매초 리렌더되는 페이지라 정렬을 메모한다 — 감싸지 않으면 1초마다 목록 전체를 다시 정렬한다.
   const items = useMemo(() => sortRestaurants(rows), [rows]);
+
+  // 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가 구분되지 않는다. 훅이 이미 들고 있는
+  // loaded·error 를 여기서 세 상태로 좁혀 넘긴다 — 컴포넌트가 훅을 부르지 않는 구조를 유지하면서도
+  // 실패 화면에 등록 권유 문구가 뜨지 않게 하는 최소 경로다.
+  const catalogStatus: RestaurantListStatus = catalogError ? "failed" : catalogLoaded ? "ready" : "loading";
 
   // 아래 네 핸들러는 수동 memo 로 감싸지 않는다. 소비자(RestaurantList)가 memo 컴포넌트가 아니라
   // 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가 async 핸들러의
@@ -168,6 +173,7 @@ export default function RestaurantsPage() {
 
         <RestaurantList
           items={items}
+          status={catalogStatus}
           onAddAction={addRestaurant}
           onUpdateAction={updateRestaurant}
           onRemoveAction={removeRestaurant}

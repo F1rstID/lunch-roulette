@@ -25,9 +25,15 @@ const MENUS_INPUT_MAX_LEN = 120;
 // 밀어내면 훑어보기라는 목적이 깨진다. 전체 목록은 칩 툴팁과 편집 폼에서 볼 수 있다.
 const MENU_CHIP_LIMIT = 4;
 
+// 목록 영역이 무엇을 그릴지 정하는 세 상태. 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가
+// 구분되지 않아, 세 경우가 전부 등록 권유 문구로 뭉개졌다(WR-03).
+export type RestaurantListStatus = "loading" | "failed" | "ready";
+
 type Props = {
   // 이미 정렬된 목록이다. 정렬 규칙은 페이지가 useMemo 로 한 번만 적용한다.
   items: RestaurantRow[];
+  // 조회가 끝났는지·실패했는지. 훅이 이미 들고 있는 loaded·error 를 페이지가 여기로 넘긴다.
+  status: RestaurantListStatus;
   // 네 콜백 모두 성공 여부를 돌려준다 — 폼이 입력을 비울지 보존할지를 그 값으로 정한다.
   onAddAction: (input: RestaurantInput) => Promise<boolean>;
   onUpdateAction: (id: string, input: RestaurantInput) => Promise<boolean>;
@@ -39,6 +45,7 @@ type Props = {
 
 export function RestaurantList({
   items,
+  status,
   onAddAction,
   onUpdateAction,
   onRemoveAction,
@@ -68,7 +75,15 @@ export function RestaurantList({
       </div>
 
       <ul style={s.list}>
-        {items.length === 0 && (
+        {status === "loading" && (
+          <li style={s.empty}>
+            <div style={s.emptyText}>불러오는 중…</div>
+          </li>
+        )}
+        {/* 실패에는 아무것도 그리지 않는다 — 이유는 페이지 배너가 이미 말했고, 여기서 등록을 권하면
+            다시 실패할 시도로 사용자를 떠민다. 컷오버(Phase 8) 전 라이브에서는 테이블 자체가 없어
+            그 조합이 상시 화면이 된다. 등록 권유는 "정말 0개" 일 때만 맞는 문장이다. */}
+        {status === "ready" && items.length === 0 && (
           <li style={s.empty}>
             <div style={s.emptyText}>
               아직 등록된 매장이 없어요.
