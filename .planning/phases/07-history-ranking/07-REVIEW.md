@@ -17,7 +17,7 @@ findings:
   warning: 3
   info: 7
   total: 10
-status: issues_found
+status: fixed
 ---
 
 # Phase 7: 기록·랭킹 — Code Review Report
@@ -25,7 +25,7 @@ status: issues_found
 **Reviewed:** 2026-09-29T05:35:53Z
 **Depth:** standard
 **Files Reviewed:** 8
-**Status:** issues_found
+**Status:** fixed — 10/10 처리(코드 6 · 문서/절차 4), 2026-09-29
 
 ## Summary
 
@@ -80,6 +80,8 @@ alter table public.results add column if not exists restaurant_id uuid reference
 2. `wr-01-cutover-window.md` 5번에 한 줄: "랭킹 페이지의 `select("id,date,menu,restaurant_id")` 는 3번(0005) 이 먼저 적용돼야 동작한다 — 3 앞에 5 를 두지 않는 또 하나의 이유".
 3. `CLAUDE.md:10` 의 괄호 "(`null` 이면 자르지 않는다 — 컷오버 전 라이브가 그 상태)" 는 `filterSince` 에 대해서는 참이지만 랭킹 조회 자체가 실패한다는 사실을 한 문장 덧붙인다.
 
+**처리:** 문서·절차 정정 — `07-CONTEXT.md` 2곳·`07-01-SUMMARY.md` 2곳·`CLAUDE.md`·`PROJECT.md`·`wr-01` 5번 한 줄. 코드 유지(컬럼 좁히기는 D-06 목적).
+
 ### WR-02: 랭킹 조회를 설정 뒤로 직렬화하면서 추첨 시각 이후 "추첨 대기" 라벨이 한 왕복 동안 반드시 보인다
 
 **File:** `app/rank/page.tsx:47-50,60-61`
@@ -118,6 +120,8 @@ const phase = displayPhase(
 ```
 `lib/phase.ts` 의 `displayPhase` 머리 주석에 "두 번째 인자는 '페이즈를 계산할 입력이 다 왔는가' 이고, 랭킹은 설정 + 결과 둘 다" 를 한 줄 덧붙이면 오늘 탭·매장 탭과의 차이가 코드에 남는다.
 
+**처리:** `resultsLoaded` state 추가, `displayPhase(…, settingsLoaded && resultsLoaded)`. `lib/phase.ts` 머리 주석에 두 번째 인자의 뜻 한 줄.
+
 ### WR-03: "삭제되면 이름 키로 다시 한 덩어리" 는 개명 이력이 없는 매장에만 참이다 — 주석·D-02 가 과장하고 spec 이 그 경계를 비운다
 
 **File:** `lib/history.ts:38-40,44` (spec: `lib/history.test.ts:53-61`)
@@ -151,6 +155,8 @@ it("같은 이름으로 등록됐다 삭제된 서로 다른 매장은 이름 �
 ```
 3. `07-CONTEXT.md:22` D-02 문장에도 같은 단서를 한 줄 단다.
 
+**처리:** `lib/history.ts` 주석을 사실대로(개명 없는 매장만 한 덩어리) + spec 2건 추가(380 tests) + D-02 단서.
+
 ## Info
 
 ### IN-01: "로컬 Date 메서드를 쓰는 유일한 자리" 는 사실이 아니다
@@ -158,6 +164,8 @@ it("같은 이름으로 등록됐다 삭제된 서로 다른 매장은 이름 �
 **File:** `lib/history.ts:68`
 **문제:** `components/CalendarLog.tsx:191` 의 `DetailView` 도 `new Date(y, m - 1, d).getDay()` 로 요일을 구한다. `.planning/codebase/CONVENTIONS.md:148` 은 두 곳을 모두 허용 예외로 적고 있어 주석만 틀렸다.
 **제안:** "로컬 Date 메서드를 쓰는 두 자리 중 하나(`components/CalendarLog.tsx` `DetailView` 의 요일 계산이 나머지)" 로 고친다.
+
+**처리:** 주석 정정(두 자리 중 하나, 나머지는 `CalendarLog` `DetailView`).
 
 ### IN-02: `RANK_COLUMNS` 문자열과 `RankRow` 타입이 서로를 모른다
 
@@ -172,11 +180,15 @@ type RankRow = HistoryRow & Pick<ResultRow, "id">;
 ```
 (`RANK_COLUMN_LIST` 와 `RankRow` 의 키 집합이 같다는 것까지 타입으로 묶으려면 `Pick<ResultRow, (typeof RANK_COLUMN_LIST)[number]>` 를 쓰고 `HistoryRow` 와의 호환은 `RankingView` 호출부에서 구조적으로 검사된다.)
 
+**처리:** 리터럴 `RANK_COLUMNS` 에서 `SplitColumns` 템플릿 타입으로 `RankResultRow` 파생 — 배열 `join` 은 supabase-js 응답 타입 파싱을 깨서(`GenericStringError`) 리터럴 유지.
+
 ### IN-03: 같은 이름 `RankRow` 가 페이지에서는 타입, 컴포넌트에서는 함수다
 
 **File:** `app/rank/page.tsx:18` · `components/RankingView.tsx:142`
 **문제:** 한 기능 안에서 동일 식별자가 두 뜻(상태 행 타입 / 4위 이하 표 행 컴포넌트)으로 쓰인다. 지금은 파일이 달라 충돌하지 않지만 grep·리팩터 시 혼동한다(B6).
 **제안:** 컴포넌트를 `RankTableRow` 로, 또는 타입을 `RankResultRow` 로 바꾼다.
+
+**처리:** 타입을 `RankResultRow` 로 개명(컴포넌트 `RankRow` 유지).
 
 ### IN-04: Realtime 경로는 컬럼을 좁히지 않는다 — 조회만 좁힌 상태가 된다
 
@@ -189,11 +201,15 @@ const toRankRow = ({ id, date, menu, restaurant_id }: ResultRow): RankRow => ({ 
 // UPDATE: 동일
 ```
 
+**처리:** `toRankResultRow` 로 Realtime 페이로드를 조회와 같은 모양으로 깎아 넣는다.
+
 ### IN-05: spec 픽스처 타입을 `HistoryRow` 로 묶지 않은 근거가 부정확하고, 묶으면 드리프트를 tsc 가 잡는다
 
 **File:** `lib/history.test.ts:6-7,13`
 **문제:** 주석은 "행 타입이 사는 모듈은 로드 시점에 환경변수를 읽으므로 spec 이 묶이면 러너에서 즉사한다" 고 하는데, `import type { HistoryRow } from "@/lib/history"` 는 트랜스파일에서 통째로 지워져 `lib/supabase/client.ts` 를 로드하지 않는다(`lib/history.ts:6-7` 자신이 같은 논증으로 `import type` 을 쓴다). 같은 문장이 `lib/candidates.test.ts:6-7` 에도 있어 레포 관례이긴 하다. 로컬 `Row` 는 지금 `HistoryRow` 와 구조가 같지만 연결이 없어 `HistoryRow` 에 필드가 늘어도 spec 은 그대로 통과한다.
 **제안:** `type Row = HistoryRow;` 로 바꾸고 주석을 "타입 import 는 지워지므로 안전하다" 로 정정한다(candidates spec 도 같이 고치면 관례가 한 갈래가 된다). 덤으로 `buildMonthGrid` "12월의 뒤 패딩" 은 `trailing.length > 0` 대신 정확히 9칸(2026-12-01 화요일 → 앞 2 + 31 = 33)을 단언하면 더 강하다.
+
+**처리:** `type Row = HistoryRow`(`import type`), 주석 정정, 12월 뒤 패딩 9칸 단언. `lib/candidates.test.ts` 는 손대지 않음(범위 밖).
 
 ### IN-06: 재조회는 상태를 통째로 갈아끼워 조회 중 도착한 Realtime 이벤트를 버린다
 
@@ -201,11 +217,15 @@ const toRankRow = ({ id, date, menu, restaurant_id }: ResultRow): RankRow => ({ 
 **문제:** `setResults(data as RankRow[])` 는 응답으로 상태를 대체한다. SELECT 스냅샷 이후 커밋됐지만 응답보다 먼저 도착한 INSERT/UPDATE 이벤트는 사라진다. 초기 로드에서는 이전부터 있던 창(`lib/rowset.ts` 의 `pending` 버퍼가 매장·후보에서만 이것을 흡수한다)인데, 이 페이즈부터 전환일 변경이 **임의 시점**에 같은 창을 다시 연다. 전환일 변경은 드물어 실익은 작다.
 **제안:** 코드 변경 없이 `in-07-realtime-resync-on-reconnect.md`(Phase 8) 에 "랭킹 재조회 창" 을 한 줄 덧붙여 결정을 한곳에서 하게 한다.
 
+**처리:** 코드 무변경, `in-07-realtime-resync-on-reconnect.md` 에 랭킹 재조회 창 한 문단 이관.
+
 ### IN-07: 같은 값에 대한 null 판정 관용구가 두 갈래다
 
 **File:** `app/log/page.tsx:128` vs `lib/history.ts:17`·`app/rank/page.tsx:56`
 **문제:** 부제는 `settings.historySince ? … : …`(truthy), 필터와 조회 경계는 `=== null`. 지금 런타임 형태는 `string | null` 뿐이라 결과가 같지만, 빈 문자열이 흘러들면 부제는 기본 문구·필터는 전부 통과·조회는 `.gte("date", "")` 로 셋이 제각각 갈린다.
 **제안:** `settings.historySince !== null ? … : …` 로 맞춘다. 부제 문구가 wr-01 8번의 하루 동안 미래 날짜("2026.10.02 부터의 매장 기록" 를 10.01 에 표시)를 보이는 것도 같은 줄이라 함께 볼 만하지만, 그 하루의 정직한 상태라 문제 삼지 않는다.
+
+**처리:** `settings.historySince !== null` 로 통일.
 
 ## Summary Table
 
