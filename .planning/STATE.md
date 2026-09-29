@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 8 executing (08-01) - cutover preparation, no live changes
-last_updated: "2026-09-29T05:50:08.485Z"
-last_activity: 2026-09-29 -- Phase 8 execution started
+status: milestone_complete_pending_cutover
+stopped_at: All 8 phases complete - PR #4 open, live cutover is a user-run procedure (README)
+last_updated: 2026-09-29T06:11:44.881Z
+last_activity: 2026-09-29 -- Phase 8 complete: 롤백 SQL·README 컷오버 절차·PR #4 개설(직접 실행 레인 ~55m, 보안감사 5~7 SECURED 8/8, 리뷰 CR1/WR6/IN11 → 18/18, 역검증 4/5 + manual 1, 392 tests). 라이브 컷오버(0005 적용·함수 배포·머지)는 사용자가 README 절차 0~9 로
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 20
-  completed_plans: 19
+  completed_plans: 20
   percent: 88
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 8 — 컷오버
+**Current focus:** 컷오버 실행(사용자) — README `## 컷오버 절차` 0~9, 완료 후 성공 기준 5 확인 → 마일스톤 마감
 
 ## Current Position
 
-Phase: 8 (컷오버) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 8
-Last activity: 2026-09-29 -- Phase 8 execution started
+Phase: 8 (complete)
+Plan: 1 of 1 (complete)
+Status: All phases complete — awaiting user-run cutover (README 절차) and PR #4 merge
+Last activity: 2026-09-29 -- Phase 8 complete: 롤백 SQL·README 컷오버 절차·PR #4 개설(직접 실행 레인 ~55m, 보안감사 5~7 SECURED 8/8, 리뷰 CR1/WR6/IN11 → 18/18, 역검증 4/5 + manual 1, 392 tests). 라이브 컷오버(0005 적용·함수 배포·머지)는 사용자가 README 절차 0~9 로
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 21
+- Total plans completed: 22
 - Average duration: —
 - Total execution time: —
 
@@ -51,6 +51,8 @@ Progress: [██████████] 100%
 | 5 | 2 | - | - |
 | 6 | 2 | - | - |
 | 7 | 1 | - | - |
+| 8 | 1 | - | - |
+| 8 | 1 | - | - |
 
 **Recent Trend:**
 
@@ -77,6 +79,7 @@ Progress: [██████████] 100%
 | Phase 06 P01 | 23min | 2 tasks | 21 files |
 | Phase 06 P02 | 23min | 4 tasks | 28 files |
 | Phase 07 P01 | 22min | 3 tasks | 17 files |
+| Phase 08 P01 | 50min | 4 tasks | 12 files |
 
 ## Accumulated Context
 

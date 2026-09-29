@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: 매장 탭** - 카탈로그 등록·수정·삭제·핀 UI (completed 2026-09-29)
 - [x] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시 (completed 2026-09-29)
 - [x] **Phase 7: 기록·랭킹** - 전환일 이후 결과만 매장 기준으로 표시·집계 (completed 2026-09-29)
-- [ ] **Phase 8: 컷오버** - 문서 현행화 + 마이그레이션·배포·머지·롤백 절차 1회 실행
+- [x] **Phase 8: 컷오버** - 문서 현행화 + 마이그레이션·배포·머지·롤백 절차 1회 실행 (completed 2026-09-29)
 
 ## Phase Details
 
@@ -161,7 +161,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. 매장 탭 | 2/2 | Complete    | 2026-09-29 |
 | 6. 오늘 탭 | 2/2 | Complete    | 2026-09-29 |
 | 7. 기록·랭킹 | 1/1 | Complete    | 2026-09-29 |
-| 8. 컷오버 | 0/TBD | Not started | - |
+| 8. 컷오버 | 1/1 | Complete    | 2026-09-29 |
 
 ## Coverage
 
