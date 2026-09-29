@@ -4,6 +4,8 @@
 // 그대로 재수출하는 얇은 층 + 화면용 포맷터다 — 분해 로직을 고칠 일이 생기면 여기가 아니라 저쪽을 고친다.
 
 import { kstParts } from "@/supabase/functions/_shared/kst";
+// 값이 아니라 타입만 쓴다. 이 파일은 포맷터 층이고, 추첨 시각의 값 정의처는 _shared 한 곳으로 남긴다.
+import type { SpinTime } from "@/supabase/functions/_shared/spinTime";
 
 // 기존 소비처(app/log/page.tsx·lib/phase.ts·spec)가 계속 "@/lib/time" 에서 가져올 수 있게 재수출한다.
 // isolatedModules 라 값과 타입을 한 문장에 섞지 않는다 — 섞으면 트랜스파일이 타입을 값으로 오해한다.
@@ -45,4 +47,22 @@ export function formatKstLongDay(now: Date = new Date()): string {
   const p = kstParts(now);
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   return `${p.year}년 ${p.month}월 ${p.day}일 ${days[p.weekday]}`;
+}
+
+// 아래 둘은 Date 가 아니라 설정에서 온 벽시계 숫자 두 개를 다룬다. 화면에 보일 추첨 시각 문구가 이 한 곳에서
+// 만들어져야 같은 시각이 헤드라인·휠 허브·타임라인에서 제각각 조립되지 않는다(SPIN-06).
+
+/** { hh, mm } → "HH:mm" (0 패딩) */
+// Intl 을 쓰지 않는 이유: 이것은 타임존 변환이 아니라 숫자 둘을 문자열로 잇는 일이고, 입력에 날짜가 없다.
+export function formatSpinTime(t: SpinTime): string {
+  return `${String(t.hh).padStart(2, "0")}:${String(t.mm).padStart(2, "0")}`;
+}
+
+/** 추첨 시각에 분을 더한다. 24시간으로 순환하고 입력 객체를 변형하지 않는다 */
+// 순환이 필요한 이유: 타임라인의 결과 단계가 추첨 시각 + 5분이라, 추첨 시각이 23:58 이면 다음 날로 넘어간다.
+export function addMinutesToSpinTime(t: SpinTime, minutes: number): SpinTime {
+  const MINUTES_PER_DAY = 24 * 60;
+  // 음수도 받을 수 있게 한 번 더 더한 뒤 나머지를 낸다 — 자바스크립트의 % 는 음수 피제수에서 음수를 낸다.
+  const total = (((t.hh * 60 + t.mm + minutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  return { hh: Math.floor(total / 60), mm: total % 60 };
 }

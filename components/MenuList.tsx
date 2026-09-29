@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { useRef, useState, type CSSProperties } from "react";
-import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 // 값이 아니라 타입만 쓴다. `import type` 문장은 트랜스파일에서 통째로 지워져 supabase 클라이언트가
-// 로드되지 않는다 — parseMenuInput 을 환경변수 없이 테스트할 수 있는 근거다.
+// 로드되지 않는다.
 import type { MenuRow } from "@/lib/supabase/client";
+// 쉼표 파싱의 정의처는 lib/menus.ts 한 곳이다. 여기에 재수출을 두지 않는다 — 정의처가 둘로 보이면
+// 다음 사람이 어느 쪽을 고쳐야 하는지 알 수 없다.
+import { parseMenuInput } from "@/lib/menus";
 import { SLICE_COLORS } from "@/lib/colors";
 import { formatHhMm } from "@/lib/time";
 // lib/phase.ts 는 supabase 클라이언트를 끌어오지 않는 순수 모듈이라 값 import 를 해도
@@ -27,31 +29,9 @@ type Props = {
   onTogglePinAction: (name: string, currentlyPinned: boolean) => void | Promise<void>;
 };
 
-// 입력창 자체의 상한. 항목별 상한(MENU_NAME_MAX_LEN)과 별개 — 쉼표로 여러 개를 한 줄에 쓰려면
+// 입력창 자체의 상한. 항목별 상한(메뉴 이름 24자)과 별개 — 쉼표로 여러 개를 한 줄에 쓰려면
 // 입력창은 훨씬 길어야 한다. (예전엔 24라 "A, B, C, D," 가 24자에서 잘려 꼬리 쉼표가 남았다.)
 const INPUT_MAX_LEN = 120;
-
-// DB 의 길이 검사가 코드포인트 단위라, 코드유닛으로 자르면 이모지 하나가 반 토막 난 채 저장된다 —
-// 깨진 문자열은 되돌릴 수 없고 결과·기록·랭킹의 이름 스냅샷까지 따라간다.
-// export 하는 이유: 오늘 탭과 매장 탭이 같은 구현 하나를 부르게 해 절단 규칙이 두 벌로 갈리지 않게 한다.
-export function truncateToCodePoints(text: string, max: number): string {
-  return Array.from(text).slice(0, max).join("");
-}
-
-// 쉼표(반각 , / 전각 ，)로 나눠 여러 메뉴를 한 번에 등록한다.
-// trim → 빈 항목 제거 → 항목별 24 코드포인트 상한 → 입력 내 중복 제거 → 이미 있는 메뉴 제외.
-// 순수 함수라 I/O 없이 테스트 가능.
-export function parseMenuInput(input: string, existing: string[]): string[] {
-  const seen = new Set(existing);
-  const out: string[] = [];
-  for (const piece of input.split(/[,，]/)) {
-    const name = truncateToCodePoints(piece.trim(), MENU_NAME_MAX_LEN);
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    out.push(name);
-  }
-  return out;
-}
 
 export function MenuList({ items, phase, pinnedNames, onAddAction, onRemoveAction, onTogglePinAction }: Props) {
   const [val, setVal] = useState("");

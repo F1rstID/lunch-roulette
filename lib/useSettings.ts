@@ -4,8 +4,9 @@
 // 되는지는 전부 lib/settings.ts 의 리듀서에 있다. 이유는 하나다: 레포는 environment: "node" 단일 구성이라
 // React 렌더 하네스가 없고(vitest.config.mts:13-14), 훅에 분기가 남으면 그 분기는 영원히 테스트되지 않는다.
 // 아래 단일행 조회의 0행은 에러가 아니다 — data: null, error: null 이 온다(app/page.tsx 의 오늘 결과와 같은 논증).
-// 그래서 error 를 먼저 보고 failed, 아니면 loaded(data ?? null) 로 가른다. 아직 시드되지 않은 정상 상태에서
-// 배너가 뜨면 안 되고, 테이블이 통째로 없는 상태는 반대로 반드시 떠야 한다.
+// 그 가름(에러가 있으면 행이 와도 실패, 없으면 0행도 정상 로드)은 여기가 아니라 리듀서가 한다. 아직 시드되지
+// 않은 정상 상태에서 배너가 뜨면 안 되고 테이블이 통째로 없는 상태는 반대로 반드시 떠야 하는데, 그 판정이
+// 훅에 남으면 렌더 하네스가 없어 영원히 검증되지 않는다 — 조회 결과를 그대로 한 액션에 실어 보내는 이유다.
 // 채널을 settings-changes 계열로 분리한 이유: app/page.tsx 의 lunch-realtime 은 휠 이중 회전 가드
 // (initialLoadedRef)가 걸린 위험 지점이라(CLAUDE.md 위험 지점 표) 실패 경로를 섞지 않는다.
 // 토픽 뒤에 번호를 붙이는 이유는 따로 있다 — 토픽은 페이지가 아니라 **구독 인스턴스마다** 유일해야 한다.
@@ -34,15 +35,15 @@ export function useSettings(): SettingsState {
   const [topic] = useState(() => `settings-changes-${++topicSeq}`);
 
   useEffect(() => {
-    let cancelled = false;
+    // 언마운트 뒤 도착한 응답을 버리는 장치. 취소 플래그를 두고 분기하는 대신 보낼 곳 자체를 빈 함수로
+    // 바꾼다 — 그래야 이 훅 본문에 판정이 한 줄도 남지 않는다(이 파일의 선언이 문면 그대로 참이어야 한다).
+    let send: typeof dispatch = dispatch;
     (async () => {
       const { data, error } = await supabase.from("settings").select("*").eq("id", 1).maybeSingle();
-      if (cancelled) return;
-      if (error) dispatch({ type: "failed", message: error.message });
-      else dispatch({ type: "loaded", row: (data as SettingsRow | null) ?? null });
+      send({ type: "fetched", row: (data as SettingsRow | null) ?? null, error });
     })();
     return () => {
-      cancelled = true;
+      send = () => {};
     };
   }, []);
 
@@ -51,14 +52,15 @@ export function useSettings(): SettingsState {
       .channel(topic)
       .on(
         // UPDATE 의 payload.new 는 전체 새 행이라 통째 교체하면 되고, DELETE 의 payload.old 는 PK 만
-        // 오므로 행을 재구성할 수 없다 — 그래서 DELETE 는 row 를 null 로 넘겨 기본값 복귀로 처리한다.
+        // 오므로 행을 재구성할 수 없다 — DELETE 에서 payload.new 가 빈 객체로 와도 리듀서가 그 행을 보지
+        // 않고 기본값으로 복귀한다. 그 규칙이 리듀서에 있으니 여기서 미리 null 로 갈아끼우지 않는다.
         "postgres_changes",
         { event: "*", schema: "public", table: "settings" },
         (payload) => {
           dispatch({
             type: "changed",
             event: payload.eventType as "INSERT" | "UPDATE" | "DELETE",
-            row: payload.eventType === "DELETE" ? null : (payload.new as SettingsRow),
+            row: payload.new as SettingsRow | null,
           });
         },
       )

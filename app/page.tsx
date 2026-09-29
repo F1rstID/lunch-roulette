@@ -12,7 +12,8 @@ import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
-import { MenuList, truncateToCodePoints } from "@/components/MenuList";
+import { MenuList } from "@/components/MenuList";
+import { truncateToCodePoints } from "@/lib/menus";
 import { ResultBlock } from "@/components/ResultBlock";
 
 // respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다).

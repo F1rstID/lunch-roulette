@@ -83,3 +83,22 @@ export function formatRestaurantWriteError(
   // 원문이 공백뿐이면 접두만 남은 배너가 되므로 대체 문구를 쓴다(formatRespinError 와 같은 논증).
   return `매장 "${name}" ${action} 실패: ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
 }
+
+// 후보 담기·빼기의 동사 자리. 매장 쓰기와 낱말이 겹치지 않아 유니온을 따로 둔다.
+export type CandidateWriteAction = "담기" | "빼기";
+
+// 후보 쓰기는 매장 쓰기와 달리 "실패했지만 사용자에게는 실패가 아닌" 경우가 하나 있다. 그 갈림이 이 함수를
+// 따로 두는 이유이고, null 은 호출부가 성공으로 처리하라는 신호다.
+// 이 함수도 details·hint 는 보지 않는다 — 머리 주석의 이유가 후보 경로에서도 그대로다.
+export function formatCandidateWriteError(
+  action: CandidateWriteAction,
+  name: string,
+  error: { code?: string; message: string },
+): string | null {
+  // 키 중복은 두 사람이 같은 매장을 동시에 담은 것이다. 원하던 상태가 이미 됐고 화면은 Realtime 이벤트로
+  // 맞춰지므로 사용자에게 보일 실패가 아니다. 빼기에는 같은 논증이 서지 않아 일반 문장으로 떨어진다.
+  if (error.code === "23505" && action === "담기") return null;
+  // 참조 위반은 클릭 직전에 매장이 지워진 경우다. 실패한 쪽은 동작이 아니라 대상이라 동사를 붙이지 않는다.
+  if (error.code === "23503") return `이미 삭제된 매장이에요: ${name}`;
+  return `매장 "${name}" ${action} 실패: ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
+}

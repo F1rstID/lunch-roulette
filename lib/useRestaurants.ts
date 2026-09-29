@@ -35,7 +35,9 @@ export function useRestaurants(): RestaurantsState {
   const [topic] = useState(() => `restaurants-${++topicSeq}`);
 
   useEffect(() => {
-    let cancelled = false;
+    // 언마운트 뒤 도착한 응답을 버리는 장치. 취소 플래그를 두고 분기하는 대신 보낼 곳 자체를 빈 함수로
+    // 바꾼다 — 그래야 이 훅 본문에 판정이 한 줄도 남지 않는다(lib/useSettings.ts 와 같은 형태).
+    let send: typeof dispatch = dispatch;
     (async () => {
       // 조회 순서만 고정한다. 표시 순서(핀 먼저 · 이름순)는 화면이 sortRestaurants 로 따로 정한다 —
       // 두 곳에서 정렬하면 같은 규칙의 정의처가 둘이 된다.
@@ -43,12 +45,11 @@ export function useRestaurants(): RestaurantsState {
         .from("restaurants")
         .select("*")
         .order("created_at", { ascending: true });
-      if (cancelled) return;
-      if (error) dispatch({ type: "failed", message: error.message });
-      else dispatch({ type: "loaded", rows: (data as RestaurantRow[] | null) ?? [] });
+      // 성공·실패의 가름은 리듀서가 한다. 여기서는 응답을 그대로 한 액션에 실어 보낸다.
+      send({ type: "fetched", rows: (data as RestaurantRow[] | null) ?? null, error });
     })();
     return () => {
-      cancelled = true;
+      send = () => {};
     };
   }, []);
 
@@ -78,7 +79,7 @@ export function useRestaurants(): RestaurantsState {
           // 이 페이로드에는 PK 밖에 오지 않아 행을 재구성할 수 없다. 부분 행으로 목록을 다시 만들려 들지
           // 않고 식별자만 넘긴다 — 그마저 없으면 무엇을 지울지 모르므로 리듀서가 목록을 그대로 둔다.
           const oldRow = payload.old as Partial<RestaurantRow>;
-          dispatch({ type: "changed", event: "DELETE", id: oldRow.id ?? null });
+          dispatch({ type: "changed", event: "DELETE", key: oldRow.id ?? null });
         },
       )
       .subscribe();

@@ -49,3 +49,12 @@ export function isCandidateListLocked(phase: Phase): boolean {
     }
   }
 }
+
+// 설정 조회가 끝나기 전 첫 렌더는 기본 시각으로 페이즈를 계산한다. 대시보드가 추첨 시각을 늦춰 둔 날에는
+// 그 계산이 "추첨 대기" 를 수백 ms 보여 줬다가 accepting 으로 바뀐다(시각을 앞당기면 반대로 흔들린다).
+// settingsLoaded 는 조회가 성공·실패 어느 쪽으로 끝나도 참이 되므로 컷오버 전후 모두 안전한 가림막이다.
+// 후보 입력이 열려 있는 쪽으로 낮추는 것이 안전한 기본값이다 — 두 상태 모두 잠금은 false 라 기능 영향은
+// 0이고 흔들리는 것은 라벨뿐이다. 표시용 보정이지 currentPhase 의 대체가 아니다.
+export function displayPhase(phase: Phase, settingsLoaded: boolean): Phase {
+  return !settingsLoaded && phase === "stalled" ? "accepting" : phase;
+}
