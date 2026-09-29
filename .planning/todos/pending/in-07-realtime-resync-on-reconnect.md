@@ -56,3 +56,5 @@ useEffect(() => {
 
 - `app/page.tsx` 의 오늘 결과 조회는 훅이 아니라 페이지 effect다(`[todayKey]`). 같은 형태로 옮기면 CR-01 로 effect 안에서 매기게 된 `results-<n>` 토픽과 한 effect 에 모인다.
 - 두 effect 를 하나로 합치면 조회 effect 의 deps(`[]`)와 구독 effect 의 deps(`[topic]`)가 합쳐진다 — 훅 쪽은 둘 다 마운트당 한 번이라 문제없지만, 페이지 쪽은 `todayKey` 가 함께 들어온다.
+
+**Phase 7 추가(07 리뷰 IN-06):** `app/rank/page.tsx` 의 재조회(전환일 변경·자정)는 `setResults(data)` 로 상태를 통째로 갈아끼워 SELECT 스냅샷 뒤·응답 전에 도착한 INSERT/UPDATE 이벤트를 버린다. 초기 로드의 기존 창과 같은 성질이고 이제 전환일 변경이 그 창을 임의 시점에 다시 연다(드물다). `rowset` 의 `pending` 버퍼를 결과 목록에도 적용할지 이 todo 에서 함께 결정한다.
