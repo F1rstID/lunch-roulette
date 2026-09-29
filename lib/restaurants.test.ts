@@ -118,6 +118,13 @@ describe("parseRestaurantForm — 클라이언트 검증은 보조, 정본은 DB
     });
   });
 
+  it("이름에 캐리지 리턴만 있어도 거절한다 (붙여넣기로 흔히 섞여 들어온다)", () => {
+    expect(parseRestaurantForm({ name: "김밥\r천국", menusText: "", location: "" })).toEqual({
+      ok: false,
+      message: "매장 이름에 줄바꿈을 넣을 수 없어요",
+    });
+  });
+
   it("이름 앞뒤 공백은 떼고 싣는다", () => {
     expect(parseRestaurantForm({ name: "  김밥천국  ", menusText: "", location: "" })).toEqual({
       ok: true,
@@ -143,6 +150,13 @@ describe("parseRestaurantForm — 클라이언트 검증은 보조, 정본은 DB
     expect(parseRestaurantForm({ name: "김밥천국", menusText: "가".repeat(25), location: "" })).toEqual({
       ok: true,
       input: { name: "김밥천국", menus: ["가".repeat(24)], location: null },
+    });
+  });
+
+  it("메뉴 사이의 빈 원소·공백 원소는 걸러진다 (꼬리 쉼표·연속 쉼표가 빈 메뉴를 만들지 않는다)", () => {
+    expect(parseRestaurantForm({ name: "김밥천국", menusText: "김밥,, ,라면", location: "" })).toEqual({
+      ok: true,
+      input: { name: "김밥천국", menus: ["김밥", "라면"], location: null },
     });
   });
 
@@ -211,6 +225,40 @@ describe("parseLocationLink — 링크로 렌더할지를 여기서 정한다", 
 
   it("javascript: 스킴은 링크가 아니다 (파싱은 성공하지만 프로토콜 화이트리스트를 통과하지 못한다)", () => {
     expect(parseLocationLink("javascript:alert(1)")).toBeNull();
+  });
+
+  // 이 함수는 <a href> 로 나가는 값의 유일한 보안 경계라, 화이트리스트를 뚫으려는 형태를 한 건씩
+  // 고정해 둔다. 현재 구현이 전부 올바르게 처리하지만 단언이 없으면 회귀를 검출할 방법이 없다(WR-04).
+  it.each([
+    // data: 는 문서 자체를 실어 나른다 — 파싱에 성공하므로 프로토콜 검사만이 막는다.
+    "data:text/html,<script>1</script>",
+    // 프로토콜 상대 경로. base 없는 new URL 은 던지므로 링크가 아니다.
+    "//evil.example/x",
+    "ftp://x",
+    "mailto:a@b",
+    // 스킴 대소문자로는 화이트리스트를 우회할 수 없다 — URL 이 소문자로 정규화한 뒤 비교한다.
+    "JAVASCRIPT:alert(1)",
+  ])("%s 는 링크가 아니다", (value) => {
+    expect(parseLocationLink(value)).toBeNull();
+  });
+
+  it("대문자 스킴·호스트는 정규화되어 링크가 된다", () => {
+    expect(parseLocationLink("HTTPS://Naver.me/x")).toEqual({ href: "https://naver.me/x", host: "naver.me" });
+  });
+
+  it("앞뒤 공백은 떼고 판정한다", () => {
+    expect(parseLocationLink("  https://naver.me/x  ")).toEqual({ href: "https://naver.me/x", host: "naver.me" });
+  });
+
+  it("호스트 뒤에 메모를 붙이면 링크가 아니다 (공백이 호스트에 붙어 파싱이 깨진다 — 현재 거동 고정)", () => {
+    expect(parseLocationLink("https://x.com 맛있음")).toBeNull();
+  });
+
+  it("경로 뒤 메모는 href 안으로 삼켜지고 호스트만 남는다 (IN-07 — 현재 거동 고정)", () => {
+    expect(parseLocationLink("https://naver.me/x 2층 안쪽")).toEqual({
+      href: "https://naver.me/x%202%EC%B8%B5%20%EC%95%88%EC%AA%BD",
+      host: "naver.me",
+    });
   });
 
   it("일반 텍스트 위치는 링크가 아니다", () => {
