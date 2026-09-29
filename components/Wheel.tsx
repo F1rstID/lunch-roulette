@@ -89,10 +89,10 @@ export function Wheel({
           <circle cx={cx} cy={cy} r={Rinner + 8} fill="white" stroke="oklch(0.85 0.012 70)" />
           <circle cx={cx} cy={cy} r={Rinner} fill="var(--bg-soft)" stroke="var(--line)" />
           <text x={cx} y={cy - 2} textAnchor="middle" fontFamily="var(--font-sans)" fontSize="13" fontWeight="600" fill="var(--muted)">
-            메뉴 없음
+            담긴 매장 없음
           </text>
           <text x={cx} y={cy + 14} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="var(--muted)" letterSpacing="0.06em">
-            ADD A MENU
+            ADD A RESTAURANT
           </text>
         </svg>
       </div>
