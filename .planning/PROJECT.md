@@ -40,7 +40,8 @@
 - ✓ 오늘 탭이 `candidates`⋈`restaurants` 로 후보를 읽는다: `lib/useCandidates.ts`(INSERT/DELETE 2분기) + `lib/useRestaurants.ts` 두 훅 + `lib/candidates.ts` 순수 조인(3단 정렬 candidates.created_at → restaurants.created_at → id, todo wr-02)·이름 필터(NFC·소문자)·`findWinnerIndex`(id 만)·`isNewSpin`(spun_at 동일 → 휠 안 돎, todo in-06). `components/CandidateList.tsx` 단일 목록 토글(담긴 매장이 휠 순서로 위 + 배지, 안 담긴 매장 흐리게, 필터·잠금·행 단위 busy). 결과는 이름 스냅샷 + 현재 카탈로그의 메뉴 칩·위치 링크(`MenuChips`·`LocationLink` 공유). `MenuList`·`MenuRow`·`PinnedMenuRow` 삭제 — Phase 6 (CAND-01·02·03·05, SPIN-05). **미배포**(Phase 8), 컷오버 전 라이브에선 배너 3개 + 빈 휠·목록이 정상
 - ✓ 화면의 `11:55` 리터럴 0곳: `formatSpinTime(settings.spinTime)` 을 `Wheel`·`ResultBlock`·`PhaseTimeline`(결과 단계 = 추첨 시각 + 5분, 24h 순환)·`CandidateList`·헤드라인 문구에 prop 으로, `app/layout.tsx` description 은 시각 제거. `displayPhase(phase, settings.loaded)` 로 설정 로드 전 `stalled` 라벨 깜빡임 제거(4 페이지, todo in-02) — Phase 6 (SPIN-06)
 - ✓ 목록 리듀서 일반화 `lib/rowset.ts`(`createRowSetReducer(keyOf)`, pending 버퍼·UPDATE upsert·`fetched` error 우선) 를 `restaurants`·`candidates` 가 공유, `settings`·훅 3개의 조회 판정도 리듀서로(todo in-03), `parseMenuInput`·`truncateToCodePoints` → `lib/menus.ts`(단방향 예외 해소). 리뷰 CR-01: results 토픽을 구독 effect 안에서 매겨 자정 `todayKey` 재구독이 죽지 않게. 페이즈 마감 시 361 tests / 13 files — Phase 6
-- ✓ 기록·랭킹이 `settings.history_since` 이후(당일 포함) 결과만 매장 기준으로: `lib/history.ts`(`filterSince` · `buildRanking` 키 `restaurant_id ?? menu`, 이름은 최근 스냅샷 · `buildMonthGrid`) spec 22건(리뷰 WR-03 경계 2건 포함), `RankingView`·`CalendarLog` 는 호출만. 랭킹 조회는 설정 로드 뒤 `.gte("date", min(history_since, 오늘))` + 컬럼 4개, 기록은 월 창 + 필터. 토픽 `results-log/rank-<n>`. `formatHhMm` 삭제, todo in-05 는 컷오버 절차 8번(`history_since + 1`)으로. 페이즈 마감 시 380 tests / 14 files — Phase 7 (HIST-01·02). 컷오버 전 라이브에선 기록은 전체 기간 표시(현행과 동일), 랭킹은 `results.restaurant_id` 부재로 42703 배너(0005 적용 뒤 동작)
+- ✓ 기록·랭킹이 `settings.history_since` 이후(당일 포함) 결과만 매장 기준으로: `lib/history.ts`(`filterSince` · `buildRanking` 키 `restaurant_id ?? menu`, 이름은 최근 스냅샷 · `buildMonthGrid`) spec 22건(리뷰 WR-03 경계 2건 포함), `RankingView`·`CalendarLog` 는 호출만. 랭킹 조회는 설정 로드 뒤 `.gte("date", min(history_since, 오늘))` + 컬럼 4개, 기록은 월 창 + 필터. 토픽 `results-log/rank-<n>`. `formatHhMm` 삭제, todo in-05 는 컷오버 절차 8번(`history_since + 1`)으로. 페이즈 마감 시 380 tests / 14 files — Phase 7 (HIST-01·02).
+- ✓ 컷오버 준비: `supabase/rollback/0005_restaurants_settings.rollback.sql`(0005 역순, 데이터 파기 없음, spec 10건) · README 전면 개정(4테이블·RLS·cron 3종·함수 2종·검증 명령 5종·컷오버 절차 0~9·롤백 기준/순서) · CLAUDE.md 컷오버 문장 · 보안감사 5~7 SECURED 8/8 · PR #4(https://github.com/F1rstID/lunch-roulette/pull/4, 게이트 5종 green, 392 tests, AI 표기 0) — Phase 8 (SHIP-02·03·04, QUAL-05). **라이브 컷오버는 사용자가 README 절차로 실행** — 성공 기준 5(라이브 확인)는 그 뒤 컷오버 전 라이브에선 기록은 전체 기간 표시(현행과 동일), 랭킹은 `results.restaurant_id` 부재로 42703 배너(0005 적용 뒤 동작)
 
 ### Active
 
@@ -142,6 +143,10 @@
 | 전환일 필터 정의처는 `filterSince` 하나, 랭킹 조회 경계는 `min(history_since, 오늘)` | 조회 경계는 대역폭이고 정의는 필터. 전환일이 오늘보다 뒤인 하루(컷오버 절차 8번)에 오늘 행이 빠지면 상단 라벨이 틀림 | ✓ Good (Phase 7 D-01·D-06) |
 | 전환일 당일 legacy 행은 읽는 쪽이 아니라 컷오버 SQL 한 줄(`history_since + 1`)로 뺀다 | "당일 + id null 제외" 규칙은 그날 당첨 매장이 나중에 삭제되면 정당한 행까지 지움 | ✓ Good (Phase 7 D-09, todo in-05 종결) |
 | Phase 7 은 직접 실행 레인: CONTEXT·플랜 1개 직접, 실행·수정 직접, 에이전트는 리뷰(fable) 1회 | 사용자 2026-09-29 "볼륨 대비 시간 과다". Phase 6 빠른 레인 2.5h 중 에이전트 대기 ~1.5h. 리뷰는 두 페이즈 연속 실제 Critical 을 잡아 유지 | ✓ Good (Phase 7 실측 ~50m) |
+| 롤백은 동작 복원이지 데이터 파기가 아니다 — 새 테이블·`results.restaurant_id` 는 남기고 파기문은 주석 블록 | 사용자가 등록한 매장은 데이터. 구 코드는 모르는 테이블·컬럼을 읽지 않아 무해, 재컷오버 때 보존 | ✓ Good (Phase 8 D-01) |
+| Realtime 구독 전·재연결 뒤 스냅샷 공백은 수용(in-07 미적용) | `SUBSCRIBED` 콜백 조회는 웹소켓 차단 환경에서 REST 읽기까지 죽여 "Realtime 없어도 읽기는 된다" 를 깬다. 새로고침으로 해소, v2 방향은 CONCERNS 항목 8 | ✓ Good (Phase 8 D-10) |
+| 컷오버 당일 확인은 SQL 후보 + 다시 돌리기, 토글 확인은 익일 추첨 전 | 오늘 결과 행이 있는 동안 오늘 탭 토글은 `decided` 로 잠긴다(리뷰 CR-01) — 절차서가 실행 불가 단계를 갖지 않게 | ✓ Good (Phase 8 리뷰 CR-01) |
+| PR 은 "Create a merge commit" 으로 머지 | 롤백의 `git revert -m 1` 전제. squash/rebase 면 롤백 분기 | ✓ Good (Phase 8 리뷰 WR-06) |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
 ## Evolution
@@ -162,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-29 after Phase 7 (기록·랭킹) completion*
+*Last updated: 2026-09-29 after Phase 8 (컷오버 준비) completion — 라이브 컷오버는 사용자 절차*
