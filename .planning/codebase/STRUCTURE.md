@@ -42,7 +42,8 @@ lunch_roulette/
 │   ├── candidates.ts         # 후보 조인·정렬·필터·당첨 인덱스·재회전 판정 (순수)
 │   ├── useCandidates.ts      # 오늘 후보 SELECT 1회 + 2분기 구독 (읽기 전용 훅)
 │   └── supabase/client.ts    # supabase 싱글턴 + DB row 타입 정의처
-├── supabase/                 # 서버 측 (tsconfig/eslint에서 제외됨)
+├── supabase/                 # 서버 측 (함수 디렉터리 2개만 tsconfig/eslint 제외)
+│   ├── rollback/             # 0005 롤백 SQL + 계약 spec (migrations/ 밖 — db push 가 읽지 않게)
 │   ├── config.toml           # CLI 설정. verify_jwt=false 고정
 │   ├── migrations/           # 0001~0004, 순번 적용
 │   └── functions/            # Deno Edge Functions

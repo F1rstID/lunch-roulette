@@ -43,9 +43,10 @@
 - Impact: 형태를 바꾸면 Edge Function은 타입체크 밖이라 컴파일 에러가 안 나고, 다음 날 11:55에 처음 드러난다. 기존 행과 신규 행의 형태가 섞이면 캘린더 상세가 조용히 빈칸이 된다(`?.` 옵셔널 체이닝으로 방어돼 있어 에러조차 안 난다).
 - Fix approach: `candidates` 스키마 변경 시 반드시 (a) 옵셔널 필드로 추가 → (b) 과거 행 백필 → (c) 필수화 3단계로 나눈다. `lib/supabase/client.ts`에 `type Candidate` 를 따로 export 해 소비 지점이 인라인 추론에 의존하지 않게 한다.
 
-### [P2] 정본 문서(`CLAUDE.md`, `README.md`)가 코드보다 뒤처져 있다
+### [P2 → 해소됨, Phase 4~8] 정본 문서(`CLAUDE.md`, `README.md`)가 코드보다 뒤처져 있다
 
-- Issue: 2026-09-15/16 수정 이후 문서가 갱신되지 않아, 지금 읽으면 **이미 고쳐진 문제를 남아 있는 문제로 오인**하게 된다. 확인한 불일치:
+- 해소: `CLAUDE.md` 는 Phase 4~7 이 페이즈마다 정정했고, `README.md` 는 Phase 8 이 전면 개정했다(4테이블·RLS·cron 3종·함수 2종·검증 명령 5종·컷오버 절차·롤백). 아래 표는 2026-09-18 감사 시점의 기록으로 남긴다.
+- Issue(당시): 2026-09-15/16 수정 이후 문서가 갱신되지 않아, 지금 읽으면 **이미 고쳐진 문제를 남아 있는 문제로 오인**하게 된다. 확인한 불일치:
   | 문서 진술 | 실제 (2026-09-18 검증) |
   |---|---|
   | `CLAUDE.md:25` "lint 에러 1건 존재 (`components/Wheel.tsx`)" | `npm run lint` 에러 0. `Wheel.tsx:55-63`은 state+effect를 버리고 props 파생값으로 재작성됨 |
@@ -335,12 +336,18 @@
 - **단 PostgREST 임베드가 배열로 오느냐 객체로 오느냐는 정적 검사가 못 잡는다.** 추론 타입은 배열이고 실제 응답은 객체라 `row.restaurants[0].name`은 타입 검사를 통과하고 런타임에 `undefined`를 준다. 두 함수 모두 `Array.isArray`로 접어 뒀지만 그게 옳은지는 **첫 실호출에서만** 드러난다 → `.planning/todos/pending/wr-01-cutover-window.md` 7번이 그 확인 항목이다.
 - 대응 순서: 앱 배포보다 **Edge Function 재배포를 먼저** 하고, `respin-roulette`를 수동 호출해 새 스키마 경로를 검증한 뒤 UI를 내보낸다(`spin-roulette`는 시간 가드 때문에 사전 검증이 불가능하므로 `respin` 경로로 대신 확인).
 
-**6. 검증 수단이 없다**
-- 테스트 0, CI 0, 로컬 Supabase 스택 없음, 마이그레이션은 프로덕션 직접 적용(보안 정책상 사용자가 수동 적용), down 마이그레이션 없음, `results` 백업 절차 미문서화.
+**6. 검증 수단이 없다 → 대부분 해소(Phase 1~8)**
+- 현재: vitest 389건(15 files), 롤백 SQL(`supabase/rollback/`, 텍스트 계약 spec), `results` 덤프가 컷오버 절차 1번. 남은 것: CI 0, 로컬 Supabase 스택 없음(마이그레이션·롤백은 리허설 없이 프로덕션에서 첫 실행 — 재실행 안전형으로 대체).
+- 당시: 테스트 0, CI 0, 로컬 Supabase 스택 없음, 마이그레이션은 프로덕션 직접 적용(보안 정책상 사용자가 수동 적용), down 마이그레이션 없음, `results` 백업 절차 미문서화.
 - 대응: (a) 전환 착수 전 `results` 전체 덤프를 파일로 보관, (b) 위 [Test Coverage Gaps]의 순수 함수 6개에 러너를 먼저 도입, (c) 마이그레이션을 "추가만 하는" 단계와 "제거하는" 단계로 분리해 최소 하루 이상 간격을 둔다.
 
-**7. `CLAUDE.md`·`README.md`가 스키마를 틀리게 기술 중**
-- `README.md:51`은 `pinned_menus`를, `README.md:55`는 `respin-roulette`를 아예 모른다. 이 문서를 근거로 전환 계획을 세우면 두 자산을 누락한다. **전환 계획 수립 전에 문서부터 정정할 것.**
+**7. `CLAUDE.md`·`README.md`가 스키마를 틀리게 기술 중 → 해소(Phase 8 README 전면 개정)**
+- 당시: `README.md:51`은 `pinned_menus`를, `README.md:55`는 `respin-roulette`를 아예 모른다.
+
+**8. Realtime 구독 전·재연결 뒤 스냅샷 공백 (알려진 공백, 수용 — Phase 8 결정)**
+- 네 구독(`useSettings`·`useRestaurants`·`useCandidates`·`app/page.tsx` results) 모두 SELECT 와 `subscribe()` 를 동시에 띄운다. `lib/rowset.ts` 의 `pending` 버퍼는 응답보다 먼저 온 이벤트를 흡수하지만, **스냅샷 이후 커밋 + join 이전** 변경은 어느 쪽에도 실리지 않는다(콜드 로드 수백 ms). 재연결(슬립 복귀) 뒤에도 `postgres_changes` 는 재생이 없고 훅은 재조회하지 않는다. 랭킹 재조회(전환일 변경·자정)는 상태를 통째로 교체해 같은 창을 다시 연다.
+- 수용 이유: 조회를 `subscribe` 의 `SUBSCRIBED` 콜백 안으로 옮기는 최소 수정은 웹소켓이 막힌 네트워크(사내 프록시)에서 REST 조회까지 죽여 "Realtime 없어도 읽기는 된다" 는 현행 보장을 깬다. 후보 목록이 슬립 동안의 담기·빼기를 모르는 증상은 새로고침으로 해소된다.
+- 고칠 방향(v2): `SUBSCRIBED` 마다 재조회 **+** 초기 REST 조회는 유지, `rowset` 의 두 번째 `fetched` 를 "목록 교체" 로 바꾸고 재조회 중 `pending` 을 다시 쌓는다. `lib/settings.ts` 단일행은 "Realtime 이 앞서면 이긴다" 논증을 지키며 따로. `visibilitychange` 트리거도 후보.
 
 ---
 
