@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 5 executed — all 2 plans complete, review next
-last_updated: "2026-09-29T01:04:46.996Z"
+status: ready_to_plan
+stopped_at: Phase 5 complete (2/2) — ready to discuss Phase 6
+last_updated: 2026-09-29T01:38:35.794Z
 last_activity: 2026-09-29 -- Phase 05 — 05-02 complete (매장 탭 UI 배선, 279 tests 유지)
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 50
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 05 — restaurants-tab
+**Current focus:** Phase 6 — 오늘 탭
 
 ## Current Position
 
-Phase: 05 (restaurants-tab) — EXECUTING
-Plan: 2 of 2
-Status: Executing Phase 05
-Last activity: 2026-09-29 -- Phase 05 — 05-02 complete (매장 탭 UI 배선, 279 tests 유지)
+Phase: 6
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-29 -- Phase 5 complete (빠른 레인: 리뷰 CR1/WR4/IN13 → fixed 12, 게이트 5종 green, 296 tests, 검증자·보안감사 생략)
 
 Progress: [█████████░] 94%
 
@@ -36,7 +36,7 @@ Progress: [█████████░] 94%
 
 **Velocity:**
 
-- Total plans completed: 14
+- Total plans completed: 16
 - Average duration: —
 - Total execution time: —
 
@@ -48,6 +48,7 @@ Progress: [█████████░] 94%
 | 2 | 3 | - | - |
 | 3 | 3 | - | - |
 | 4 | 4 | - | - |
+| 5 | 2 | - | - |
 
 **Recent Trend:**
 
