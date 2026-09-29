@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: 순수 로직** - 추첨 시각·쿨다운·KST를 주입 가능한 단일 출처로 모으고 테스트로 고정 (completed 2026-09-21)
 - [x] **Phase 4: 서버 추첨** - Edge Function 2종을 새 스키마·설정·쿨다운 위에서 재작성 (completed 2026-09-28)
 - [x] **Phase 5: 매장 탭** - 카탈로그 등록·수정·삭제·핀 UI (completed 2026-09-29)
-- [ ] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시
+- [x] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시 (completed 2026-09-29)
 - [ ] **Phase 7: 기록·랭킹** - 전환일 이후 결과만 매장 기준으로 표시·집계
 - [ ] **Phase 8: 컷오버** - 문서 현행화 + 마이그레이션·배포·머지·롤백 절차 1회 실행
 
@@ -116,7 +116,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **로컬 검증**: `npm run dev` 렌더 확인 + 후보 필터·`winnerIndex` 파생(id 기준 매칭) 단위 테스트 + `rg '11:55' app components lib supabase`가 마이그레이션 기본값 외에 0건 + `tsc`/`lint`/`test`/`build`. realtime 핸들러 순서와 `initialLoadedRef` 가드는 휠 이중 회전 지점이므로 구조를 유지한 채 테이블명만 교체한다.
 **Plans**: 2 plans (2 waves)
 - [x] 06-01-PLAN.md — 순수 로직: `lib/rowset.ts` 제네릭 목록 리듀서 + `lib/candidates.ts`(조인 3단 정렬·이름 필터·당첨 인덱스·새 추첨 판정) + `lib/menus.ts` 이전(단방향 예외 해소) + `displayPhase`·`formatSpinTime`·`formatCandidateWriteError` + 훅 3개 액션 이관 · spec 354건 (wave 1)
-- [ ] 06-02-PLAN.md — UI 배선: `lib/useCandidates.ts` + `CandidateList`·`MenuChips`·`LocationLink` + `app/page.tsx` 전환(`isNewSpin` 가드·`results-<n>`) + 화면 `11:55` 제거 + `MenuList` 삭제 + D-28 문서 정정·CAND/SPIN 마킹 (wave 2)
+- [x] 06-02-PLAN.md — UI 배선: `lib/useCandidates.ts` + `CandidateList`·`MenuChips`·`LocationLink` + `app/page.tsx` 전환(`isNewSpin` 가드·`results-<n>`) + 화면 `11:55` 제거 + `MenuList` 삭제 + D-28 문서 정정·CAND/SPIN 마킹 (wave 2)
 **UI hint**: yes
 
 ### Phase 7: 기록·랭킹
@@ -158,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. 순수 로직 | 3/3 | Complete    | 2026-09-21 |
 | 4. 서버 추첨 | 4/4 | Complete    | 2026-09-28 |
 | 5. 매장 탭 | 2/2 | Complete    | 2026-09-29 |
-| 6. 오늘 탭 | 1/2 | In Progress | - |
+| 6. 오늘 탭 | 2/2 | Complete    | 2026-09-29 |
 | 7. 기록·랭킹 | 0/TBD | Not started | - |
 | 8. 컷오버 | 0/TBD | Not started | - |
 

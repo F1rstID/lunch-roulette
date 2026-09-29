@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 6 executing - plan 06-01 complete, 06-02 next"
-last_updated: "2026-09-29T03:25:29.780Z"
-last_activity: 2026-09-29 -- Phase 06 plan 01 complete (오늘 후보 순수 로직)
+status: verifying
+stopped_at: Phase 6 executed - all 2 plans complete, review next
+last_updated: "2026-09-29T03:57:42.472Z"
+last_activity: 2026-09-29
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 18
-  completed_plans: 17
-  percent: 63
+  completed_plans: 18
+  percent: 75
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 
 ## Current Position
 
-Phase: 06 (today-tab) — EXECUTING
+Phase: 06 (today-tab) — EXECUTED
 Plan: 2 of 2
-Status: Executing Phase 06 — 06-01 complete, 06-02 next
-Last activity: 2026-09-29 -- Phase 06 plan 01 complete (오늘 후보 순수 로직)
+Status: Phase 6 executed — all 2 plans complete, review next
+Last activity: 2026-09-29
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 17
+- Total plans completed: 18
 - Average duration: —
 - Total execution time: —
 
@@ -49,7 +49,7 @@ Progress: [█████████░] 94%
 | 3 | 3 | - | - |
 | 4 | 4 | - | - |
 | 5 | 2 | - | - |
-| 6 | 1 | - | - |
+| 6 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -74,6 +74,7 @@ Progress: [█████████░] 94%
 | Phase 05 P01 | 17min | 2 tasks | 8 files |
 | Phase 05 P02 | 10min | 3 tasks | 8 files |
 | Phase 06 P01 | 23min | 2 tasks | 21 files |
+| Phase 06 P02 | 23min | 4 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -142,16 +143,19 @@ Progress: [█████████░] 94%
 - [Phase 6]: 06-01 — 당첨은 restaurant_id 로만 찾고 이름 폴백을 두지 않는다: 이름으로 되찾으면 동명 매장이 당첨으로 오인되고 컷오버 전 구 결과는 메뉴명이라 매장과 맞을 수 없다. null 이면 -1 로 떨어져 휠 하이라이트만 사라진다
 - [Phase 6]: 06-01 — 담기 중 23505 는 에러가 아니라 null 이다: 두 사람이 같은 매장을 동시에 담은 것이고 원하던 상태가 이미 됐으므로 호출부가 성공으로 처리한다. 빼기에는 같은 논증이 서지 않아 일반 실패 문장으로 떨어진다
 - [Phase 6]: 06-01 — parseMenuInput·truncateToCodePoints 를 lib/menus.ts 로 옮겨 lib/ → components/ 단방향 예외가 코드에서 사라졌다. 재수출은 두지 않는다(정의처가 둘로 보이면 안 된다). 문서 2곳(CLAUDE.md·STRUCTURE.md)의 예외 문단은 06-02 가 지운다
+- [Phase 6]: 06-02 — 오늘 탭이 훅 2개(useRestaurants 무변경 + useCandidates 신규)로 읽고 조인은 클라이언트 순수 함수가 한다: candidates 행은 키와 시각뿐이라 Realtime 페이로드만으로 매장명을 알 수 없고, 카탈로그는 토글 목록 때문에 어차피 전부 필요하다. 훅은 읽기 전용이고 담기·빼기는 페이지 핸들러가 직접 부른다
+- [Phase 6]: 06-02 — applyResult 가 todayResultRef(상태 거울)를 읽고 나서 쓰고 isNewSpin 으로 판정해 추첨 시각이 같은 결과 UPDATE 를 걸러 낸다: 매장 삭제가 내보내는 on delete set null 갱신으로 열린 모든 탭의 휠이 5초씩 돌던 경로가 닫혔다(todo in-06). INSERT → UPDATE 순서와 initialLoadedRef 의 의미는 그대로다
+- [Phase 6]: 06-02 — 화면 추첨 시각 문구를 전부 기본값 없는 필수 prop 으로 내렸다(Wheel·ResultBlock·CandidateList·PhaseTimeline·phaseSubhead): 기본값이 있으면 배선을 잊은 호출부가 조용히 옛 값을 그린다. ResultBlock 의 spinTime = "11:55" 기본값이 정확히 그 함정이었고, 화면에 보이는 리터럴이 0곳이 됐다(SPIN-06)
+- [Phase 6]: 06-02 — 수명이 끝난 임시 계약 spec 은 삭제가 아니라 반대 기대로 뒤집는다: 마이그레이션 계약 #42("MenuRow·PinnedMenuRow 가 아직 남아 있다", 주석에 "제거는 Phase 6")를 [0,0] 기대로 바꿔 테스트 건수 354 를 유지하면서 구 타입이 되돌아오면 걸리는 가드로 만들었다
 
 ### Pending Todos
 
-`.planning/todos/pending/` 에 **6건** (2026-09-29 05-01 실측 — 05-01 이 `wr-01-char-length-truncation.md` 를 해소하며 7건에서 줄였다. 직전 기재의 "6건" 은 `in-06` 을 목록에서 빠뜨린 집계 오류였다):
+`.planning/todos/pending/` 에 **2건** (2026-09-29 06-02 실측 — 06-02 가 접은 4건을 `git rm` 으로 지웠다):
 
 - `wr-01-cutover-window.md` — 컷오버 창(SQL → 배포 → 머지) 체크리스트. 04-04 가 **7번(임베드 함정 수동 invoke 확인)** 을 추가했다 → Phase 8
-- `wr-02-pinned-reseed-order.md` — 후보 정렬을 `candidates.created_at` + `restaurants.created_at` 조인 순서로 → Phase 6
-- `in-02-settings-loaded-first-paint.md`(페이즈 라벨을 `settings.loaded` 로 가리기) · `in-03-usesettings-branches-to-reducer.md`(훅 분기 2개를 리듀서로) → Phase 6
-- `in-06-results-update-on-delete-set-null.md` — 오늘 탭 realtime UPDATE 가드(`results.restaurant_id` on delete set null) → Phase 6
 - `in-05-history-since-same-day.md` — 전환일 당일 `results`(`restaurant_id` null)를 기록·랭킹이 어떻게 다룰지 → Phase 7
+
+접힌 4건(2026-09-29, 06-02 Task 3 에서 `git rm`): `wr-02-pinned-reseed-order.md`(→ 06-01 의 3단 정렬) · `in-02-settings-loaded-first-paint.md`(→ `displayPhase`) · `in-03-usesettings-branches-to-reducer.md`(→ 훅 분기 0개) · `in-06-results-update-on-delete-set-null.md`(→ `isNewSpin` 회전 가드).
 
 ### Blockers/Concerns
 
@@ -171,6 +175,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29T03:22:15.720Z
-Stopped at: Completed 06-01-PLAN.md — 06-02(UI·배선·문서) 가 다음이다
-Resume file: .planning/phases/06-today-tab/06-02-PLAN.md
+Last session: 2026-09-29T03:57:33.131Z
+Stopped at: Phase 6 executed - all 2 plans complete, review next
+Resume file: None
