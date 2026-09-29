@@ -25,20 +25,15 @@ export function todayKstDate(now: Date = new Date()): string {
   return kstParts(now).date;
 }
 
-/** "HH:mm" (KST 24시간제) */
-export function formatHhMm(now: Date = new Date()): string {
-  // 24시간제를 h23 으로 못 박는다. 로케일 기본 사이클에 맡기면 ICU 버전에 따라 자정이 "24" 로
-  // 나올 수 있다. 같은 뜻의 불리언 옵션을 함께 적으면 그쪽이 이겨 이 줄이 조용히 죽는다.
-  return formatter({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
-}
-
 /** "HH:mm:ss" (KST 24시간제) */
 export function formatHhMmSs(now: Date = new Date()): string {
   return formatter({
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hourCycle: "h23", // 위와 같은 이유
+    // 24시간제를 h23 으로 못 박는다. 로케일 기본 사이클에 맡기면 ICU 버전에 따라 자정이 "24" 로
+    // 나올 수 있다. 같은 뜻의 불리언 옵션을 함께 적으면 그쪽이 이겨 이 줄이 조용히 죽는다.
+    hourCycle: "h23",
   }).format(now);
 }
 
