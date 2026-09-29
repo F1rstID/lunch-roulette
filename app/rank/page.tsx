@@ -13,9 +13,19 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { RankingView } from "@/components/RankingView";
 
 // 랭킹이 읽는 컬럼만 조회한다. candidates jsonb 가 행마다 가장 무겁고 랭킹은 그것을 쓰지 않는다.
-// id 는 Realtime 이벤트의 멱등 병합에 필요하다.
-const RANK_COLUMNS = "id,date,menu,restaurant_id";
-type RankRow = Pick<ResultRow, "id" | "date" | "menu" | "restaurant_id">;
+// id 는 Realtime 이벤트의 멱등 병합에 필요하다. 상태 행 타입을 이 목록에서 파생하는 이유: 한쪽에만 컬럼을 더하면
+// tsc 가 잡지 못하고 런타임에 undefined 필드가 조용히 생긴다.
+const RANK_COLUMN_LIST = ["id", "date", "menu", "restaurant_id"] as const satisfies readonly (keyof ResultRow)[];
+const RANK_COLUMNS = RANK_COLUMN_LIST.join(",");
+type RankResultRow = Pick<ResultRow, (typeof RANK_COLUMN_LIST)[number]>;
+
+// Realtime 페이로드는 전체 행이다. 조회와 같은 모양으로 깎아 넣어야 상태의 행 모양이 출처에 따라 달라지지 않는다.
+const toRankResultRow = ({ id, date, menu, restaurant_id }: ResultRow): RankResultRow => ({
+  id,
+  date,
+  menu,
+  restaurant_id,
+});
 
 // 구독마다 토픽에 붙일 일련번호(app/log/page.tsx 와 같은 논증).
 let topicSeq = 0;
@@ -27,7 +37,7 @@ export default function RankPage() {
     return () => clearInterval(t);
   }, []);
 
-  const [results, setResults] = useState<RankRow[]>([]);
+  const [results, setResults] = useState<RankResultRow[]>([]);
   // 첫 결과 응답이 왔는가(성공·실패 모두). 조회가 설정 뒤로 직렬화되므로 이 값 없이는 설정만 온 한 왕복 동안
   // 결과 0건으로 계산한 "추첨 대기" 가 반드시 보인다 — displayPhase 의 가림막을 결과까지 기다리게 하는 근거다(리뷰 WR-02).
   const [resultsLoaded, setResultsLoaded] = useState(false);
@@ -69,7 +79,7 @@ export default function RankPage() {
       const { data, error } = await query;
       if (cancelled) return;
       setLoadError(formatLoadError("랭킹", error));
-      if (data) setResults(data as RankRow[]);
+      if (data) setResults(data as RankResultRow[]);
       // 실패여도 올린다 — 배너가 사유를 말하고 라벨은 정직하게 결과 없음으로 간다.
       setResultsLoaded(true);
     })();
@@ -85,7 +95,7 @@ export default function RankPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "results" },
         (payload) => {
-          const row = payload.new as ResultRow;
+          const row = toRankResultRow(payload.new as ResultRow);
           setResults((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev]));
         },
       )
@@ -94,7 +104,7 @@ export default function RankPage() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "results" },
         (payload) => {
-          const row = payload.new as ResultRow;
+          const row = toRankResultRow(payload.new as ResultRow);
           setResults((prev) => prev.map((r) => (r.id === row.id ? row : r)));
         },
       )
