@@ -98,7 +98,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 한 탭의 등록·수정·삭제·핀 변경이 다른 접속자 화면에 Realtime으로 반영된다(INSERT/UPDATE/DELETE 3분기 + 구독 해제).
   5. 쓰기 실패(중복 이름 포함)가 빈 화면이나 raw Postgres 에러 대신 한국어 배너로 뜬다.
 **로컬 검증**: `npm run dev`(가드런처)로 폼·목록·핀 UI 렌더와 상호작용 확인 + `parseMenuInput` 재사용 테스트 + `tsc`/`lint`/`test`/`build`. 라이브 DB에 실제 등록하는 검증은 하지 않는다(라이브 오염). 기존 컨벤션 유지: 전부 클라이언트 컴포넌트, inline style + CSS 변수 토큰, `~Action` 콜백 접미사, named export.
-**Plans**: TBD
+**Plans**: 2 plans (2 waves)
+- [ ] 05-01-PLAN.md — 순수 로직: `lib/restaurants.ts`(폼 검증·정렬·링크 판정·Realtime 리듀서) + `lib/constants.ts` 상수 2개 + `formatRestaurantWriteError` + 코드포인트 절단(todo wr-01) · spec 45건 (wave 1)
+- [ ] 05-02-PLAN.md — UI 배선: `lib/useRestaurants.ts`(3분기 구독) + `components/RestaurantList.tsx` + `app/restaurants/page.tsx`(쓰기 4종) + `TopBar` 탭 + D-19 문서 정정·CATL 마킹 (wave 2)
 **UI hint**: yes
 
 ### Phase 6: 오늘 탭
