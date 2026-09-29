@@ -44,7 +44,7 @@ npm run check:edge # deno check 두 Edge Function (index.ts 의 유일한 정적
 - **콜백 prop 이름은 `~Action` 접미사** (`onAddAction`, `onRemoveAction`, `onChangeMonthAction`). Next.js 클라이언트 경계의 직렬화 lint를 통과시키기 위한 규약이다. `onX`로 지으면 lint가 잡는다.
 - **시간은 항상 `lib/time.ts` 경유.** `Date`의 로컬 메서드(`getHours` 등)를 비즈니스 로직에 직접 쓰지 않는다. 날짜 키는 `"yyyy-mm-dd"` KST 문자열이고 `results.date`와 그대로 비교한다.
 - 컴포넌트는 named export, 파일명 = 컴포넌트명 (`components/Wheel.tsx`). 페이지 전용 소형 컴포넌트는 페이지 파일 안에 둔다.
-- **공용 훅은 `lib/useX.ts`, `use` 접두** (`lib/useSettings.ts`·`lib/useRestaurants.ts`·`lib/useCandidates.ts`). `lib/` 파일명이 소문자 명사인 관례(`time.ts`·`phase.ts`·`errors.ts`·`constants.ts`)의 유일한 예외다. 훅에는 I/O 만 두고 판단은 같은 이름의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`·`lib/candidates.ts`)로 내린다 — 레포에 React 렌더 하네스가 없어서 훅 안의 분기는 테스트되지 않는다. **세 훅 모두 본문에 분기가 0개**라 이 문장은 현재 문면 그대로 참이다(조회 성공·실패의 가름까지 리듀서의 `fetched` 액션이 맡는다).
+- **공용 훅은 `lib/useX.ts`, `use` 접두** (`lib/useSettings.ts`·`lib/useRestaurants.ts`·`lib/useCandidates.ts`). `lib/` 파일명이 소문자 명사인 관례(`time.ts`·`phase.ts`·`errors.ts`·`constants.ts`)의 유일한 예외다. 훅에는 I/O 만 두고 판단은 같은 이름의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`·`lib/candidates.ts`)로 내린다 — 레포에 React 렌더 하네스가 없어서 훅 안의 분기는 테스트되지 않는다. **세 훅 모두 판단 분기가 0개**다 — 조회 성공·실패의 가름까지 리듀서의 `fetched` 액션이 맡는다. 남는 `if` 는 `if (cancelled) return;` 한 줄뿐이고 그것은 판단이 아니라 배관이다(언마운트 취소 가드). 레포의 나머지 비동기 effect(`app/page.tsx`·`app/restaurants/page.tsx`)와 같은 관용구로 둔다 — "본문에 `if` 0개" 를 목표로 삼아 이 가드를 재대입되는 클로저로 바꾸면 읽는 사람이 안전성을 스스로 증명해야 한다.
 - **`lib/` 는 `app/`·`components/` 를 import 하지 않는다(단방향).** 예외는 없다 — `grep -rn '@/components/' lib` 가 0줄이어야 한다.
 - 주석은 한글, Why만. 파일 머리에 역할·제약을 블록 주석으로.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql`, cron 등록은 "기존 잡 unschedule → 재등록" 패턴으로 재실행 가능하게.

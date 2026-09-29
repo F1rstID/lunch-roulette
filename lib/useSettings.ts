@@ -38,15 +38,17 @@ export function useSettings(): SettingsState {
   const [topic] = useState(() => `settings-changes-${++topicSeq}`);
 
   useEffect(() => {
-    // 언마운트 뒤 도착한 응답을 버리는 장치. 취소 플래그를 두고 분기하는 대신 보낼 곳 자체를 빈 함수로
-    // 바꾼다 — 그래야 이 훅 본문에 판정이 한 줄도 남지 않는다(이 파일의 선언이 문면 그대로 참이어야 한다).
-    let send: typeof dispatch = dispatch;
+    let cancelled = false;
     (async () => {
       const { data, error } = await supabase.from("settings").select("*").eq("id", 1).maybeSingle();
-      send({ type: "fetched", row: (data as SettingsRow | null) ?? null, error });
+      // 언마운트·재실행 뒤 도착한 응답은 버린다. 판단이 아니라 취소 가드(배관)다 — 성공·실패의 가름은
+      // 리듀서의 fetched 액션이 한다. 레포의 나머지 비동기 effect(app/page.tsx·app/restaurants/page.tsx)와
+      // 같은 형태로 둔다: 관용구를 영리하게 바꾸면 읽는 사람이 안전성을 스스로 증명해야 한다.
+      if (cancelled) return;
+      dispatch({ type: "fetched", row: (data as SettingsRow | null) ?? null, error });
     })();
     return () => {
-      send = () => {};
+      cancelled = true;
     };
   }, []);
 

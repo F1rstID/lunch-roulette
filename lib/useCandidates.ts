@@ -40,9 +40,7 @@ export function useCandidates(): CandidatesState {
   const [topic] = useState(() => `candidates-${++topicSeq}`);
 
   useEffect(() => {
-    // 언마운트 뒤 도착한 응답을 버리는 장치. 취소 플래그를 두고 분기하는 대신 보낼 곳 자체를 빈 함수로
-    // 바꾼다 — 그래야 이 훅 본문에 판정이 한 줄도 남지 않는다(lib/useRestaurants.ts 와 같은 형태).
-    let send: typeof dispatch = dispatch;
+    let cancelled = false;
     (async () => {
       // 조회 순서만 고정한다. 휠·목록의 표시 순서는 lib/candidates.ts 의 3단 정렬이 정하고 그쪽이 정본이다 —
       // 두 곳에서 정렬하면 같은 규칙의 정의처가 둘이 된다.
@@ -50,11 +48,14 @@ export function useCandidates(): CandidatesState {
         .from("candidates")
         .select("*")
         .order("created_at", { ascending: true });
-      // 성공·실패의 가름은 리듀서가 한다. 여기서는 응답을 그대로 한 액션에 실어 보낸다.
-      send({ type: "fetched", rows: (data as CandidateRow[] | null) ?? null, error });
+      // 언마운트·재실행 뒤 도착한 응답은 버린다. 판단이 아니라 취소 가드(배관)다 — 성공·실패의 가름은
+      // 리듀서의 fetched 액션이 한다. 레포의 나머지 비동기 effect(app/page.tsx·app/restaurants/page.tsx)와
+      // 같은 형태로 둔다: 관용구를 영리하게 바꾸면 읽는 사람이 안전성을 스스로 증명해야 한다.
+      if (cancelled) return;
+      dispatch({ type: "fetched", rows: (data as CandidateRow[] | null) ?? null, error });
     })();
     return () => {
-      send = () => {};
+      cancelled = true;
     };
   }, []);
 
