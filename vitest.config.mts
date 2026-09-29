@@ -24,6 +24,9 @@ export default defineConfig({
       // 로컬에 Supabase 스택이 없어 마이그레이션 SQL 을 실제로 실행해 볼 수 없다. 대신 계약 테스트가
       // .sql 을 텍스트로 파싱해 검사하므로 spec 이 검사 대상 SQL 파일 옆에 산다 (드라이런은 D-15 로 Phase 8 선택 항목).
       "supabase/migrations/**/*.test.ts",
+      // 롤백 스크립트도 같은 방식(텍스트 계약)으로 고정한다. migrations/ 밖에 두는 이유는 CLI 의 db push 가
+      // 그 디렉터리를 마이그레이션으로 읽기 때문이고, 그래서 수집 경로를 따로 적는다.
+      "supabase/rollback/**/*.test.ts",
     ],
     exclude: [
       "**/node_modules/**",
