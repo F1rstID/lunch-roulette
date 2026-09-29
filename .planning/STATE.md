@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 6 planned (2 plans, 2 waves) - ready to execute (fast lane)"
-last_updated: "2026-09-29T03:00:13.595Z"
-last_activity: 2026-09-29 -- Phase 06 planning complete
+stopped_at: "Phase 6 executing - plan 06-01 complete, 06-02 next"
+last_updated: "2026-09-29T03:25:29.780Z"
+last_activity: 2026-09-29 -- Phase 06 plan 01 complete (오늘 후보 순수 로직)
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
   percent: 63
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 6 — 오늘 탭
+**Current focus:** Phase 06 — today-tab
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-29 -- Phase 06 planning complete
+Phase: 06 (today-tab) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 06 — 06-01 complete, 06-02 next
+Last activity: 2026-09-29 -- Phase 06 plan 01 complete (오늘 후보 순수 로직)
 
 Progress: [█████████░] 94%
 
@@ -36,7 +36,7 @@ Progress: [█████████░] 94%
 
 **Velocity:**
 
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: —
 - Total execution time: —
 
@@ -49,6 +49,7 @@ Progress: [█████████░] 94%
 | 3 | 3 | - | - |
 | 4 | 4 | - | - |
 | 5 | 2 | - | - |
+| 6 | 1 | - | - |
 
 **Recent Trend:**
 
@@ -72,6 +73,7 @@ Progress: [█████████░] 94%
 | Phase 04 P04 | 6min | 2 tasks | 7 files |
 | Phase 05 P01 | 17min | 2 tasks | 8 files |
 | Phase 05 P02 | 10min | 3 tasks | 8 files |
+| Phase 06 P01 | 23min | 2 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -133,6 +135,13 @@ Progress: [█████████░] 94%
 - [Phase 5]: 05-02 — 폼 검증 실패는 페이지 배너가 아니라 폼 안 role=alert 로 띄운다: 쓰기 실패가 아니고 고쳐야 할 입력 칸 옆에 있어야 사용자가 어디를 손볼지 안다. 쓰기 실패만 actionError 로 모인다
 - [Phase 5]: 05-02 — 매장 탭은 results 를 구독하지 않는다: 잠금이 없어(D-12) 페이즈 필은 표시용이고, 구독을 하나 더 늘리면 얻는 것(필 갱신)보다 실패 경로가 늘어나는 비용이 크다. 탭을 열어 둔 채 추첨 시각이 지나면 필이 새로고침 전까지 지연된다
 - [Phase 5]: 05-02 — 게이트 토큰(useCallback)을 주석 문안에서 뺐다: 인수 조건이 파일 전체 grep 으로 0건을 요구하는데 근거 주석이 자기 자신을 세면 게이트가 무력화된다 (Phase 3 의 같은 결정 재적용)
+- [Phase 6]: 06-01 — 목록 병합 규칙의 구현을 lib/rowset.ts 한 벌로 뽑고 키만 주입한다: restaurants 는 id, candidates 는 restaurant_id. 두 벌로 두면 CR-01 급 버그가 한쪽에만 고쳐지는 날이 온다
+- [Phase 6]: 06-01 — 리듀서 액션을 fetched/changed 둘로 합쳤다: fetched 가 rows 와 error 를 함께 받아 성공·실패의 가름이 리듀서 spec 을 지난다. 그 결과 useSettings·useRestaurants 두 훅에 if 가 0개다 — 취소 플래그 분기까지 없애려고 cleanup 이 보낼 곳을 빈 함수로 바꾼다(todo in-03 닫음)
+- [Phase 6]: 06-01 — 제네릭 리듀서의 UPDATE 는 모르는 키의 행을 추가한다(upsert): payload.new 가 전체 행이라 안전하고 재연결 틈에 놓친 INSERT 를 복구한다. 변경 스트림이 순서를 보장해 DELETE 뒤 같은 키의 UPDATE 로 되살아나는 일은 없다(05-REVIEW IN-02)
+- [Phase 6]: 06-01 — 후보 정렬을 candidates.created_at → restaurants.created_at → 매장 id 3단으로 두고 SQL 은 바꾸지 않았다: 자정 재시드가 한 문장 insert 라 첫 키가 전부 동률이고 두 번째 키가 핀을 꽂은 순서를 복원한다(todo wr-02 닫음)
+- [Phase 6]: 06-01 — 당첨은 restaurant_id 로만 찾고 이름 폴백을 두지 않는다: 이름으로 되찾으면 동명 매장이 당첨으로 오인되고 컷오버 전 구 결과는 메뉴명이라 매장과 맞을 수 없다. null 이면 -1 로 떨어져 휠 하이라이트만 사라진다
+- [Phase 6]: 06-01 — 담기 중 23505 는 에러가 아니라 null 이다: 두 사람이 같은 매장을 동시에 담은 것이고 원하던 상태가 이미 됐으므로 호출부가 성공으로 처리한다. 빼기에는 같은 논증이 서지 않아 일반 실패 문장으로 떨어진다
+- [Phase 6]: 06-01 — parseMenuInput·truncateToCodePoints 를 lib/menus.ts 로 옮겨 lib/ → components/ 단방향 예외가 코드에서 사라졌다. 재수출은 두지 않는다(정의처가 둘로 보이면 안 된다). 문서 2곳(CLAUDE.md·STRUCTURE.md)의 예외 문단은 06-02 가 지운다
 
 ### Pending Todos
 
@@ -162,6 +171,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29T02:30:34.363Z
-Stopped at: Phase 6 context gathered — ready to plan (fast lane: --skip-research --skip-verify --skip-ui)
-Resume file: .planning/phases/06-today-tab/06-CONTEXT.md
+Last session: 2026-09-29T03:22:15.720Z
+Stopped at: Completed 06-01-PLAN.md — 06-02(UI·배선·문서) 가 다음이다
+Resume file: .planning/phases/06-today-tab/06-02-PLAN.md
