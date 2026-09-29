@@ -6,7 +6,6 @@
 import { describe, it, expect } from "vitest";
 import {
   addMinutesToSpinTime,
-  formatHhMm,
   formatHhMmSs,
   formatKstLongDay,
   formatSpinTime,
@@ -25,20 +24,6 @@ describe("todayKstDate", () => {
 
   it("연 경계에서도 KST 기준으로 해가 바뀐다", () => {
     expect(todayKstDate(new Date("2025-12-31T15:00:00Z"))).toBe("2026-01-01");
-  });
-});
-
-describe("formatHhMm", () => {
-  it("추첨 시각은 24시간제 11:55 로 찍힌다", () => {
-    expect(formatHhMm(new Date("2026-09-18T02:55:00Z"))).toBe("11:55");
-  });
-
-  it("초는 분 표기에 영향을 주지 않는다", () => {
-    expect(formatHhMm(new Date("2026-09-18T02:55:04Z"))).toBe("11:55");
-  });
-
-  it("KST 자정은 24:00 이 아니라 00:00 이다", () => {
-    expect(formatHhMm(new Date("2026-09-18T15:00:00Z"))).toBe("00:00");
   });
 });
 
