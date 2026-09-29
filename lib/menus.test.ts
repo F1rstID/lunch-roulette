@@ -1,4 +1,6 @@
-// parseMenuInput 의 현재 동작을 회귀 테스트로 못 박는다 (Phase 1 은 동작 변경 금지).
+// lib/menus.ts 의 parseMenuInput 현재 동작을 회귀 테스트로 못 박는다 (Phase 1 은 동작 변경 금지).
+// 이 파일이 components/ 에서 옮겨 온 이유: 파싱 구현이 lib/ 로 내려가며 lib/ → components/ 단방향 예외가
+// 사라졌다(D-24). 기대값·it 이름·순서는 이동 전과 한 글자도 다르지 않다 — 옮긴 것은 위치뿐이다.
 // Phase 5 가 이 함수를 매장 메뉴 입력에 그대로 재사용하므로, 분리·trim·절단·중복 제거의 순서가 계약이다.
 // 절단 상한을 MENU_NAME_MAX_LEN 이 아니라 리터럴 24 로 쓰는 이유: 상수를 import 하면 상수 값이 바뀔 때
 // 기대값도 같이 움직여 "DB check 제약(char_length 1~24)의 거울" 이라는 사실이 테스트에서 사라진다.
@@ -6,7 +8,7 @@
 // 자르면 DB 가 허용하는 이모지 이름이 반 토막 난 채 저장된다 — 깨진 문자열은 기록·랭킹까지 따라간다.
 
 import { describe, it, expect } from "vitest";
-import { parseMenuInput } from "@/components/MenuList";
+import { parseMenuInput } from "@/lib/menus";
 
 describe("parseMenuInput", () => {
   it("기본 쉼표 3개", () => {

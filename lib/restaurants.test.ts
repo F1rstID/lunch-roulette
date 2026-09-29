@@ -6,6 +6,8 @@
 // 일부러 안 하는 것: useRestaurants 훅은 테스트하지 않는다 — 레포에 렌더 하네스가 없고, 훅에 분기를 남기지 않는 것이
 // 이 모듈의 존재 이유다(lib/settings.test.ts:9-12 와 같은 논증). 행 타입도 가져오지 않고 리터럴 픽스처로 만든다 —
 // 그 타입이 사는 모듈은 로드 시점에 환경변수를 읽으므로 spec 이 묶이면 러너에서 즉사한다.
+// 병합 규칙 자체의 정본은 lib/rowset.test.ts 다(구현이 한 벌이라 규칙도 한 곳에서 검사한다). 이 파일의 리듀서 spec 이
+// 고정하는 것은 그 규칙이 아니라 배선 — 이 목록의 키가 id 라는 사실이다. 겹쳐 보여도 한쪽을 지우지 않는다.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -307,8 +309,10 @@ describe("sortRestaurants — 핀 먼저, 그 안에서 이름순", () => {
 });
 
 describe("restaurantsReducer — Realtime 병합", () => {
-  it("loaded 가 목록을 세우고 로드 완료로 표시한다", () => {
-    expect(restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A, ROW_B] })).toEqual({
+  it("fetched(rows) 가 목록을 세우고 로드 완료로 표시한다", () => {
+    expect(
+      restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A, ROW_B], error: null }),
+    ).toEqual({
       rows: [ROW_A, ROW_B],
       loaded: true,
       error: null,
@@ -316,8 +320,10 @@ describe("restaurantsReducer — Realtime 병합", () => {
     });
   });
 
-  it("failed 는 실패를 노출하되 목록을 비운다 (실패를 '매장 0개' 로 위장하지 않는다)", () => {
-    expect(restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "failed", message: "boom" })).toEqual({
+  it("fetched(error) 는 실패를 노출하되 목록을 비운다 (실패를 '매장 0개' 로 위장하지 않는다)", () => {
+    expect(
+      restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: null, error: { message: "boom" } }),
+    ).toEqual({
       rows: [],
       loaded: true,
       error: "boom",
@@ -325,18 +331,18 @@ describe("restaurantsReducer — Realtime 병합", () => {
     });
   });
 
-  it("이미 로드가 끝난 상태에 늦게 온 loaded 는 무시된다 (옛 조회 응답이 Realtime 값을 되돌리지 않는다)", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A] });
-    expect(restaurantsReducer(live, { type: "loaded", rows: [ROW_B] })).toBe(live);
+  it("이미 로드가 끝난 상태에 늦게 온 fetched(rows) 는 무시된다 (옛 조회 응답이 Realtime 값을 되돌리지 않는다)", () => {
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A], error: null });
+    expect(restaurantsReducer(live, { type: "fetched", rows: [ROW_B], error: null })).toBe(live);
   });
 
-  it("이미 로드가 끝난 상태에 늦게 온 failed 도 무시된다 (살아 있는 목록이 실패 배너로 덮이지 않는다)", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A] });
-    expect(restaurantsReducer(live, { type: "failed", message: "boom" })).toBe(live);
+  it("이미 로드가 끝난 상태에 늦게 온 fetched(error) 도 무시된다 (살아 있는 목록이 실패 배너로 덮이지 않는다)", () => {
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A], error: null });
+    expect(restaurantsReducer(live, { type: "fetched", rows: null, error: { message: "boom" } })).toBe(live);
   });
 
   it("INSERT 가 행을 더한다", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A] });
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A], error: null });
     expect(restaurantsReducer(live, { type: "changed", event: "INSERT", row: ROW_B }).rows.map((r) => r.id)).toEqual([
       "r1",
       "r2",
@@ -344,30 +350,30 @@ describe("restaurantsReducer — Realtime 병합", () => {
   });
 
   it("같은 id 의 INSERT 가 한 번 더 와도 목록이 늘지 않는다 (멱등)", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A] });
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A], error: null });
     expect(restaurantsReducer(live, { type: "changed", event: "INSERT", row: ROW_A }).rows).toHaveLength(1);
   });
 
   it("UPDATE 는 같은 id 의 행을 통째로 교체한다 (얕은 병합이 아니다)", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A] });
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A], error: null });
     expect(restaurantsReducer(live, { type: "changed", event: "UPDATE", row: ROW_A_NEXT }).rows).toEqual([ROW_A_NEXT]);
   });
 
-  it("모르는 id 의 UPDATE 는 목록을 바꾸지 않는다", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A] });
-    expect(restaurantsReducer(live, { type: "changed", event: "UPDATE", row: ROW_B }).rows).toEqual([ROW_A]);
+  it("모르는 id 의 UPDATE 는 행을 추가한다 (upsert — 재연결 틈에 놓친 INSERT 를 복구한다)", () => {
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A], error: null });
+    expect(restaurantsReducer(live, { type: "changed", event: "UPDATE", row: ROW_B }).rows).toEqual([ROW_A, ROW_B]);
   });
 
-  it("DELETE 는 id 하나만으로 그 행을 지운다 (페이로드에 id 밖에 없다)", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A, ROW_B] });
-    expect(restaurantsReducer(live, { type: "changed", event: "DELETE", id: "r1" }).rows.map((r) => r.id)).toEqual([
+  it("DELETE 는 키 하나만으로 그 행을 지운다 (페이로드에 PK 밖에 없다)", () => {
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A, ROW_B], error: null });
+    expect(restaurantsReducer(live, { type: "changed", event: "DELETE", key: "r1" }).rows.map((r) => r.id)).toEqual([
       "r2",
     ]);
   });
 
-  it("id 가 없는 DELETE 는 아무 행도 지우지 않는다 (무엇을 지울지 알 수 없다)", () => {
-    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "loaded", rows: [ROW_A, ROW_B] });
-    expect(restaurantsReducer(live, { type: "changed", event: "DELETE", id: null }).rows).toHaveLength(2);
+  it("키가 없는 DELETE 는 아무 행도 지우지 않는다 (무엇을 지울지 알 수 없다)", () => {
+    const live = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "fetched", rows: [ROW_A, ROW_B], error: null });
+    expect(restaurantsReducer(live, { type: "changed", event: "DELETE", key: null }).rows).toHaveLength(2);
   });
 });
 
@@ -376,27 +382,30 @@ describe("restaurantsReducer — Realtime 병합", () => {
 // "늦게 온 옛 값" 으로 버려져 카탈로그가 이벤트에 실린 한 행으로 쪼그라든다(CR-01). 아래 네 건이 그
 // 순서를 고정한다 — 리듀서가 순수하므로 훅 없이도 결정적으로 재현된다.
 describe("restaurantsReducer — 조회 응답보다 먼저 온 이벤트 (CR-01)", () => {
-  it("loaded 전 INSERT 는 버려지지도 즉시 적용되지도 않고 조회 결과 위에 얹힌다", () => {
+  it("fetched 전 INSERT 는 버려지지도 즉시 적용되지도 않고 조회 결과 위에 얹힌다", () => {
     const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "INSERT", row: ROW_B });
     // 아직 목록을 읽지 못했으므로 loaded 는 거짓이고 행도 세우지 않는다.
     expect([early.rows, early.loaded]).toEqual([[], false]);
-    expect(restaurantsReducer(early, { type: "loaded", rows: [ROW_A] }).rows).toEqual([ROW_A, ROW_B]);
+    expect(restaurantsReducer(early, { type: "fetched", rows: [ROW_A], error: null }).rows).toEqual([ROW_A, ROW_B]);
   });
 
-  it("loaded 전 UPDATE 는 조회 결과의 같은 행을 새 값으로 바꾼다", () => {
+  it("fetched 전 UPDATE 는 조회 결과의 같은 행을 새 값으로 바꾼다", () => {
     const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "UPDATE", row: ROW_A_NEXT });
-    expect(restaurantsReducer(early, { type: "loaded", rows: [ROW_A, ROW_B] }).rows).toEqual([ROW_A_NEXT, ROW_B]);
+    expect(restaurantsReducer(early, { type: "fetched", rows: [ROW_A, ROW_B], error: null }).rows).toEqual([
+      ROW_A_NEXT,
+      ROW_B,
+    ]);
   });
 
-  it("loaded 전 DELETE 는 조회 결과에서 그 행을 지운다 (조회가 아직 들고 있는 행이다)", () => {
-    const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "DELETE", id: "r1" });
-    const merged = restaurantsReducer(early, { type: "loaded", rows: [ROW_A, ROW_B] });
+  it("fetched 전 DELETE 는 조회 결과에서 그 행을 지운다 (조회가 아직 들고 있는 행이다)", () => {
+    const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "DELETE", key: "r1" });
+    const merged = restaurantsReducer(early, { type: "fetched", rows: [ROW_A, ROW_B], error: null });
     expect([merged.rows.map((r) => r.id), merged.pending]).toEqual([["r2"], []]);
   });
 
-  it("loaded 전 이벤트가 있어도 조회 실패는 배너를 세운다 (같은 창의 SELECT 실패를 삼키지 않는다)", () => {
+  it("fetched 전 이벤트가 있어도 조회 실패는 배너를 세운다 (같은 창의 SELECT 실패를 삼키지 않는다)", () => {
     const early = restaurantsReducer(INITIAL_RESTAURANTS_STATE, { type: "changed", event: "INSERT", row: ROW_B });
-    expect(restaurantsReducer(early, { type: "failed", message: "boom" })).toEqual({
+    expect(restaurantsReducer(early, { type: "fetched", rows: null, error: { message: "boom" } })).toEqual({
       rows: [],
       loaded: true,
       error: "boom",

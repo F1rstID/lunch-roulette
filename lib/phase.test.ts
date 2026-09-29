@@ -8,7 +8,7 @@
 // 일부러 안 하는 것 ②: msToNextPhase 는 테스트하지 않는다 — 이 플랜이 삭제하는 참조 0건의 미사용 코드다.
 
 import { describe, it, expect } from "vitest";
-import { currentPhase, isCandidateListLocked } from "@/lib/phase";
+import { currentPhase, displayPhase, isCandidateListLocked } from "@/lib/phase";
 
 describe("currentPhase — 결과가 없을 때의 시각 경계 (spinTime 11:55)", () => {
   it("KST 자정 직후는 accepting 이다", () => {
@@ -79,5 +79,26 @@ describe("isCandidateListLocked — stalled 에서는 후보 목록이 잠기지
 
   it("stalled 는 잠기지 않는다 — 후보 0개로 추첨이 건너뛰어진 날에도 계속 담을 수 있어야 한다", () => {
     expect(isCandidateListLocked("stalled")).toBe(false);
+  });
+});
+
+// 설정 조회가 끝나기 전 첫 렌더는 기본 시각으로 페이즈를 계산한다. 대시보드가 시각을 늦춰 둔 날에는 그 계산이
+// "추첨 대기" 를 수백 ms 보여 줬다가 accepting 으로 바뀐다. 잠금은 두 상태 모두 false 라 기능 영향은 0이고
+// 흔들리는 것은 라벨뿐이다 — 그래서 표시용 보정이지 currentPhase 의 대체가 아니다.
+describe("displayPhase — 설정 로드 전의 라벨을 가린다 (todo in-02)", () => {
+  it("설정 로드 전의 stalled 는 accepting 으로 보인다 (후보 입력이 열려 있는 쪽이 안전한 기본값이다)", () => {
+    expect(displayPhase("stalled", false)).toBe("accepting");
+  });
+
+  it("설정 로드 후의 stalled 는 그대로 stalled 다", () => {
+    expect(displayPhase("stalled", true)).toBe("stalled");
+  });
+
+  it("로드 전이어도 decided 는 그대로다 — 결과가 있는 사실은 설정과 무관하다", () => {
+    expect(displayPhase("decided", false)).toBe("decided");
+  });
+
+  it("로드 전이어도 accepting·spinning 은 그대로다", () => {
+    expect([displayPhase("accepting", false), displayPhase("spinning", false)]).toEqual(["accepting", "spinning"]);
   });
 });

@@ -7,9 +7,9 @@
 // 일부러 안 하는 것 ①: 행 타입(SettingsRow)을 import 하지 않고 리터럴 픽스처로 만든다 — 그 모듈은 로드
 // 시점에 supabase 클라이언트를 만들어 환경변수를 요구하므로, spec 이 묶이면 러너에서 즉사한다(리서치 §Q7).
 // 일부러 안 하는 것 ②: useSettings 훅은 테스트하지 않는다 — 렌더 하네스(DOM 구현 + 렌더 테스트 라이브러리)
-// 3개를 들이는 비용 대비 훅 본문이 거의 배관뿐이다(리서치 §Q7). 판단은 전부 이 파일이 검사하는 리듀서에
-// 있고, 훅에 남은 분기 2개(에러/0행, DELETE/그 외)만 낭독으로 검증한다 — 그 둘을 리듀서로 내리는 일은
-// .planning/todos/pending/in-03-usesettings-branches-to-reducer.md 에 있다.
+// 3개를 들이는 비용 대비 훅 본문이 배관뿐이다(리서치 §Q7). 이제 판정이 하나도 남김없이 이 파일이 검사하는
+// 리듀서를 지난다 — 조회 성공·실패의 가름(fetched 의 error 우선)도, DELETE 가 행을 보지 않는다는 규칙도
+// 여기 spec 이 든다. 훅에 분기가 0개라서 낭독으로 검증할 대상 자체가 없다(todo in-03 이 닫힌 지점).
 
 import { describe, it, expect } from "vitest";
 import {
@@ -92,8 +92,8 @@ describe("settingsFromRow — 예외를 던지지 않는 총 함수다 (SETT-03)
 });
 
 describe("settingsReducer — 로드 경로 (SETT-03)", () => {
-  it("loaded(row) 는 설정을 갈아끼우고 로드 완료로 표시한다", () => {
-    expect(settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_1230 })).toEqual({
+  it("fetched(row) 는 설정을 갈아끼우고 로드 완료로 표시한다", () => {
+    expect(settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_1230, error: null })).toEqual({
       settings: { spinTime: { hh: 12, mm: 30 }, cooldownDays: 3, historySince: "2026-09-21" },
       loaded: true,
       error: null,
@@ -101,8 +101,8 @@ describe("settingsReducer — 로드 경로 (SETT-03)", () => {
     });
   });
 
-  it("loaded(null) — 시드 안 된 정상 상태는 기본값으로 로드 완료이고 error 가 없다", () => {
-    expect(settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: null })).toEqual({
+  it("fetched(null) — 시드 안 된 정상 상태는 기본값으로 로드 완료이고 error 가 없다", () => {
+    expect(settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: null, error: null })).toEqual({
       settings: DEFAULT_SETTINGS,
       loaded: true,
       error: null,
@@ -110,8 +110,10 @@ describe("settingsReducer — 로드 경로 (SETT-03)", () => {
     });
   });
 
-  it("failed 는 기본값을 유지한 채 error 로 실패를 노출한다 (앱은 계속 동작한다)", () => {
-    expect(settingsReducer(INITIAL_SETTINGS_STATE, { type: "failed", message: "boom" })).toEqual({
+  it("fetched(error) 는 기본값을 유지한 채 error 로 실패를 노출한다 (앱은 계속 동작한다)", () => {
+    expect(
+      settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: null, error: { message: "boom" } }),
+    ).toEqual({
       settings: DEFAULT_SETTINGS,
       loaded: true,
       error: "boom",
@@ -119,13 +121,24 @@ describe("settingsReducer — 로드 경로 (SETT-03)", () => {
     });
   });
 
-  it("이미 로드가 끝난 상태에 온 failed 는 무시된다 (훅은 조회 결과를 한 번만 보낸다)", () => {
-    const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_BROKEN });
-    expect(settingsReducer(warned, { type: "failed", message: "boom" })).toBe(warned);
+  it("fetched 에 error 가 있으면 row 가 함께 와도 실패 경로다 (행이 왔으니 성공으로 읽지 않는다)", () => {
+    expect(
+      settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_1230, error: { message: "boom" } }),
+    ).toEqual({
+      settings: DEFAULT_SETTINGS,
+      loaded: true,
+      error: "boom",
+      warning: null,
+    });
+  });
+
+  it("이미 로드가 끝난 상태에 온 fetched(error) 는 무시된다 (훅은 조회 결과를 한 번만 보낸다)", () => {
+    const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_BROKEN, error: null });
+    expect(settingsReducer(warned, { type: "fetched", row: null, error: { message: "boom" } })).toBe(warned);
   });
 
   it("잘못된 spin_time 행을 읽으면 기본 시각 + warning 이고 error 는 null 이다 (불러오기는 성공했다)", () => {
-    const next = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_BROKEN });
+    const next = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_BROKEN, error: null });
     expect({ spinTime: next.settings.spinTime, error: next.error, hasWarning: next.warning !== null }).toEqual({
       spinTime: { hh: 11, mm: 55 },
       error: null,
@@ -136,7 +149,7 @@ describe("settingsReducer — 로드 경로 (SETT-03)", () => {
 
 describe("settingsReducer — Realtime 병합 (SETT-02)", () => {
   it("changed(\"UPDATE\") 가 추첨 시각을 갱신한다 (새로고침 없이 반영)", () => {
-    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_DEFAULT });
+    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_DEFAULT, error: null });
     expect(settingsReducer(loaded, { type: "changed", event: "UPDATE", row: ROW_1230 }).settings.spinTime).toEqual({
       hh: 12,
       mm: 30,
@@ -144,12 +157,12 @@ describe("settingsReducer — Realtime 병합 (SETT-02)", () => {
   });
 
   it("같은 UPDATE 가 쿨다운도 갱신한다 (payload.new 가 전체 행이라 통째 교체다)", () => {
-    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_DEFAULT });
+    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_DEFAULT, error: null });
     expect(settingsReducer(loaded, { type: "changed", event: "UPDATE", row: ROW_1230 }).settings.cooldownDays).toBe(3);
   });
 
   it("changed(\"INSERT\") 도 같은 경로로 병합된다", () => {
-    const empty = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: null });
+    const empty = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: null, error: null });
     expect(settingsReducer(empty, { type: "changed", event: "INSERT", row: ROW_1230 }).settings.spinTime).toEqual({
       hh: 12,
       mm: 30,
@@ -157,23 +170,30 @@ describe("settingsReducer — Realtime 병합 (SETT-02)", () => {
   });
 
   it("잘못된 행 다음에 정상 행이 오면 warning 이 지워진다 (오타를 고치면 경고도 사라진다)", () => {
-    const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_BROKEN });
+    const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_BROKEN, error: null });
     expect(settingsReducer(warned, { type: "changed", event: "UPDATE", row: ROW_DEFAULT }).warning).toBeNull();
   });
 
   it("changed(\"DELETE\") 는 기본값으로 복귀한다 (payload.old 가 PK 만이라 재구성이 불가능하다)", () => {
-    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_1230 });
+    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_1230, error: null });
     expect(settingsReducer(loaded, { type: "changed", event: "DELETE", row: null }).settings).toEqual(DEFAULT_SETTINGS);
   });
 
+  it("changed(\"DELETE\") 는 row 가 실려 와도 보지 않고 기본값으로 복귀한다 (DELETE 의 payload.new 는 빈 객체다)", () => {
+    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_DEFAULT, error: null });
+    expect(settingsReducer(loaded, { type: "changed", event: "DELETE", row: ROW_1230 }).settings).toEqual(
+      DEFAULT_SETTINGS,
+    );
+  });
+
   it("DELETE 이후 error 와 warning 이 둘 다 null 이다 (행 삭제는 실패가 아니다)", () => {
-    const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_BROKEN });
+    const warned = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_BROKEN, error: null });
     const next = settingsReducer(warned, { type: "changed", event: "DELETE", row: null });
     expect({ error: next.error, warning: next.warning }).toEqual({ error: null, warning: null });
   });
 
   it("리듀서는 넘겨받은 state 를 변형하지 않는다", () => {
-    settingsReducer(INITIAL_SETTINGS_STATE, { type: "loaded", row: ROW_1230 });
+    settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_1230, error: null });
     expect(INITIAL_SETTINGS_STATE.loaded).toBe(false);
   });
 });
@@ -184,7 +204,7 @@ describe("settingsReducer — Realtime 병합 (SETT-02)", () => {
 describe("settingsReducer — 이벤트 순서가 뒤집혀도 더 새 값이 이긴다 (SETT-02)", () => {
   it("UPDATE 뒤에 늦게 도착한 초기 조회 결과는 옛 행으로 되돌리지 못한다", () => {
     const updated = settingsReducer(INITIAL_SETTINGS_STATE, { type: "changed", event: "UPDATE", row: ROW_1230 });
-    expect(settingsReducer(updated, { type: "loaded", row: ROW_DEFAULT }).settings.spinTime).toEqual({
+    expect(settingsReducer(updated, { type: "fetched", row: ROW_DEFAULT, error: null }).settings.spinTime).toEqual({
       hh: 12,
       mm: 30,
     });
@@ -192,7 +212,7 @@ describe("settingsReducer — 이벤트 순서가 뒤집혀도 더 새 값이 �
 
   it("UPDATE 뒤에 늦게 도착한 조회 실패는 배너를 띄우지 않고 받은 행을 유지한다", () => {
     const updated = settingsReducer(INITIAL_SETTINGS_STATE, { type: "changed", event: "UPDATE", row: ROW_1230 });
-    const next = settingsReducer(updated, { type: "failed", message: "boom" });
+    const next = settingsReducer(updated, { type: "fetched", row: null, error: { message: "boom" } });
     expect({ error: next.error, spinTime: next.settings.spinTime }).toEqual({
       error: null,
       spinTime: { hh: 12, mm: 30 },
@@ -201,7 +221,7 @@ describe("settingsReducer — 이벤트 순서가 뒤집혀도 더 새 값이 �
 
   it("DELETE 뒤에 늦게 도착한 조회 결과도 지워진 행을 되살리지 못한다", () => {
     const deleted = settingsReducer(INITIAL_SETTINGS_STATE, { type: "changed", event: "DELETE", row: null });
-    const next = settingsReducer(deleted, { type: "loaded", row: ROW_1230 });
+    const next = settingsReducer(deleted, { type: "fetched", row: ROW_1230, error: null });
     expect({ settings: next.settings, loaded: next.loaded }).toEqual({
       settings: DEFAULT_SETTINGS,
       loaded: true,

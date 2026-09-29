@@ -5,7 +5,13 @@
 // 비객체 본문(문자열·숫자)은 두 번째 케이스와 같은 분기(객체가 아니면 fallback)라 별도 it 을 만들지 않는다.
 
 import { describe, it, expect } from "vitest";
-import { formatLoadError, formatRespinError, formatRestaurantWriteError, joinLoadErrors } from "@/lib/errors";
+import {
+  formatCandidateWriteError,
+  formatLoadError,
+  formatRespinError,
+  formatRestaurantWriteError,
+  joinLoadErrors,
+} from "@/lib/errors";
 
 describe("formatLoadError", () => {
   it("에러가 없으면 null 을 준다 (배너 미렌더 신호)", () => {
@@ -161,5 +167,45 @@ describe("formatRestaurantWriteError", () => {
     // 바꿔 두면 다음 사람이 "쓰기 경로에도 적용되나" 를 다시 읽어야 한다.
     const formatted = formatRestaurantWriteError("등록", "x", { message: "가".repeat(250) });
     expect([formatted.endsWith("…"), formatted.includes("가".repeat(200))]).toEqual([true, true]);
+  });
+});
+
+// 후보 담기·빼기는 매장 쓰기와 달리 "실패했지만 사용자에게는 실패가 아닌" 코드가 하나 있다. 그 갈림이
+// 이 함수의 존재 이유이고, 아래 다섯 건이 어느 쪽으로 떨어지는지를 고정한다.
+describe("formatCandidateWriteError — 후보 담기·빼기 실패 (D-17)", () => {
+  it("담기 중 23505 는 null 이다 (두 사람이 같은 매장을 동시에 담은 것 — 원하던 상태가 이미 됐다)", () => {
+    expect(
+      formatCandidateWriteError("담기", "김밥천국", {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "candidates_pkey"',
+      }),
+    ).toBeNull();
+  });
+
+  it("빼기 중 23505 는 일반 실패 문장이다 (무시 규칙은 담기에서만 성립한다)", () => {
+    expect(formatCandidateWriteError("빼기", "김밥천국", { code: "23505", message: "duplicate key" })).toBe(
+      '매장 "김밥천국" 빼기 실패: duplicate key',
+    );
+  });
+
+  it("23503 은 클릭 직전에 매장이 지워졌다고 말한다 (실패한 쪽은 동작이 아니라 대상이다)", () => {
+    expect(
+      formatCandidateWriteError("담기", "김밥천국", {
+        code: "23503",
+        message: 'insert or update on table "candidates" violates foreign key constraint',
+      }),
+    ).toBe("이미 삭제된 매장이에요: 김밥천국");
+  });
+
+  it("코드가 없는 실패는 한글 접두 + 대상 이름 + 원문으로 조립된다", () => {
+    expect(formatCandidateWriteError("담기", "김밥천국", { message: "permission denied" })).toBe(
+      '매장 "김밥천국" 담기 실패: permission denied',
+    );
+  });
+
+  it("공백뿐인 원문은 알 수 없는 오류로 대체된다 (접두만 남은 배너를 막는다)", () => {
+    expect(formatCandidateWriteError("빼기", "김밥천국", { message: "   " })).toBe(
+      '매장 "김밥천국" 빼기 실패: 알 수 없는 오류',
+    );
   });
 });

@@ -5,9 +5,11 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  addMinutesToSpinTime,
   formatHhMm,
   formatHhMmSs,
   formatKstLongDay,
+  formatSpinTime,
   kstParts,
   todayKstDate,
 } from "@/lib/time";
@@ -83,5 +85,43 @@ describe("formatKstLongDay", () => {
 
   it("자정을 넘기면 다음 날 요일로 바뀐다", () => {
     expect(formatKstLongDay(new Date("2026-09-18T15:00:00Z"))).toBe("2026년 9월 19일 토요일");
+  });
+});
+
+// 아래 두 함수는 Date 가 아니라 설정에서 온 벽시계 숫자 두 개를 다룬다 — 타임존 변환이 아니라 문자열 조립과
+// 분 산술이다. 화면에 보일 추첨 시각 문구의 조립처를 한 곳으로 모으는 것이 목적이다(SPIN-06).
+describe("formatSpinTime", () => {
+  it("기본 추첨 시각은 11:55 로 찍힌다", () => {
+    expect(formatSpinTime({ hh: 11, mm: 55 })).toBe("11:55");
+  });
+
+  it("한 자리 시·분은 0 으로 채운다", () => {
+    expect(formatSpinTime({ hh: 9, mm: 5 })).toBe("09:05");
+  });
+
+  it("자정은 00:00 이다", () => {
+    expect(formatSpinTime({ hh: 0, mm: 0 })).toBe("00:00");
+  });
+});
+
+describe("addMinutesToSpinTime", () => {
+  it("5분을 더하면 11:55 가 12:00 이 된다 (타임라인의 결과 단계가 이 계산을 쓴다)", () => {
+    expect(addMinutesToSpinTime({ hh: 11, mm: 55 }, 5)).toEqual({ hh: 12, mm: 0 });
+  });
+
+  it("분이 60 을 넘으면 시가 오른다", () => {
+    expect(addMinutesToSpinTime({ hh: 11, mm: 30 }, 45)).toEqual({ hh: 12, mm: 15 });
+  });
+
+  it("자정을 넘으면 24시간으로 순환한다", () => {
+    expect(addMinutesToSpinTime({ hh: 23, mm: 58 }, 5)).toEqual({ hh: 0, mm: 3 });
+  });
+
+  it("0분을 더하면 같은 값이고 입력 객체를 변형하지 않는다", () => {
+    const spin = { hh: 11, mm: 55 };
+    expect([addMinutesToSpinTime(spin, 0), spin]).toEqual([
+      { hh: 11, mm: 55 },
+      { hh: 11, mm: 55 },
+    ]);
   });
 });
