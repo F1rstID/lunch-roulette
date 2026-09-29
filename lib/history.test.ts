@@ -3,14 +3,14 @@
 // 집계 키가 restaurant_id ?? menu 인 이유: id 로만 모으면 삭제된 매장(on delete set null)의 기록이 랭킹에서
 // 통째로 사라지고, 이름으로만 모으면 개명한 매장이 두 줄로 갈라진다. 삭제는 그 매장의 모든 행을 한 번에 null 로
 // 바꾸므로 이름 키로 다시 한 덩어리가 된다.
-// 행 픽스처의 타입을 이 파일 안에 두는 이유: 행 타입이 사는 모듈은 로드 시점에 환경변수를 읽으므로 spec 이
-// 묶이면 러너에서 즉사한다(lib/candidates.test.ts 와 같은 논증).
+// 행 픽스처는 lib/history.ts 의 HistoryRow 에 묶는다 — 타입 import 는 트랜스파일에서 지워지므로 환경변수를 읽는
+// supabase 클라이언트 모듈이 로드되지 않고, 그 타입에 필드가 늘면 spec 이 tsc 에서 함께 깨진다.
 // 일부러 안 하는 것: 컴포넌트·페이지는 테스트하지 않는다 — 렌더 하네스가 없고, 판단을 여기로 내린 이유가 그것이다.
 
 import { describe, it, expect } from "vitest";
-import { buildMonthGrid, buildRanking, filterSince } from "@/lib/history";
+import { buildMonthGrid, buildRanking, filterSince, type HistoryRow } from "@/lib/history";
 
-type Row = { date: string; menu: string; restaurant_id: string | null };
+type Row = HistoryRow;
 
 const row = (date: string, menu: string, restaurant_id: string | null = null): Row => ({
   date,
@@ -135,7 +135,8 @@ describe("buildMonthGrid", () => {
   it("12월의 뒤 패딩은 익년 1월이다", () => {
     const cells = buildMonthGrid(2026, 12);
     const trailing = cells.filter((c) => c.dim && c.m === 1);
-    expect(trailing.length).toBeGreaterThan(0);
+    // 2026-12-01 은 화요일이라 앞 패딩 2 + 31일 = 33칸 → 뒤 패딩 9칸.
+    expect(trailing).toHaveLength(9);
     expect(trailing.every((c) => c.y === 2027)).toBe(true);
     expect(trailing[0].d).toBe(1);
   });
