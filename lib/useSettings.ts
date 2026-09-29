@@ -32,6 +32,9 @@ export function useSettings(): SettingsState {
   const [state, dispatch] = useReducer(settingsReducer, INITIAL_SETTINGS_STATE);
   // 초기화 함수로 매기고 state 에 보관한다: 렌더마다 번호가 바뀌면 effect 가 매번 재구독하고,
   // 개발용 이중 렌더에서도 마운트당 번호를 하나만 쓴다(번호가 하나 더 소모돼도 유일성은 그대로다).
+  // 아래 구독 effect 의 deps 는 [topic] 뿐이라 같은 인스턴스가 재구독하는 경로가 없다 — 그래서 여기서는
+  // state 에 둬도 안전하다. app/page.tsx 는 자정에 todayKey 가 바뀌며 재구독하므로 거기서만 토픽을 effect
+  // 안에서 매긴다(CR-01): 재구독인데 토픽이 같으면 realtime-js 가 leave 중인 옛 채널을 돌려주고 join 을 건너뛴다.
   const [topic] = useState(() => `settings-changes-${++topicSeq}`);
 
   useEffect(() => {

@@ -29,7 +29,7 @@ import { ResultBlock } from "@/components/ResultBlock";
 // unknown 으로 받는다. 여기 error 를 두면 "2xx 에도 error 가 올 수 있다" 는 거짓말이 된다.
 type RespinResponse = { ok?: boolean; skipped?: string };
 
-// 인스턴스마다 토픽에 붙일 일련번호. React 의 useId 를 쓰지 않는 이유는 문자 집합이다 — React 19 의 id 는
+// 구독마다 토픽에 붙일 일련번호. React 의 useId 를 쓰지 않는 이유는 문자 집합이다 — React 19 의 id 는
 // «r0» 처럼 ASCII 밖 문자를 담고, 토픽은 소켓 위로 그대로 나가는 식별자라 ASCII 로 묶어 두는 편이 안전하다.
 let topicSeq = 0;
 
@@ -55,9 +55,6 @@ export default function TodayPage() {
   // state 는 이벤트가 도착한 시점에 최신이 아닐 수 있다. 회전 여부를 그 두 값의 비교로 정하므로 렌더를
   // 기다리지 않는 거울이 필요하다 — 초기 조회와 이벤트 처리 양쪽에서 함께 세운다.
   const todayResultRef = useRef<ResultRow | null>(null);
-  // 토픽은 페이지가 아니라 구독 인스턴스마다 유일해야 한다. 고정 문자열을 쓰면 라우트 전환에서 새 구독이
-  // 아직 떠나는 중인 옛 채널에 붙어 에러 없이 죽는다(lib/useSettings.ts:12-16 과 같은 논증).
-  const [resultsTopic] = useState(() => `results-${++topicSeq}`);
 
   const { rows: restaurantRows, loaded: restaurantsLoaded, error: restaurantsError } = useRestaurants();
   const { rows: candidateRows, loaded: candidatesLoaded, error: candidatesError } = useCandidates();
@@ -147,8 +144,12 @@ export default function TodayPage() {
       }
     };
 
+    // 토픽은 마운트당이 아니라 **구독마다** 새로 매긴다. state 에 두면 자정에 todayKey 가 바뀌어 같은
+    // 인스턴스가 재구독할 때 realtime-js 가 아직 leave 중인(ack 를 기다리는) 옛 채널을 같은 토픽으로
+    // 그대로 돌려주고, subscribe() 는 그 채널이 closed 가 아니라서 join 을 통째로 건너뛴다 — 예외도
+    // 콜백도 없이 죽어 밤새 열어 둔 탭이 다음 날 결과를 못 받는다(CR-01).
     const channel: RealtimeChannel = supabase
-      .channel(resultsTopic)
+      .channel(`results-${++topicSeq}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "results" },
@@ -164,7 +165,7 @@ export default function TodayPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [todayKey, resultsTopic]);
+  }, [todayKey]);
 
   // WheelPhase 는 Phase 와 별개 유니온이라 stalled 가 없다. accepting 과 stalled 는 둘 다 "idle" —
   // 추첨이 건너뛰어진 날에도 휠은 멈춰 있어야 한다.
