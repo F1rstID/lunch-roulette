@@ -28,6 +28,9 @@ export default function RankPage() {
   }, []);
 
   const [results, setResults] = useState<RankRow[]>([]);
+  // 첫 결과 응답이 왔는가(성공·실패 모두). 조회가 설정 뒤로 직렬화되므로 이 값 없이는 설정만 온 한 왕복 동안
+  // 결과 0건으로 계산한 "추첨 대기" 가 반드시 보인다 — displayPhase 의 가림막을 결과까지 기다리게 하는 근거다(리뷰 WR-02).
+  const [resultsLoaded, setResultsLoaded] = useState(false);
   // 초기 SELECT 실패 메시지. 실패를 "기록 0건" 랭킹으로 위장하지 않는다.
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -42,11 +45,11 @@ export default function RankPage() {
   } = useSettings();
 
   // 조회는 전환일 이후로 좁히므로 오늘 행이 있으면 여기에 들어 있다(아래 lowerBound 가 오늘을 항상 포함한다).
-  // 설정 조회가 끝나기 전에는 기본 시각으로 계산한 "추첨 대기" 를 가린다 — 네 페이지의 라벨이 첫 페인트에서
-  // 갈리지 않게 하는 표시용 보정이다(D-23).
+  // 페이즈를 계산할 입력(설정 + 결과)이 다 오기 전에는 기본값으로 계산한 "추첨 대기" 를 가린다 — 네 페이지의 라벨이
+  // 첫 페인트에서 갈리지 않게 하는 표시용 보정이다(D-23). 이 페이지만 결과까지 기다리는 이유는 위 resultsLoaded 주석.
   const phase = displayPhase(
     currentPhase(now, settings.spinTime, results.some((r) => r.date === todayKey)),
-    settingsLoaded,
+    settingsLoaded && resultsLoaded,
   );
 
   // 조회의 아래 경계. 전환일이 오늘보다 뒤면(전환 절차가 history_since 를 다음 날로 밀어 둔 하루, wr-01) 오늘 행이
@@ -67,6 +70,8 @@ export default function RankPage() {
       if (cancelled) return;
       setLoadError(formatLoadError("랭킹", error));
       if (data) setResults(data as RankRow[]);
+      // 실패여도 올린다 — 배너가 사유를 말하고 라벨은 정직하게 결과 없음으로 간다.
+      setResultsLoaded(true);
     })();
     return () => {
       cancelled = true;

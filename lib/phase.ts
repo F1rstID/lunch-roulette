@@ -55,6 +55,8 @@ export function isCandidateListLocked(phase: Phase): boolean {
 // settingsLoaded 는 조회가 성공·실패 어느 쪽으로 끝나도 참이 되므로 컷오버 전후 모두 안전한 가림막이다.
 // 후보 입력이 열려 있는 쪽으로 낮추는 것이 안전한 기본값이다 — 두 상태 모두 잠금은 false 라 기능 영향은
 // 0이고 흔들리는 것은 라벨뿐이다. 표시용 보정이지 currentPhase 의 대체가 아니다.
+// 두 번째 인자는 "페이즈를 계산할 입력이 다 왔는가" 다. 오늘·매장·기록 탭은 설정만 기다리고(결과 조회가 마운트에서 병렬로
+// 시작한다), 랭킹 탭은 결과 조회를 설정 뒤로 직렬화하므로 설정 + 첫 결과 응답 둘 다를 넘긴다(app/rank/page.tsx).
 export function displayPhase(phase: Phase, settingsLoaded: boolean): Phase {
   return !settingsLoaded && phase === "stalled" ? "accepting" : phase;
 }
