@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete_pending_cutover
-stopped_at: All 8 phases complete - PR #4 open, live cutover is a user-run procedure (README)
+status: milestone_complete
+stopped_at: Cutover executed 2026-09-29 - live on new model, PR #4 merged (7c43a81). Remaining: user live check (README 7-8), test restaurant cleanup
 last_updated: 2026-09-29T06:11:44.881Z
-last_activity: 2026-09-29 -- Phase 8 complete: 롤백 SQL·README 컷오버 절차·PR #4 개설(직접 실행 레인 ~55m, 보안감사 5~7 SECURED 8/8, 리뷰 CR1/WR6/IN11 → 18/18, 역검증 4/5 + manual 1, 392 tests). 라이브 컷오버(0005 적용·함수 배포·머지)는 사용자가 README 절차 0~9 로
+last_activity: 2026-09-29 -- 라이브 컷오버 실행: 0005 적용(사용자, SQL Editor 17:2x KST) → 함수 2종 배포(Claude) → respin 판정 ok(매장명·uuid, excluded 0) → PR #4 merge commit 7c43a81 → Vercel 자동 배포. 확인용 매장 '컷오버 확인용'(a20435fd…) + 오늘 결과 행은 남겨 둠(사용자 실사용 확인 후 삭제)
 progress:
   total_phases: 8
   completed_phases: 7
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** 컷오버 실행(사용자) — README `## 컷오버 절차` 0~9, 완료 후 성공 기준 5 확인 → 마일스톤 마감
+**Current focus:** 컷오버 후 확인 — README 7(당일)·8(익일 11:55 추첨) → 확인용 매장 삭제 → 마일스톤 마감
 
 ## Current Position
 
 Phase: 8 (complete)
 Plan: 1 of 1 (complete)
-Status: All phases complete — awaiting user-run cutover (README 절차) and PR #4 merge
-Last activity: 2026-09-29 -- Phase 8 complete: 롤백 SQL·README 컷오버 절차·PR #4 개설(직접 실행 레인 ~55m, 보안감사 5~7 SECURED 8/8, 리뷰 CR1/WR6/IN11 → 18/18, 역검증 4/5 + manual 1, 392 tests). 라이브 컷오버(0005 적용·함수 배포·머지)는 사용자가 README 절차 0~9 로
+Status: Cutover executed — live on new model; user live check + 익일 추첨 확인 remaining
+Last activity: 2026-09-29 -- 라이브 컷오버 실행: 0005 적용(사용자, SQL Editor 17:2x KST) → 함수 2종 배포(Claude) → respin 판정 ok(매장명·uuid, excluded 0) → PR #4 merge commit 7c43a81 → Vercel 자동 배포. 확인용 매장 '컷오버 확인용'(a20435fd…) + 오늘 결과 행은 남겨 둠(사용자 실사용 확인 후 삭제)
 
 Progress: [██████████] 100%
 
