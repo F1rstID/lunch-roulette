@@ -53,9 +53,12 @@ export function CandidateList({
   onRemoveAction,
 }: Props) {
   const [query, setQuery] = useState("");
-  // 토글이 도는 동안 재클릭을 무시할 행. 낙관적 업데이트가 없어 두 번째 클릭도 화면에 남아 있는 같은
+  // 토글이 도는 동안 재클릭을 무시할 행들. 낙관적 업데이트가 없어 두 번째 클릭도 화면에 남아 있는 같은
   // 상태를 읽으므로, 막지 않으면 두 요청이 같은 방향으로 나간다(05 IN-04 전례).
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // 단일 슬롯이 아니라 집합인 이유: 행 A 가 도는 중에 행 B 를 누르면 슬롯 방식은 A 를 덮고, 먼저 끝난
+  // A 의 finally 가 아직 진행 중인 B 의 진행 표시를 지운다. 사람이 두 행을 연달아 누르는 것은 흔하다.
+  // 갱신은 항상 새 Set 으로 한다 — 같은 객체를 mutate 하면 참조가 그대로라 React 가 리렌더하지 않는다.
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
 
   const readOnly = isCandidateListLocked(phase);
   // useMemo 로 감싸지 않는다: 행 수가 수십 개라 비용이 무시할 만하다. "감싸도 얻는 것이 없다" 는 아니다 —
@@ -138,17 +141,22 @@ export function CandidateList({
                 key={row.restaurant.id}
                 row={row}
                 readOnly={readOnly}
-                busy={busyId === row.restaurant.id}
+                busy={busyIds.has(row.restaurant.id)}
                 onToggle={async () => {
+                  const { id, name } = row.restaurant;
                   // 행 단위로 잠근다 — 다른 행의 토글은 그대로 눌릴 수 있어야 한다.
-                  if (busyId === row.restaurant.id) return;
-                  setBusyId(row.restaurant.id);
+                  if (busyIds.has(id)) return;
+                  setBusyIds((prev) => new Set(prev).add(id));
                   try {
-                    const { id, name } = row.restaurant;
                     // 성공·실패 어느 쪽에서도 목록을 직접 건드리지 않는다. 갱신은 구독이 한다.
                     await (row.slice !== null ? onRemoveAction(id, name) : onAddAction(id, name));
                   } finally {
-                    setBusyId(null);
+                    // 자기 행만 뺀다. 함수형 갱신이라 그 사이 다른 행이 들어와도 함께 지워지지 않는다.
+                    setBusyIds((prev) => {
+                      const next = new Set(prev);
+                      next.delete(id);
+                      return next;
+                    });
                   }
                 }}
               />
