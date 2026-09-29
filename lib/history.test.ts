@@ -55,6 +55,20 @@ describe("buildRanking", () => {
     expect(list).toEqual([{ key: "사라진 집", name: "사라진 집", wins: 2, lastDate: "2026-10-02", share: 1 }]);
   });
 
+  it("개명 뒤 삭제된 매장은 스냅샷 이름 수만큼 갈라진다 — 개명 이력이 없어 되돌릴 수 없는 한계를 고정한다", () => {
+    const { list } = buildRanking([row("2026-10-01", "A"), row("2026-10-02", "A"), row("2026-10-03", "B")]);
+    expect(list.map((e) => [e.key, e.wins])).toEqual([
+      ["A", 2],
+      ["B", 1],
+    ]);
+  });
+
+  it("같은 이름으로 등록됐다 삭제된 서로 다른 매장은 이름 키로 합쳐진다 — 같은 한계의 반대 방향", () => {
+    const { list } = buildRanking([row("2026-10-01", "김밥집"), row("2026-10-02", "김밥집")]);
+    expect(list).toHaveLength(1);
+    expect(list[0].wins).toBe(2);
+  });
+
   it("null 키와 id 키는 이름이 같아도 별개 줄이다 — 같은 이름으로 새로 등록한 매장은 다른 매장이다", () => {
     const { list } = buildRanking([row("2026-10-01", "김밥집"), row("2026-10-02", "김밥집", "r9")]);
     expect(list.map((e) => e.key).sort()).toEqual(["r9", "김밥집"]);

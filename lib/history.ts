@@ -36,8 +36,10 @@ function compareStrings(a: string, b: string): number {
 
 /** 매장 기준 당첨 집계. 키는 restaurant_id ?? menu, 정렬은 wins ↓ → lastDate ↓ → key ↑ */
 // id 로만 모으면 삭제된 매장(on delete set null)의 기록이 랭킹에서 통째로 사라지고, 이름으로만 모으면 개명한 매장이
-// 두 줄로 갈라진다. 삭제는 그 매장의 모든 행을 한 번에 null 로 바꾸므로 이름 키로 다시 한 덩어리가 된다.
-// 같은 이름으로 다시 등록한 매장은 새 id 를 받아 별개 줄이 된다 — 다른 매장이 맞다.
+// 두 줄로 갈라진다. 삭제는 그 매장의 모든 행을 한 번에 null 로 바꾸므로 **개명한 적이 없는** 매장은 이름 키로 다시
+// 한 덩어리가 된다. 개명 뒤 삭제된 매장은 스냅샷 이름 수만큼 갈라지고, 같은 이름으로 등록됐다 삭제된 서로 다른 매장은
+// 합쳐진다 — 개명 이력이 데이터에 없어 읽는 쪽이 복원할 수 없는 한계이고, 기록이 통째로 사라지는 id-only 보다 낫다고
+// 판단한 것이다(07-CONTEXT D-02). 같은 이름으로 다시 등록한 매장은 새 id 를 받아 별개 줄이 된다 — 다른 매장이 맞다.
 export function buildRanking(rows: HistoryRow[]): { list: RankEntry[]; total: number } {
   const tally = new Map<string, Omit<RankEntry, "share">>();
   for (const row of rows) {
