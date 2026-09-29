@@ -407,8 +407,12 @@ Task 3 의 커밋 대상이 플랜이 나열한 15경로가 아니라 **17경로
 
 **삭제 확인(5/5):** `test -f components/MenuList.tsx` → exit **1** · `.planning/todos/pending/` 4건 부재(남은 2건만 존재).
 
-**커밋 존재(4/4):** `449a764` FOUND · `c15ade7` FOUND · `f5d6031` FOUND · `c759060` FOUND.
+**커밋 존재(5/5):** `449a764` FOUND · `c15ade7` FOUND · `f5d6031` FOUND · `c759060` FOUND · `d32850a` FOUND(SUMMARY + STATE + ROADMAP).
 
 **요구사항(6/6):** `grep -cE '^- \[x\] \*\*(CAND-0[1235]|SPIN-0[56])\*\*' .planning/REQUIREMENTS.md` → **6** · Traceability 표 6행 전부 `Complete`(`grep -cE '^\| (CAND-0[1235]|SPIN-0[56]) \|.*\| Complete \|$'` → **6**) · `| In Progress|` 빈 셀 `.planning/REQUIREMENTS.md`·`.planning/ROADMAP.md` 양쪽 **0**.
 
-**게이트(5/5):** 최종 재실행에서 `npx tsc --noEmit`·`npm run lint`·`npm test`(354/13)·`npm run build`·`npm run check:edge` 전부 exit **0**.
+**게이트(5/5):** 최종 재실행에서 `npx tsc --noEmit`·`npm run lint`·`npm test`(354/13)·`npm run build`·`npm run check:edge` 전부 exit **0**. D-22 grep 재확인 → **0**.
+
+**작업 트리:** 미추적 파일 0건. 남은 dirty 는 `.planning/config.json`·`.serena/project.yml` 둘뿐이고 **의도적으로 스테이징하지 않았다**(레포 규칙).
+
+**AI 표기:** 이 페이즈의 커밋 7개 전부 `grep -viE 'CLAUDE\.md' | grep -ciE 'co-authored-by|generated with|claude|anthropic'` → **0**.
