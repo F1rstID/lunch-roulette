@@ -45,9 +45,9 @@ export function TopBar({ active, candidateCount = 0, phase, clockTime }: Props) 
         <nav style={s.tabs}>
           <TabLink href="/" active={active === "today"}>
             오늘
-            {active === "today" && candidateCount > 0 && (
-              <span style={active === "today" ? s.countActive : s.count}>{candidateCount}</span>
-            )}
+            {/* 뱃지는 활성 탭 안에서만 그려진다 — 가드가 이미 active === "today" 라 배경색 분기는
+                도달하지 못했다. 비활성 탭에도 보일 생각이면 가드를 candidateCount > 0 만으로 푼다. */}
+            {active === "today" && candidateCount > 0 && <span style={s.countActive}>{candidateCount}</span>}
           </TabLink>
           <TabLink href="/restaurants" active={active === "restaurants"}>
             매장
@@ -148,13 +148,6 @@ const s = {
     gap: 6,
     whiteSpace: "nowrap",
     textDecoration: "none",
-  },
-  count: {
-    fontSize: 11,
-    padding: "1px 6px",
-    borderRadius: 999,
-    background: "oklch(0 0 0 / 0.06)",
-    color: "var(--ink-soft)",
   },
   countActive: {
     fontSize: 11,
