@@ -4,7 +4,11 @@
 // spin-roulette와 달리:
 // - 시간 가드 없음 (언제든 재돌림 허용)
 // - 멱등성 스킵 없음 (이미 결과가 있어도 진행)
-// - results를 upsert(onConflict: date)로 덮어쓴다
+// - 같은 날짜의 결과 행을 덮어쓴다 (날짜가 겹치면 갱신)
+// - 후보는 오늘 후보 테이블과 매장 테이블의 조인에서 읽는다 (추첨 단위가 메뉴가 아니라 매장이다)
+// - 설정 행에서 쿨다운 일수를 읽어 최근 당첨 매장을 후보에서 뺀다. 설정·쿨다운 조회가 실패해도
+//   멈추지 않고 기본값으로 진행하며, 그 사실을 서버 로그 1건과 응답의 폴백 플래그로 드러낸다
+// - 결과 행에는 당첨 매장의 이름 스냅샷과 매장 id 를 함께 쓴다 (매장이 지워져도 기록은 남는다)
 // DB 접근은 SUPABASE_SERVICE_ROLE_KEY로 service_role 권한 사용.
 //
 // 브라우저 호출이라 CORS 필수:
@@ -14,9 +18,63 @@
 // - 따라서 함수가 직접 Access-Control-* 를 내려야 하고, OPTIONS 는 본문 로직(=재추첨,
 //   멱등 아님) 을 실행하지 않도록 즉시 단락시켜야 한다. 안 그러면 프리플라이트가 respin 을
 //   실행해 결과가 중복으로 덮어써진다.
+// - 다만 그 단락은 OPTIONS 한 메서드만 거른다. 되돌릴 수 없는 쓰기를 지키는 것은 그 아래의
+//   POST 검사다 — GET·HEAD 는 프리플라이트 없이 곧장 오고(링크 미리보기 봇·주소창 입력),
+//   Allow-Methods 헤더는 브라우저의 교차 출처 요청만 제한할 뿐 비브라우저 호출을 막지 못한다.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.117.2";
+// KST 변환·난수 선택·쿨다운은 _shared/ 한 곳으로 합쳤다 (spin-roulette 와의 복붙 제거).
+// 시간 가드가 없는 함수라 추첨 시각 모듈은 끌어오지 않는다 — 파서를 쓸 자리가 없다.
+import { kstNow, pickRandom } from "../_shared/kst.ts";
+import { applyCooldown, cooldownWindowStart } from "../_shared/cooldown.ts";
+
+// lib/supabase/client.ts 의 행 타입을 그대로 쓸 수 없어(Deno 는 경로 별칭·확장자 규칙이 달라
+// lib/ 를 import 하지 못한다) 필요한 최소 구조만 여기 다시 선언한다. 한쪽이 늘면 양쪽을 함께 고친다.
+type Candidate = { restaurant_id: string; name: string };
+
+// 설정은 단일행이다 — 이 값을 정한 것은 0005 마이그레이션의 check (id = 1) 이고, 코드 쪽에는
+// 출처 없는 맨 숫자만 남아 있었다. 이름을 붙여 둬야 "왜 하필 1인가" 를 다시 묻지 않는다.
+const SETTINGS_ROW_ID = 1;
+
+// 조회 결과를 추론 타입으로 소비하지 않고 unknown 으로 받아 런타임에 좁힌다.
+// 정적 추론은 매장 임베드를 배열이라고 주장하는데 실제 응답은 객체다 — 어느 쪽이 와도 같은 결과가
+// 나오도록 한 줄로 접는다. 추론을 믿는 코드는 타입 검사를 통과하면서 매일 빈 값을 기록한다.
+// 이 가드는 경합 방어가 아니라 형태 방어다: 후보 행의 매장 id 는 외래키 + 연쇄 삭제라
+// "후보는 있는데 매장이 없는" 상태가 DB 에 존재할 수 없다. 응답 형태가 예상과 다를 때 후보 전부를
+// 잃지 않으려고 남긴 장치이므로 도달 불가 코드로 보고 지우지 말 것.
+// 형제 함수와 이름·시그니처·본문이 같다 — 두 파일을 나란히 놓고 차이를 세는 것이 리뷰 수단이다.
+// 반환 필드가 excluded 인 이유: 응답의 skipped 는 "건너뛴 사유" 라는 다른 뜻이라, 같은 이름을
+// 쓰면 한 화면 안에서 숫자와 사유 문자열이 같은 낱말로 불린다.
+function normalizeCandidates(
+  rows: unknown,
+): { picked: Candidate[]; excluded: number; excludedIds: string[] } {
+  // 배열이 아닌 응답은 "후보 0행" 이 아니라 "형태 불일치 1건" 이다. 0 을 돌려주면 호출부의 로그가
+  // 켜지지 않아, 형태 방어가 실제로 작동한 사실이 로그에도 응답에도 남지 않는다.
+  if (!Array.isArray(rows)) {
+    return { picked: [], excluded: 1, excludedIds: [`<비배열:${rows === null ? "null" : typeof rows}>`] };
+  }
+  const list: unknown[] = rows;
+  const picked: Candidate[] = [];
+  const excludedIds: string[] = [];
+  for (let index = 0; index < list.length; index++) {
+    const row: unknown = list[index];
+    // 제외 목록에는 건수가 아니라 "어느 매장" 을 싣는다 — 조인이 깨졌을 때 후보 화면과 대조할
+    // 좌표가 된다. id 조차 읽을 수 없는 행은 담은 순서의 인덱스로 부른다.
+    const id: unknown = typeof row === "object" && row !== null && "restaurant_id" in row
+      ? row.restaurant_id
+      : null;
+    const label = typeof id === "string" ? id : `#${index}`;
+    if (typeof row !== "object" || row === null) { excludedIds.push(label); continue; }
+    if (!("restaurant_id" in row) || !("restaurants" in row)) { excludedIds.push(label); continue; }
+    const embed: unknown = row.restaurants;
+    const one: unknown = Array.isArray(embed) ? embed[0] : embed;
+    if (typeof one !== "object" || one === null || !("name" in one)) { excludedIds.push(label); continue; }
+    if (typeof row.restaurant_id !== "string" || typeof one.name !== "string") { excludedIds.push(label); continue; }
+    picked.push({ restaurant_id: row.restaurant_id, name: one.name }); // 담은 순서를 유지한다
+  }
+  return { picked, excluded: excludedIds.length, excludedIds };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,83 +90,143 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-type KstParts = { date: string; hour: number; minute: number; second: number };
-
-function kstNow(): KstParts {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const date = `${get("year")}-${get("month")}-${get("day")}`;
-  const hour = Number(get("hour")) % 24;
-  const minute = Number(get("minute"));
-  const second = Number(get("second"));
-  return { date, hour, minute, second };
-}
-
-function pickRandom<T>(arr: T[]): T {
-  const u = new Uint32Array(1);
-  crypto.getRandomValues(u);
-  return arr[u[0] % arr.length];
-}
-
 Deno.serve(async (req) => {
-  // CORS 프리플라이트: 재추첨 로직을 실행하지 않고 즉시 응답한다.
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  try {
+    // CORS 프리플라이트: 재추첨 로직을 실행하지 않고 즉시 응답한다.
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: corsHeaders });
+    }
 
-  const now = kstNow();
+    // 되돌릴 수 없는 쓰기는 POST 로만 받는다. 이 검사가 없으면 함수 URL 한 줄이 곧 실행이다 —
+    // GET 은 프리플라이트가 없어 링크 미리보기 봇·주소창 입력만으로 본문이 돌고(HEAD 도 같다),
+    // 그때마다 오늘 결과가 덮어써져 모든 탭의 휠이 다시 돈다.
+    if (req.method !== "POST") {
+      return json({ error: "method_not_allowed" }, 405);
+    }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+    const now = kstNow();
 
-  // 오늘 후보 조회 (menus는 자정 전까지 그대로 유지됨)
-  const { data: menus, error: menuErr } = await supabase
-    .from("menus")
-    .select("id, name")
-    .order("created_at", { ascending: true });
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-  if (menuErr) {
-    return json({ error: menuErr.message }, 500);
-  }
+    let cooldownDays = 0;
+    let settingsFallback = false; // 설정을 못 읽어 기본값으로 갔다
+    let cooldownSkipped = false; // 쿨다운 창 조회가 실패해 필터를 건너뛰었다
+    let cooldownFallback = false; // 필터 결과가 0개라 전체 후보로 되돌렸다
 
-  if (!menus || menus.length === 0) {
-    return json({ skipped: "no_candidates", date: now.date });
-  }
+    // 조회 열 목록을 형제 함수와 같게 둔다 — Phase 8 낭독에서 두 파일을 나란히 비교하기 위해서다.
+    // 추첨 시각 값은 읽어 오되 쓰지 않는다: 이 함수에는 시간 가드가 없어 파서를 끌어올 자리가 없다.
+    // 그래서 이 파일의 설정 폴백 플래그는 조회 실패에서만 오른다 (형제 쪽은 값 파싱 실패에서도 오른다).
+    const { data: settingsRow, error: settingsErr } = await supabase
+      .from("settings")
+      .select("spin_time, cooldown_days")
+      .eq("id", SETTINGS_ROW_ID)
+      .maybeSingle();
 
-  const winner = pickRandom(menus);
-  const candidates = menus.map((m) => ({ name: m.name }));
+    if (settingsErr) {
+      console.error(`설정 조회 실패(기본값으로 진행): ${settingsErr.message}`);
+      settingsFallback = true;
+    } else if (settingsRow) {
+      // 여기 들어오지 못한 경우(행이 null)는 0행(아직 시드 안 됨)이고 에러가 아니다 — 플래그도 올리지 않는다.
+      // 정수·양수 좁히기는 쿨다운 모듈이 흡수한다. 여기서 한 번 더 좁히면 판정처가 둘이 된다.
+      cooldownDays = Number(settingsRow.cooldown_days);
+    }
 
-  // 멱등성 없이 덮어쓰기: 같은 date row가 있으면 갱신
-  const { error: upErr } = await supabase.from("results").upsert(
-    {
+    // 오늘 후보 조회. 정렬 옵션을 주지 않으면 부모(후보 행) 정렬이다 — 임베드 정렬이 아니다.
+    const { data: rows, error: candErr } = await supabase
+      .from("candidates")
+      .select("restaurant_id, created_at, restaurants ( id, name )")
+      .order("created_at", { ascending: true });
+
+    if (candErr) {
+      console.error(`후보 조회 실패: ${candErr.message}`);
+      // 응답에는 message 만 싣는다. 상세·힌트를 실으면 스키마가 호출자 쪽으로 샌다.
+      // 이 본문은 배너를 통해 익명 사용자에게 그대로 보인다 — 실을 값을 고르는 자리다.
+      return json({ error: candErr.message }, 500);
+    }
+
+    const { picked: candidates, excluded, excludedIds } = normalizeCandidates(rows);
+    if (excluded > 0) {
+      console.error(`후보 ${excluded}건을 매장 조인 형태 불일치로 제외했다: ${excludedIds.join(", ")}`);
+    }
+
+    // 후보가 없으면 결과 행을 건드리지 않는다. 이 검사가 쿨다운보다 앞이라야 아래의 난수 선택이
+    // 빈 배열을 받는 경로가 구조적으로 생기지 않는다.
+    // 이 문자열은 클라이언트가 "후보가 없어요" 로 번역한다 — 바꾸면 화면 문구가 코드값으로 새어 나온다.
+    // 제외 건수를 함께 싣는다 — 이게 없으면 "후보 테이블이 비었다" 와 "조인이 깨져 전부 떨어졌다" 가
+    // 응답에서 바이트 단위로 같아져, 화면에 후보가 보이는데도 배너만 "후보가 없어요" 로 끝난다.
+    if (candidates.length === 0) {
+      return json({ skipped: "no_candidates", date: now.date, excluded_count: excluded });
+    }
+
+    let pool = candidates;
+    const windowStart = cooldownWindowStart(now.date, cooldownDays);
+    // 창이 없으면(쿨다운 0 = 기본 설정) 조회 자체를 하지 않는다 — 전환 전과 같은 쿼리 수를 유지한다.
+    if (windowStart !== null) {
+      const { data: recent, error: recentErr } = await supabase
+        .from("results")
+        .select("restaurant_id")
+        .gte("date", windowStart)
+        .lt("date", now.date);
+
+      if (recentErr) {
+        console.error(`쿨다운 창 조회 실패(미적용 진행): ${recentErr.message}`);
+        cooldownSkipped = true;
+      } else {
+        // 빈 값을 미리 거르지 않는다 — 전환 이전 레거시 행을 무시하는 분기가 쿨다운 모듈 안에 있고,
+        // 여기서 걸러 버리면 그 분기가 영원히 죽어 계약이 한쪽에서만 유지된다.
+        const ids: (string | null)[] = (recent ?? []).map((r) =>
+          typeof r.restaurant_id === "string" ? r.restaurant_id : null
+        );
+        const filtered = applyCooldown(candidates, ids);
+        pool = filtered.picked;
+        cooldownFallback = filtered.fellBack;
+      }
+    }
+
+    // pool 이 비어 있지 않다는 전제는 코드 배치가 보장한다: 후보 0개 검사가 위에 있고, 쿨다운 조회
+    // 실패 경로는 후보 전체를 그대로 쓰며, 쿨다운 모듈은 전멸 시 전체를 되돌린다. 순서를 바꾸면 깨진다.
+    const winner = pickRandom(pool);
+    // 스냅샷은 쿨다운 적용 전 후보 전체를 담은 순서 그대로 남긴다.
+    const snapshot = candidates.map((c) => ({ name: c.name, restaurant_id: c.restaurant_id }));
+
+    // 멱등성 없이 덮어쓰기: 같은 날짜 행이 있으면 갱신한다. 되돌릴 수 없는 쓰기라 위의 POST 검사가
+    // 무결성 장치다 — 프리플라이트 단락은 OPTIONS 한 메서드만 거르므로 그것만으로는 부족하다.
+    const { error: upErr } = await supabase.from("results").upsert(
+      {
+        date: now.date,
+        menu: winner.name,
+        restaurant_id: winner.restaurant_id,
+        candidates: snapshot,
+        spun_at: new Date().toISOString(),
+      },
+      { onConflict: "date" },
+    );
+
+    if (upErr) {
+      console.error(`결과 덮어쓰기 실패: ${upErr.message}`);
+      return json({ error: upErr.message }, 500);
+    }
+
+    return json({
+      ok: true,
       date: now.date,
       menu: winner.name,
-      candidates,
-      spun_at: new Date().toISOString(),
-    },
-    { onConflict: "date" },
-  );
-
-  if (upErr) {
-    return json({ error: upErr.message }, 500);
+      restaurant_id: winner.restaurant_id,
+      candidate_count: candidates.length, // 쿨다운 적용 전
+      picked_count: pool.length, // 쿨다운 적용 후
+      excluded_count: excluded, // 조인 형태 불일치로 버린 행. 폴백 플래그와 같은 독법 — 0 이 정상
+      cooldown_fallback: cooldownFallback,
+      cooldown_skipped: cooldownSkipped,
+      settings_fallback: settingsFallback,
+    });
+  } catch (e) {
+    // 던져진 예외는 반환이 아니라서 json() 을 지나지 않는다 — 런타임 기본 500 에는 CORS 헤더가
+    // 없어 브라우저가 본문을 차단하고, 그러면 클라이언트는 FunctionsFetchError 만 받아 실패
+    // 사유를 읽는 경로가 통째로 죽는다. "모든 반환이 json() 을 지난다" 는 return 에만 참이었다.
+    console.error(`처리되지 않은 예외: ${e instanceof Error ? e.message : String(e)}`);
+    return json({ error: "internal_error" }, 500);
   }
-
-  return json({
-    ok: true,
-    date: now.date,
-    menu: winner.name,
-    candidate_count: menus.length,
-  });
 });
