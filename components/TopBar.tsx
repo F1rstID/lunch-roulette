@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { Phase } from "@/lib/phase";
 
-type Tab = "today" | "log" | "rank";
+type Tab = "today" | "restaurants" | "log" | "rank";
 
 type Props = {
   active: Tab;
@@ -48,6 +48,9 @@ export function TopBar({ active, candidateCount = 0, phase, clockTime }: Props) 
             {active === "today" && candidateCount > 0 && (
               <span style={active === "today" ? s.countActive : s.count}>{candidateCount}</span>
             )}
+          </TabLink>
+          <TabLink href="/restaurants" active={active === "restaurants"}>
+            매장
           </TabLink>
           <TabLink href="/log" active={active === "log"}>
             기록
