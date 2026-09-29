@@ -40,6 +40,7 @@
 - ✓ 오늘 탭이 `candidates`⋈`restaurants` 로 후보를 읽는다: `lib/useCandidates.ts`(INSERT/DELETE 2분기) + `lib/useRestaurants.ts` 두 훅 + `lib/candidates.ts` 순수 조인(3단 정렬 candidates.created_at → restaurants.created_at → id, todo wr-02)·이름 필터(NFC·소문자)·`findWinnerIndex`(id 만)·`isNewSpin`(spun_at 동일 → 휠 안 돎, todo in-06). `components/CandidateList.tsx` 단일 목록 토글(담긴 매장이 휠 순서로 위 + 배지, 안 담긴 매장 흐리게, 필터·잠금·행 단위 busy). 결과는 이름 스냅샷 + 현재 카탈로그의 메뉴 칩·위치 링크(`MenuChips`·`LocationLink` 공유). `MenuList`·`MenuRow`·`PinnedMenuRow` 삭제 — Phase 6 (CAND-01·02·03·05, SPIN-05). **미배포**(Phase 8), 컷오버 전 라이브에선 배너 3개 + 빈 휠·목록이 정상
 - ✓ 화면의 `11:55` 리터럴 0곳: `formatSpinTime(settings.spinTime)` 을 `Wheel`·`ResultBlock`·`PhaseTimeline`(결과 단계 = 추첨 시각 + 5분, 24h 순환)·`CandidateList`·헤드라인 문구에 prop 으로, `app/layout.tsx` description 은 시각 제거. `displayPhase(phase, settings.loaded)` 로 설정 로드 전 `stalled` 라벨 깜빡임 제거(4 페이지, todo in-02) — Phase 6 (SPIN-06)
 - ✓ 목록 리듀서 일반화 `lib/rowset.ts`(`createRowSetReducer(keyOf)`, pending 버퍼·UPDATE upsert·`fetched` error 우선) 를 `restaurants`·`candidates` 가 공유, `settings`·훅 3개의 조회 판정도 리듀서로(todo in-03), `parseMenuInput`·`truncateToCodePoints` → `lib/menus.ts`(단방향 예외 해소). 리뷰 CR-01: results 토픽을 구독 effect 안에서 매겨 자정 `todayKey` 재구독이 죽지 않게. 페이즈 마감 시 361 tests / 13 files — Phase 6
+- ✓ 기록·랭킹이 `settings.history_since` 이후(당일 포함) 결과만 매장 기준으로: `lib/history.ts`(`filterSince` · `buildRanking` 키 `restaurant_id ?? menu`, 이름은 최근 스냅샷 · `buildMonthGrid`) spec 22건(리뷰 WR-03 경계 2건 포함), `RankingView`·`CalendarLog` 는 호출만. 랭킹 조회는 설정 로드 뒤 `.gte("date", min(history_since, 오늘))` + 컬럼 4개, 기록은 월 창 + 필터. 토픽 `results-log/rank-<n>`. `formatHhMm` 삭제, todo in-05 는 컷오버 절차 8번(`history_since + 1`)으로. 페이즈 마감 시 380 tests / 14 files — Phase 7 (HIST-01·02). 컷오버 전 라이브에선 기록은 전체 기간 표시(현행과 동일), 랭킹은 `results.restaurant_id` 부재로 42703 배너(0005 적용 뒤 동작)
 
 ### Active
 
@@ -48,7 +49,7 @@
 - [x] 별도 "매장" 탭에서 익명 누구나 등록·수정·삭제·핀 토글 — Phase 5 완료
 - [x] 오늘 후보(`candidates`)는 카탈로그 목록에서 토글로 담고 뺌. 이름 필터. 핀 매장은 자정에 자동 후보 — Phase 6 완료(자정 재시드는 0005 cron)
 - [x] 룰렛은 매장을 뽑는다. 결과 아래 그 매장의 메뉴 목록을 참고로 표시 — 서버 Phase 4, 화면 Phase 6 완료(이름은 스냅샷, 메뉴·위치는 현재 카탈로그)
-- [ ] 기록·랭킹은 매장 기준. 집계는 **전환일 이후** 결과만. 과거 60행은 보존
+- [x] 기록·랭킹은 매장 기준. 집계는 **전환일 이후** 결과만. 과거 60행은 보존 — Phase 7 완료(집계 키 `restaurant_id ?? menu`, 필터 정의처 `filterSince` 하나)
 
 **설정 테이블**
 - [x] 추첨 cron을 매분 폴링으로 바꾸고 함수가 `spin_time`을 읽어 판정 — cron 은 0005(Phase 2), 함수 판정은 Phase 4, 화면 문구는 Phase 6 완료. 남은 `11:55` 는 `_shared/spinTime.ts` 기본값 정의처와 DB 기본값(0002·0005)뿐(유지)
@@ -137,6 +138,10 @@
 | 추첨 시각 문구는 전부 `spinTimeText` prop(기본값 없음), `layout.tsx` metadata 는 시각 제거, `stalled` 수동 돌리기 버튼 없음 | 기본값을 두면 시각이 다시 컴포넌트에 숨음. 정적 metadata 는 설정을 따를 수 없음. 서버가 매분 폴링하므로 버튼 불필요 | ✓ Good (Phase 6 D-19~D-22) |
 | Realtime 토픽은 마운트당이 아니라 **구독마다** 새로 매긴다(`results-<n>` 을 effect 안에서 `++topicSeq`) | 리뷰 실측: 같은 인스턴스가 `todayKey` 로 재구독할 때 토픽이 같으면 realtime-js 가 leave 중인 채널을 돌려주고 join 을 건너뜀 → 밤새 연 탭이 다음 날 결과를 못 받음(구 코드부터 있던 버그) | ✓ Good (Phase 6 리뷰 CR-01) |
 | 재연결 후 재조회(구독 확정 전 창) 는 미해결 — todo in-07, 컷오버 전 결정 | `rowset` 중복 응답 가드(D-04)를 바꿔야 하는 설계 항목이라 리뷰 fixer 스코프 밖 | — Pending (Phase 6 리뷰 WR-02) |
+| 기록·랭킹 집계 키 = `restaurant_id ?? menu`, 표시 이름 = 최근 당첨일 스냅샷 | id 로만 모으면 삭제된 매장(set null)의 기록이 사라지고, 이름으로만 모으면 개명이 두 줄로 갈라짐. 삭제는 전 행을 한 번에 null 로 바꾸므로 이름 키로 다시 한 덩어리 | ✓ Good (Phase 7 D-02) |
+| 전환일 필터 정의처는 `filterSince` 하나, 랭킹 조회 경계는 `min(history_since, 오늘)` | 조회 경계는 대역폭이고 정의는 필터. 전환일이 오늘보다 뒤인 하루(컷오버 절차 8번)에 오늘 행이 빠지면 상단 라벨이 틀림 | ✓ Good (Phase 7 D-01·D-06) |
+| 전환일 당일 legacy 행은 읽는 쪽이 아니라 컷오버 SQL 한 줄(`history_since + 1`)로 뺀다 | "당일 + id null 제외" 규칙은 그날 당첨 매장이 나중에 삭제되면 정당한 행까지 지움 | ✓ Good (Phase 7 D-09, todo in-05 종결) |
+| Phase 7 은 직접 실행 레인: CONTEXT·플랜 1개 직접, 실행·수정 직접, 에이전트는 리뷰(fable) 1회 | 사용자 2026-09-29 "볼륨 대비 시간 과다". Phase 6 빠른 레인 2.5h 중 에이전트 대기 ~1.5h. 리뷰는 두 페이즈 연속 실제 Critical 을 잡아 유지 | ✓ Good (Phase 7 실측 ~50m) |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
 ## Evolution
@@ -157,4 +162,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-29 after Phase 6 (오늘 탭) completion*
+*Last updated: 2026-09-29 after Phase 7 (기록·랭킹) completion*
