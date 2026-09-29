@@ -11,8 +11,8 @@
 **Files:**
 - 컴포넌트 파일은 PascalCase, **파일명 = export 하는 컴포넌트명**: `components/Wheel.tsx` → `Wheel`, `components/CalendarLog.tsx` → `CalendarLog`. 예외 없음(7개 파일 전부).
 - `lib/` 모듈은 소문자 단수 명사: `lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`, `lib/settings.ts`, `lib/supabase/client.ts`.
-- **예외 1곳: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅). 같은 도메인의 순수 모듈(`lib/settings.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
-- 페이지는 App Router 규약대로 `app/page.tsx`, `app/log/page.tsx`, `app/rank/page.tsx`.
+- **예외 1종: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅), `lib/useRestaurants.ts`(Phase 5). 같은 도메인의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
+- 페이지는 App Router 규약대로 `app/page.tsx`, `app/restaurants/page.tsx`, `app/log/page.tsx`, `app/rank/page.tsx`.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql` (4자리 zero-pad + snake_case 영문 설명): `0001_init.sql`, `0002_cron.sql`, `0003_reseed_menus.sql`, `0004_pinned_menus.sql`.
 - Edge Function은 kebab-case 디렉터리 + `index.ts`: `supabase/functions/spin-roulette/index.ts`, `supabase/functions/respin-roulette/index.ts`.
 
@@ -23,7 +23,7 @@
 - 로컬 축약 헬퍼 허용: `pad2`, `fmtDate` (`components/CalendarLog.tsx:10,13`).
 
 **Variables:**
-- camelCase. 모듈 스코프 상수는 SCREAMING_SNAKE_CASE: `SPIN_ANIM_SEC`(`lib/phase.ts:18`), `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`(`supabase/functions/_shared/spinTime.ts:9-11` — 추첨 시각의 코드상 정의처), `DEFAULT_SETTINGS`/`INITIAL_SETTINGS_STATE`(`lib/settings.ts:28,42`), `SPIN_TURNS`/`SPIN_MS`/`SPIN_EASING`(`components/Wheel.tsx:19-21`), `MENU_NAME_MAX_LEN`(`lib/supabase/client.ts:13`), `INPUT_MAX_LEN`(`components/MenuList.tsx:26`), `SLICE_COLORS`(`lib/colors.ts:2`), `KST_TZ`(`lib/time.ts:4`), `WEEKDAYS`/`STEPS`.
+- camelCase. 모듈 스코프 상수는 SCREAMING_SNAKE_CASE: `SPIN_ANIM_SEC`(`lib/phase.ts:18`), `DEFAULT_SPIN_TIME`/`DEFAULT_SPIN_TIME_TEXT`(`supabase/functions/_shared/spinTime.ts:9-11` — 추첨 시각의 코드상 정의처), `DEFAULT_SETTINGS`/`INITIAL_SETTINGS_STATE`(`lib/settings.ts:28,42`), `SPIN_TURNS`/`SPIN_MS`/`SPIN_EASING`(`components/Wheel.tsx:19-21`), `MENU_NAME_MAX_LEN`/`RESTAURANT_MENUS_MAX`/`RESTAURANT_LOCATION_MAX_LEN`(`lib/constants.ts` — Phase 1 이 `lib/supabase/client.ts` 에서 옮겼다), `INPUT_MAX_LEN`(`components/MenuList.tsx:32`), `MENUS_INPUT_MAX_LEN`/`MENU_CHIP_LIMIT`(`components/RestaurantList.tsx:23,27`), `SLICE_COLORS`(`lib/colors.ts:2`), `KST_TZ`(`lib/time.ts:4`), `WEEKDAYS`/`STEPS`.
 - ref는 `~Ref` 접미어: `initialLoadedRef`(`app/page.tsx:35`), `inputRef`(`components/MenuList.tsx:45`).
 - DB 컬럼에서 온 값은 snake_case를 그대로 쓴다(변환하지 않음): `created_at`, `spun_at`, `candidate_count`.
 
@@ -32,7 +32,7 @@
 - DB 행 타입은 `~Row` 접미어: `MenuRow`, `ResultRow`, `PinnedMenuRow` (`lib/supabase/client.ts:15,21,30`).
 - 컴포넌트 props 타입은 파일 내부에서 `type Props = {...}` 로 고정 명명하고 export 하지 않는다(`components/MenuList.tsx:10`, `components/TopBar.tsx:9`, `components/Wheel.tsx:11`, `components/PhaseTimeline.tsx:6`, `components/ResultBlock.tsx:6`, `components/CalendarLog.tsx:43`).
 - props가 1~2개로 단순하면 타입 선언 없이 인라인으로 쓴다: `export function RankingView({ results }: { results: ResultRow[] })` (`components/RankingView.tsx:28`).
-- 상태 유니온은 리터럴 유니온 타입: `Phase = "accepting" | "spinning" | "decided" | "stalled"`(`lib/phase.ts:16`), `WheelPhase = "idle" | "spinning" | "decided"`(`components/Wheel.tsx:7`), `Tab = "today" | "log" | "rank"`(`components/TopBar.tsx:7`).
+- 상태 유니온은 리터럴 유니온 타입: `Phase = "accepting" | "spinning" | "decided" | "stalled"`(`lib/phase.ts:16`), `WheelPhase = "idle" | "spinning" | "decided"`(`components/Wheel.tsx:7`), `Tab = "today" | "restaurants" | "log" | "rank"`(`components/TopBar.tsx:7` — 나열 순서가 탭 표시 순서다).
 
 ## Code Style
 
@@ -104,7 +104,7 @@
 ## Component Conventions
 
 **Client/Server 경계:**
-- `app/layout.tsx`가 **유일한 서버 컴포넌트**다(`"use client"` 없음, `metadata` export). 나머지 페이지 3개와 컴포넌트 7개는 전부 `"use client"`.
+- `app/layout.tsx`가 **유일한 서버 컴포넌트**다(`"use client"` 없음, `metadata` export). 나머지 페이지 4개와 컴포넌트 9개는 전부 `"use client"`.
 - Route Handler(`app/api/`), Server Action(`"use server"`), 서버 컴포넌트 데이터 페칭 **전부 없다.** 데이터 접근은 클라이언트 컴포넌트 안에서 supabase-js를 직접 호출한다.
 - 쓰기 권한이 필요한 로직(= `results` 테이블 쓰기)은 Edge Function으로 보낸다. `results`는 RLS상 service_role만 쓸 수 있다(`supabase/migrations/0001_init.sql:29-31`).
 
@@ -134,7 +134,7 @@
 - 콜백 타입은 동기/비동기 양쪽을 허용하게 선언한다: `(names: string[]) => boolean | Promise<boolean>`, `(id: string, name: string) => void | Promise<void>`.
 
 **메모이제이션:**
-- 3개 페이지 전부 1초 `setInterval`로 `now`를 갱신해 리렌더한다(`app/page.tsx:19-22`, `app/log/page.tsx:13-16`, `app/rank/page.tsx:13-16`). **매초 전체 리렌더가 일어나므로 비싼 파생 계산은 `useMemo`로 감싼다** — `winnerIndex`(`app/page.tsx:127-130`), `logMap`(`app/log/page.tsx:77-81`), `buildRanking`(`components/RankingView.tsx:29`).
+- 4개 페이지 전부 1초 `setInterval`로 `now`를 갱신해 리렌더한다(`app/page.tsx:27`, `app/restaurants/page.tsx:18`, `app/log/page.tsx:17`, `app/rank/page.tsx:17`). **매초 전체 리렌더가 일어나므로 비싼 파생 계산은 `useMemo`로 감싼다** — `winnerIndex`(`app/page.tsx:152`), `logMap`(`app/log/page.tsx:93`), `buildRanking`(`components/RankingView.tsx:29`), `sortRestaurants`(`app/restaurants/page.tsx`).
 - 반대로 **핸들러는 `useCallback`으로 감싸지 않는다.** 소비자가 memo 컴포넌트가 아니라 이득이 없고, React Compiler lint가 async 핸들러의 수동 memo를 막는다. 근거가 `app/page.tsx:142-144`에 주석으로 남아 있다.
 - `React.memo` 사용 0건.
 
@@ -161,7 +161,7 @@
   }, [dep]);
   ```
   (`app/page.tsx:37-55`, `app/log/page.tsx:30-49`, `app/rank/page.tsx:21-33`). 병렬 쿼리는 `Promise.all`로 묶는다(`app/page.tsx:41-45`).
-- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 페이지 채널 3개(`"lunch-realtime"`, `"log-results"`, `"rank-results"`)는 이름으로, 공용 훅(`useSettings`)은 `settings-changes-<n>` 카운터로. 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다.
+- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 페이지 채널 3개(`"lunch-realtime"`, `"log-results"`, `"rank-results"`)는 이름으로, 공용 훅 2개는 카운터로(`lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`). 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다.
 - Realtime payload는 제네릭이라 **행 타입으로 단언한다**: `payload.new as ResultRow`. DELETE는 부분 행만 오므로 `payload.old as Partial<MenuRow>`로 받고 키 존재를 확인한 뒤 쓴다(`app/page.tsx:84-85,110-111`).
 - 상태 갱신은 항상 함수형 업데이터 + 멱등 처리. INSERT 이벤트는 중복 삽입을 막는다: `prev.some((m) => m.id === row.id) ? prev : [...prev, row]` (`app/page.tsx:75-77`, `app/log/page.tsx:60`).
 - **낙관적 업데이트를 하지 않는다.** 쓰기는 supabase에 보내고, 화면 갱신은 realtime 이벤트가 돌아올 때 일어난다. 근거 주석: `app/page.tsx:172-173`.

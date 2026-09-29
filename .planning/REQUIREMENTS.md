@@ -9,12 +9,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### 매장 카탈로그 (CATL)
 
-- [ ] **CATL-01**: 사용자는 "매장" 탭에서 이름(필수, 1~24자)·메뉴 목록(선택)·위치(선택, 한 줄 텍스트, URL이면 링크로 표시)를 입력해 매장을 등록할 수 있다
-- [ ] **CATL-02**: 사용자는 등록된 매장의 이름·메뉴·위치를 수정할 수 있다
-- [ ] **CATL-03**: 사용자는 매장을 삭제할 수 있다. 삭제해도 과거 결과의 매장명 표시는 남는다
-- [ ] **CATL-04**: 사용자는 매장을 핀/해제할 수 있고, 핀 매장은 매일 자정 자동으로 오늘 후보에 담긴다
-- [ ] **CATL-05**: 매장 등록·수정·삭제·핀 변경이 모든 접속자 화면에 Realtime으로 반영된다
-- [ ] **CATL-06**: 메뉴 목록은 쉼표 구분 입력으로 여러 개를 한 번에 넣을 수 있다 (기존 `parseMenuInput` 재활용)
+- [x] **CATL-01**: 사용자는 "매장" 탭에서 이름(필수, 1~24자)·메뉴 목록(선택)·위치(선택, 한 줄 텍스트, URL이면 링크로 표시)를 입력해 매장을 등록할 수 있다
+- [x] **CATL-02**: 사용자는 등록된 매장의 이름·메뉴·위치를 수정할 수 있다
+- [x] **CATL-03**: 사용자는 매장을 삭제할 수 있다. 삭제해도 과거 결과의 매장명 표시는 남는다
+- [x] **CATL-04**: 사용자는 매장을 핀/해제할 수 있고, 핀 매장은 매일 자정 자동으로 오늘 후보에 담긴다
+- [x] **CATL-05**: 매장 등록·수정·삭제·핀 변경이 모든 접속자 화면에 Realtime으로 반영된다
+- [x] **CATL-06**: 메뉴 목록은 쉼표 구분 입력으로 여러 개를 한 번에 넣을 수 있다 (기존 `parseMenuInput` 재활용)
 - [x] **CATL-07**: 같은 이름의 매장은 중복 등록되지 않는다 (DB unique)
 
 ### 오늘 후보 (CAND)
@@ -96,12 +96,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CATL-01 | Phase 5 — 매장 탭 | Pending |
-| CATL-02 | Phase 5 — 매장 탭 | Pending |
-| CATL-03 | Phase 5 — 매장 탭 | Pending |
-| CATL-04 | Phase 5 — 매장 탭 | Pending |
-| CATL-05 | Phase 5 — 매장 탭 | Pending |
-| CATL-06 | Phase 5 — 매장 탭 | Pending |
+| CATL-01 | Phase 5 — 매장 탭 | Complete |
+| CATL-02 | Phase 5 — 매장 탭 | Complete |
+| CATL-03 | Phase 5 — 매장 탭 | Complete |
+| CATL-04 | Phase 5 — 매장 탭 | Complete |
+| CATL-05 | Phase 5 — 매장 탭 | Complete |
+| CATL-06 | Phase 5 — 매장 탭 | Complete |
 | CATL-07 | Phase 2 — 데이터 모델 | Complete |
 | CAND-01 | Phase 6 — 오늘 탭 | Pending |
 | CAND-02 | Phase 6 — 오늘 탭 | Pending |

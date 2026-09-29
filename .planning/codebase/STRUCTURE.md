@@ -11,20 +11,29 @@ lunch_roulette/
 │   ├── page.tsx              # "/" 오늘 탭 — 앱의 중심 (464줄)
 │   ├── globals.css           # 디자인 토큰 + 전역 유틸 클래스 + Tailwind @source
 │   ├── favicon.ico
+│   ├── restaurants/page.tsx  # "/restaurants" 매장 탭 — 카탈로그 CRUD + 핀
 │   ├── log/page.tsx          # "/log" 캘린더 기록
 │   └── rank/page.tsx         # "/rank" 랭킹
 ├── components/               # 프레젠테이션 컴포넌트 (평면 구조, 하위 폴더 없음)
 │   ├── TopBar.tsx            # 탭 내비 + 페이즈 뱃지 + 시계
+│   ├── ErrorBanner.tsx       # role="alert" 에러 배너 (message null 이면 렌더 0)
+│   ├── RestaurantList.tsx    # 매장 카드 — 등록 폼·인라인 편집·핀·2단계 삭제 확인
 │   ├── PhaseTimeline.tsx     # 모집→룰렛→결과→리셋 진행 표시
 │   ├── Wheel.tsx             # 룰렛 SVG + 회전
 │   ├── MenuList.tsx          # 후보 입력/목록/핀 토글
 │   ├── ResultBlock.tsx       # 페이즈별 결과 배너
 │   ├── CalendarLog.tsx       # 월 격자 달력
 │   └── RankingView.tsx       # 포디움 + 순위표
-├── lib/                      # 도메인 헬퍼 (순수 함수 + 싱글턴)
+├── lib/                      # 도메인 헬퍼 (순수 함수 + 싱글턴 + 공용 훅)
 │   ├── time.ts               # KST 변환 전부
 │   ├── phase.ts              # 시각 → 페이즈
 │   ├── colors.ts             # 룰렛 슬라이스 팔레트
+│   ├── constants.ts          # 환경변수 없이 import 되는 순수 상수 (길이 상한 3개)
+│   ├── errors.ts             # 읽기·쓰기·함수 실패 → 한 줄 한국어 문장 (순수)
+│   ├── settings.ts           # settings 행 → 앱 도메인 + Realtime 리듀서 (순수)
+│   ├── useSettings.ts        # 그 리듀서에 I/O 를 붙인 훅 (추첨 시각·쿨다운 단일 출처)
+│   ├── restaurants.ts        # 매장 폼 검증·링크 판정·정렬·Realtime 리듀서 (순수)
+│   ├── useRestaurants.ts     # 매장 목록 SELECT 1회 + 3분기 구독 (읽기 전용 훅)
 │   └── supabase/client.ts    # supabase 싱글턴 + DB row 타입 정의처
 ├── supabase/                 # 서버 측 (tsconfig/eslint에서 제외됨)
 │   ├── config.toml           # CLI 설정. verify_jwt=false 고정
@@ -65,8 +74,9 @@ lunch_roulette/
 **`lib/`:**
 - Purpose: 타임존·페이즈·색·DB 접점의 단일 정의처
 - Contains: 소문자 `.ts` 파일. `"use client"`는 `lib/supabase/client.ts`에만
-- Key files: `lib/time.ts`(모든 KST 변환), `lib/supabase/client.ts`(`MenuRow`/`ResultRow`/`PinnedMenuRow`/`MENU_NAME_MAX_LEN`)
+- Key files: `lib/time.ts`(모든 KST 변환), `lib/supabase/client.ts`(`MenuRow`/`ResultRow`/`PinnedMenuRow`/`RestaurantRow`/`CandidateRow`/`SettingsRow`), `lib/constants.ts`(길이 상한 — `MENU_NAME_MAX_LEN` 은 Phase 1 에서 여기로 옮겨졌다)
 - 규칙: `lib/`는 `app/`·`components/`를 import하지 않는다 (단방향)
+- **예외 1곳:** `lib/restaurants.ts`가 `components/MenuList.tsx`의 `parseMenuInput`을 import한다. 쉼표 파싱을 두 벌로 만들지 않으려는 의도적 예외(CATL-06, Phase 5 D-13)이고 근거는 그 파일 머리 주석에 있다. **후속 조건:** Phase 6이 `MenuList`를 지울 때 `parseMenuInput`·`truncateToCodePoints`를 `lib/`로 옮겨야 예외가 사라진다
 
 **`supabase/migrations/`:**
 - Purpose: 스키마 + RLS + pg_cron 잡 정의
@@ -89,6 +99,7 @@ lunch_roulette/
 **Entry Points:**
 - `app/layout.tsx`: 루트 레이아웃, metadata, `globals.css` 로드
 - `app/page.tsx`: `/` 오늘 탭
+- `app/restaurants/page.tsx`: `/restaurants` 매장 탭 (카탈로그 CRUD + 핀, 쓰기 4종이 여기 산다)
 - `app/log/page.tsx`: `/log` 기록 탭
 - `app/rank/page.tsx`: `/rank` 랭킹 탭
 - `supabase/functions/spin-roulette/index.ts`: cron이 호출하는 추첨
@@ -109,6 +120,8 @@ lunch_roulette/
 - `lib/phase.ts`: `currentPhase`, `Phase` 타입, `SPIN_HH/SPIN_MM` 상수
 - `app/page.tsx:37-125`: 초기 로드 + realtime 구독 (6개 `postgres_changes` 핸들러)
 - `app/page.tsx:147-209`: 쓰기 핸들러 `addMenus`/`removeMenu`/`togglePin`/`respin`
+- `lib/restaurants.ts`: `parseRestaurantForm`·`joinMenus`·`parseLocationLink`·`sortRestaurants`·`restaurantsReducer` (매장 도메인의 모든 판단, 순수)
+- `lib/useRestaurants.ts`: 매장 목록 SELECT 1회 + `restaurants-<n>` 토픽 3분기 구독 (판단 0, 읽기 전용)
 - `components/MenuList.tsx:31`: `parseMenuInput` (쉼표 다중 등록 파싱, 순수 함수)
 - `components/RankingView.tsx:13`: `buildRanking` (집계, 순수 함수)
 - `components/CalendarLog.tsx:17`: `buildMonthGrid` (42칸 달력 격자, 순수 함수)
@@ -154,8 +167,9 @@ lunch_roulette/
 
 **새 탭/라우트:**
 - 페이지: `app/<route>/page.tsx` — `"use client"` + default export
-- `TopBar`에 탭 추가: `components/TopBar.tsx`의 `Tab` 유니온(`"today" | "log" | "rank"`)과 `<TabLink>` 목록 양쪽을 수정
-- 1초 tick + `currentPhase` + `TopBar` 삽입 보일러플레이트는 `app/rank/page.tsx`(69줄)를 그대로 복사하는 게 가장 짧다
+- `TopBar`에 탭 추가: `components/TopBar.tsx`의 `Tab` 유니온(`"today" | "restaurants" | "log" | "rank"`)과 `<TabLink>` 목록 양쪽을 수정. 유니온의 나열 순서를 탭 표시 순서와 맞춘다
+- 1초 tick + `currentPhase` + `TopBar` 삽입 보일러플레이트는 `app/rank/page.tsx`(90줄)를 그대로 복사하는 게 가장 짧다
+- 쓰기 핸들러·에러 배너 2개(읽기/쓰기 분리)까지 있는 라우트가 필요하면 `app/restaurants/page.tsx`가 더 가까운 원본이다
 
 **새 프레젠테이션 컴포넌트:**
 - 구현: `components/<ComponentName>.tsx` — named export, props 타입은 파일 상단 `type Props = {...}`, 스타일 객체는 파일 하단
@@ -188,7 +202,9 @@ lunch_roulette/
 - Tailwind 유틸리티 클래스는 늘리지 않는다. inline style 객체 쪽을 따른다
 
 **Tests:**
-- 인프라가 없다. 테스트를 도입한다면 순수 함수(`parseMenuInput`, `buildRanking`, `buildMonthGrid`, `currentPhase`, `lib/time.ts`)가 I/O 없이 바로 테스트 가능한 진입점이다
+- vitest 가 있다. `npm test` = `vitest run`(워치는 `npm run test:watch`), 설정은 레포 루트 `vitest.config.mts`, 수집 대상은 `lib/**`·`components/**`·`supabase/functions/_shared/**`·`supabase/migrations/**` 의 `*.test.ts` 다. CI 는 아직 없다
+- `environment: "node"` 단일 구성이라 **React 렌더 하네스가 없다.** 훅·컴포넌트·페이지 안의 분기는 테스트할 수 없으므로, 판단은 순수 모듈(`lib/*.ts`)로 밀어낸 다음 그곳에서 검증한다 — `lib/settings.ts`·`lib/restaurants.ts` 가 그 결과이고 대응 훅(`lib/useSettings.ts`·`lib/useRestaurants.ts`)에는 I/O 만 남는다
+- 마이그레이션 spec 은 SQL 을 실행하지 않고 텍스트로 파싱해 계약(테이블·제약·RLS·cron)을 검사한다
 
 ## Special Directories
 
