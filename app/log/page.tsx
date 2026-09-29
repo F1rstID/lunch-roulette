@@ -125,9 +125,11 @@ export default function LogPage() {
   ).length;
 
   // 전환일 이전 달이 비어 보이는 것은 고장이 아니라 경계다 — 부제가 그 경계를 말한다.
-  const subhead = settings.historySince
-    ? `${settings.historySince.replace(/-/g, ".")} 부터의 매장 기록, 그리고 그날의 후보 수까지.`
-    : "매일 룰렛이 정해준 매장, 그리고 그날의 후보 수까지.";
+  // 필터·조회 경계와 같은 판정(=== null)을 쓴다 — 빈 문자열이 흘러들 때 셋이 제각각 갈리지 않게.
+  const subhead =
+    settings.historySince !== null
+      ? `${settings.historySince.replace(/-/g, ".")} 부터의 매장 기록, 그리고 그날의 후보 수까지.`
+      : "매일 룰렛이 정해준 매장, 그리고 그날의 후보 수까지.";
 
   // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버 전에는
   // settings 테이블이 없어 상시 표시되는 것이 정상이다. 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않는다.
