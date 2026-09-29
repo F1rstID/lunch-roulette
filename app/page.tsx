@@ -2,18 +2,25 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, type MenuRow, type ResultRow, type PinnedMenuRow } from "@/lib/supabase/client";
-import { MENU_NAME_MAX_LEN } from "@/lib/constants";
-import { todayKstDate, formatKstLongDay, formatHhMmSs } from "@/lib/time";
-import { currentPhase, type Phase } from "@/lib/phase";
-import { formatLoadError, formatRespinError, joinLoadErrors } from "@/lib/errors";
+import { supabase, type ResultRow } from "@/lib/supabase/client";
+import { todayKstDate, formatKstLongDay, formatHhMmSs, formatSpinTime } from "@/lib/time";
+import { currentPhase, displayPhase, type Phase } from "@/lib/phase";
+import {
+  formatCandidateWriteError,
+  formatLoadError,
+  formatRespinError,
+  joinLoadErrors,
+} from "@/lib/errors";
+import { findWinnerIndex, isNewSpin, joinCandidates } from "@/lib/candidates";
+import { sortRestaurants } from "@/lib/restaurants";
+import { useCandidates } from "@/lib/useCandidates";
+import { useRestaurants } from "@/lib/useRestaurants";
 import { useSettings } from "@/lib/useSettings";
 import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
-import { MenuList } from "@/components/MenuList";
-import { truncateToCodePoints } from "@/lib/menus";
+import { CandidateList } from "@/components/CandidateList";
 import { ResultBlock } from "@/components/ResultBlock";
 
 // respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다).
@@ -21,6 +28,10 @@ import { ResultBlock } from "@/components/ResultBlock";
 // 이 타입으로 도달하지 않는다. 그 본문은 response.json() 으로 읽어 formatRespinError 가
 // unknown 으로 받는다. 여기 error 를 두면 "2xx 에도 error 가 올 수 있다" 는 거짓말이 된다.
 type RespinResponse = { ok?: boolean; skipped?: string };
+
+// 인스턴스마다 토픽에 붙일 일련번호. React 의 useId 를 쓰지 않는 이유는 문자 집합이다 — React 19 의 id 는
+// «r0» 처럼 ASCII 밖 문자를 담고, 토픽은 소켓 위로 그대로 나가는 식별자라 ASCII 로 묶어 두는 편이 안전하다.
+let topicSeq = 0;
 
 export default function TodayPage() {
   const [now, setNow] = useState(() => new Date());
@@ -31,48 +42,85 @@ export default function TodayPage() {
 
   const todayKey = todayKstDate(now);
 
-  const [menus, setMenus] = useState<MenuRow[]>([]);
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
   const [forceSpin, setForceSpin] = useState(false);
   const [respinning, setRespinning] = useState(false);
-  // 마지막 쓰기(메뉴 추가·삭제·고정·다시 돌리기) 실패 메시지. 성공하면 지운다.
+  // 마지막 쓰기(후보 담기·빼기·다시 돌리기) 실패 메시지. 성공하면 지운다.
   const [actionError, setActionError] = useState<string | null>(null);
   // 초기 로드(SELECT) 실패 메시지. actionError 와 한 state 로 합치지 않는다 — 쓰기가 성공할 때마다
   // setActionError(null) 이 불리므로, 합치면 읽기 실패 메시지가 사용자 모르게 지워진다.
   const [loadError, setLoadError] = useState<string | null>(null);
-  // 고정된 메뉴 이름 집합. 파생 표시(핀 아이콘 상태)에 O(1) 멤버십으로 쓴다.
-  const [pinnedNames, setPinnedNames] = useState<Set<string>>(new Set());
   const initialLoadedRef = useRef(false);
+  // 결과 행의 동기 거울. 구독 페이로드의 DELETE 계열에는 PK 만 실려 와 이전 추첨 시각을 읽을 수 없고,
+  // state 는 이벤트가 도착한 시점에 최신이 아닐 수 있다. 회전 여부를 그 두 값의 비교로 정하므로 렌더를
+  // 기다리지 않는 거울이 필요하다 — 초기 조회와 이벤트 처리 양쪽에서 함께 세운다.
+  const todayResultRef = useRef<ResultRow | null>(null);
+  // 토픽은 페이지가 아니라 구독 인스턴스마다 유일해야 한다. 고정 문자열을 쓰면 라우트 전환에서 새 구독이
+  // 아직 떠나는 중인 옛 채널에 붙어 에러 없이 죽는다(lib/useSettings.ts:12-16 과 같은 논증).
+  const [resultsTopic] = useState(() => `results-${++topicSeq}`);
 
+  const { rows: restaurantRows, loaded: restaurantsLoaded, error: restaurantsError } = useRestaurants();
+  const { rows: candidateRows, loaded: candidatesLoaded, error: candidatesError } = useCandidates();
   // 추첨 시각은 settings 가 정한다. 로드 전·실패 시에도 기본값(11:55)으로 계속 동작한다(SETT-03).
-  const { settings, error: settingsError, warning: settingsWarning } = useSettings();
+  const {
+    settings,
+    loaded: settingsLoaded,
+    error: settingsError,
+    warning: settingsWarning,
+  } = useSettings();
 
   // todayResult 가 선언된 뒤라야 계산할 수 있다 — decided 를 결정하는 것은 시각이 아니라 결과 행의 존재다.
-  const phase = currentPhase(now, settings.spinTime, todayResult !== null);
+  // 설정 조회가 끝나기 전에는 기본 시각으로 계산한 "추첨 대기" 를 가린다 — 대시보드가 시각을 늦춰 둔 날
+  // 첫 페인트에서만 그 라벨이 스쳤다가 바뀐다(D-23).
+  const phase = displayPhase(currentPhase(now, settings.spinTime, todayResult !== null), settingsLoaded);
+  const spinTimeText = formatSpinTime(settings.spinTime);
+
+  // 아래 넷은 매초 리렌더되는 페이지가 쓰는 파생값이라 전부 메모한다.
+  // 휠·카운터·목록이 같은 배열 하나를 본다 — 순서의 정의처를 둘로 만들지 않는다.
+  const todayCandidates = useMemo(
+    () => joinCandidates(candidateRows, restaurantRows),
+    [candidateRows, restaurantRows],
+  );
+  // 안 담긴 구간의 순서(핀 먼저 · 이름순)는 여기서 한 번만 정해 목록에 넘긴다.
+  const catalog = useMemo(() => sortRestaurants(restaurantRows), [restaurantRows]);
+  const winnerIndex = useMemo(
+    () => findWinnerIndex(todayCandidates, todayResult),
+    [todayCandidates, todayResult],
+  );
+  // 이름은 결과 행의 스냅샷이고 메뉴·위치는 지금 카탈로그에 있는 값이다. 두 출처가 다른 것이 의도다 —
+  // 매장을 지워도 결과의 이름은 남아야 기록·랭킹이 성립하고(CATL-03), 상세만 비는 것이 맞는 화면이다.
+  const winner = useMemo(() => {
+    if (todayResult === null) return null;
+    const store = restaurantRows.find((row) => row.id === todayResult.restaurant_id);
+    return { name: todayResult.menu, menus: store?.menus ?? [], location: store?.location ?? null };
+  }, [todayResult, restaurantRows]);
+
+  // 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가 구분되지 않는다. 두 훅이 들고 있는
+  // loaded·error 를 여기서 세 상태로 좁혀 넘긴다 — 실패 화면에 등록 권유 문구가 뜨지 않게 하는 최소 경로다.
+  const listStatus = restaurantsError || candidatesError
+    ? "failed"
+    : !restaurantsLoaded || !candidatesLoaded
+      ? "loading"
+      : "ready";
 
   useEffect(() => {
     let cancelled = false;
     initialLoadedRef.current = false;
     (async () => {
-      const [menuRes, todayRes, pinRes] = await Promise.all([
-        supabase.from("menus").select("*").order("created_at", { ascending: true }),
-        supabase.from("results").select("*").eq("date", todayKey).maybeSingle(),
-        supabase.from("pinned_menus").select("name"),
-      ]);
-      if (cancelled) return;
-      // 세 쿼리를 한 배너로 합친다. 전부 성공하면 null 이 들어가 배너가 사라진다.
-      // results 는 maybeSingle 이라 "오늘 결과 없음"이 error 가 아니라 data: null 로 오므로,
+      // 이 페이지가 직접 읽는 것은 오늘 결과 하나뿐이다 — 매장 카탈로그와 오늘 후보는 각자의 훅이 읽고
+      // 구독까지 맡는다. maybeSingle 이라 "오늘 결과 없음" 은 error 가 아니라 data: null 로 오므로,
       // 결과가 아직 없는 정상 상태에서는 배너가 뜨지 않는다.
-      setLoadError(
-        joinLoadErrors([
-          formatLoadError("메뉴 목록", menuRes.error),
-          formatLoadError("오늘 결과", todayRes.error),
-          formatLoadError("고정 메뉴", pinRes.error),
-        ]),
-      );
-      if (menuRes.data) setMenus(menuRes.data as MenuRow[]);
-      setTodayResult(todayRes.data ? (todayRes.data as ResultRow) : null);
-      if (pinRes.data) setPinnedNames(new Set((pinRes.data as { name: string }[]).map((p) => p.name)));
+      const { data, error } = await supabase
+        .from("results")
+        .select("*")
+        .eq("date", todayKey)
+        .maybeSingle();
+      if (cancelled) return;
+      setLoadError(formatLoadError("오늘 결과", error));
+      const row = data ? (data as ResultRow) : null;
+      // state 와 거울을 같은 값으로 함께 세운다. 한쪽만 세우면 첫 구독 이벤트가 엉뚱한 이전 값과 비교된다.
+      todayResultRef.current = row;
+      setTodayResult(row);
       initialLoadedRef.current = true;
     })();
     return () => {
@@ -81,36 +129,26 @@ export default function TodayPage() {
   }, [todayKey]);
 
   useEffect(() => {
-    // results INSERT(자동 추첨) / UPDATE(다시 돌리기) 공통 처리
+    // results INSERT(자동 추첨) / UPDATE(다시 돌리기) 공통 처리.
+    // 회전은 추첨 시각이 새로 쓰였을 때만 켠다: 매장 삭제가 내보내는 갱신(restaurant_id 가 null 로 바뀐다)
+    // 은 그 시각이 그대로라 여기서 걸러지고, 휠은 멈춘 채 행만 갱신돼 하이라이트만 사라진다. 걸러 내지
+    // 않으면 매장 하나를 지울 때마다 열린 모든 탭의 휠이 5초씩 돈다(todo in-06). 다시 돌리기는 항상 새
+    // 시각을 쓰므로 정상 재회전은 살아 있다.
+    // 초기 로드 가드의 뜻은 그대로다 — 초기 조회가 끝난 뒤 도착한 이벤트만 휠을 돌린다.
+    // 회전 켜기를 setState 업데이터 안에 넣지 않는 이유: 개발용 이중 실행에서 두 번 불린다.
     const applyResult = (row: ResultRow) => {
       if (row.date !== todayKey) return;
+      const prev = todayResultRef.current;
+      todayResultRef.current = row;
       setTodayResult(row);
-      if (initialLoadedRef.current) {
+      if (initialLoadedRef.current && isNewSpin(prev, row)) {
         setForceSpin(true);
         setTimeout(() => setForceSpin(false), 5000);
       }
     };
 
     const channel: RealtimeChannel = supabase
-      .channel("lunch-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "menus" },
-        (payload) => {
-          const row = payload.new as MenuRow;
-          setMenus((prev) =>
-            prev.some((m) => m.id === row.id) ? prev : [...prev, row].sort(byCreatedAt),
-          );
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "menus" },
-        (payload) => {
-          const oldRow = payload.old as Partial<MenuRow>;
-          if (oldRow.id) setMenus((prev) => prev.filter((m) => m.id !== oldRow.id));
-        },
-      )
+      .channel(resultsTopic)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "results" },
@@ -121,39 +159,12 @@ export default function TodayPage() {
         { event: "UPDATE", schema: "public", table: "results" },
         (payload) => applyResult(payload.new as ResultRow),
       )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "pinned_menus" },
-        (payload) => {
-          const name = (payload.new as PinnedMenuRow).name;
-          setPinnedNames((prev) => (prev.has(name) ? prev : new Set(prev).add(name)));
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "pinned_menus" },
-        (payload) => {
-          const name = (payload.old as Partial<PinnedMenuRow>).name;
-          if (!name) return;
-          setPinnedNames((prev) => {
-            if (!prev.has(name)) return prev;
-            const next = new Set(prev);
-            next.delete(name);
-            return next;
-          });
-        },
-      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [todayKey]);
-
-  const winnerIndex = useMemo(() => {
-    if (!todayResult) return -1;
-    return menus.findIndex((m) => m.name === todayResult.menu);
-  }, [todayResult, menus]);
+  }, [todayKey, resultsTopic]);
 
   // WheelPhase 는 Phase 와 별개 유니온이라 stalled 가 없다. accepting 과 stalled 는 둘 다 "idle" —
   // 추첨이 건너뛰어진 날에도 휠은 멈춰 있어야 한다.
@@ -165,53 +176,47 @@ export default function TodayPage() {
         ? "spinning"
         : "idle";
 
-  // 아래 세 핸들러는 useCallback 으로 감싸지 않는다. 소비자(MenuList, button)가 memo 컴포넌트가
+  // 아래 두 핸들러는 useCallback 으로 감싸지 않는다. 소비자(CandidateList, button)가 memo 컴포넌트가
   // 아니라 참조 안정성의 이득이 없고, React Compiler lint(preserve-manual-memoization)가
   // async 핸들러의 수동 memo 를 보존하지 못해 에러를 낸다.
-  // 여러 이름을 한 번에 등록. MenuList 가 파싱·중복 제거를 끝낸 배열을 준다.
-  // 단일 insert 문이라 전부 성공하거나 전부 실패한다(원자적). 방어적으로 한 번 더 정규화.
-  async function addMenus(names: string[]): Promise<boolean> {
-    const rows = names
-      .map((n) => truncateToCodePoints(n.trim(), MENU_NAME_MAX_LEN))
-      .filter(Boolean)
-      .map((name) => ({ name }));
-    if (rows.length === 0) return false;
-    const { error } = await supabase.from("menus").insert(rows);
-    if (error) {
-      const label = rows.length === 1 ? `"${rows[0].name}"` : `${rows.length}개`;
-      setActionError(`메뉴 ${label} 추가 실패: ${error.message}`);
-      return false;
-    }
-    setActionError(null);
-    return true;
+  // 둘 다 낙관적 업데이트를 하지 않는다 — 목록은 구독 이벤트로만 옮겨간다.
+  // 둘 다 본문을 try/catch 로 감싼다. supabase-js 는 fetch 실패까지 { error } 로 돌려주므로 평소에는
+  // 던지지 않지만, 예상 밖 throw 가 핸들러를 빠져나가면 배너 없는 unhandled rejection 이 되고 목록은
+  // boolean 을 받지 못해 행이 진행 중 상태에 갇힌다.
+
+  // 두 핸들러가 같은 판정을 두 벌로 갖지 않게 한 곳에 모은다: 번역이 비면 사용자에게 보일 실패가
+  // 아니므로(같은 매장을 둘이 동시에 담은 경우) 배너를 지우고 성공으로 돌려준다 — D-17.
+  function reportCandidateWrite(message: string | null): boolean {
+    setActionError(message);
+    return message === null;
   }
 
-  async function removeMenu(id: string, name: string) {
-    const { error } = await supabase.from("menus").delete().eq("id", id);
-    if (error) {
-      setActionError(`메뉴 "${name}" 삭제 실패: ${error.message}`);
-      return;
+  async function addCandidate(id: string, name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from("candidates").insert({ restaurant_id: id });
+      if (error) return reportCandidateWrite(formatCandidateWriteError("담기", name, error));
+      setActionError(null);
+      return true;
+    } catch (e) {
+      return reportCandidateWrite(
+        formatCandidateWriteError("담기", name, { message: thrownMessage(e) }),
+      );
     }
-    setActionError(null);
   }
 
-  // 고정 토글. currentlyPinned 는 클릭 시점의 상태 — 켜짐이면 해제(delete), 꺼짐이면 고정(insert).
-  // 실제 pinnedNames 갱신은 realtime 이벤트로 이뤄진다(menus 추가와 동일한 패턴).
-  async function togglePin(name: string, currentlyPinned: boolean) {
-    if (currentlyPinned) {
-      const { error } = await supabase.from("pinned_menus").delete().eq("name", name);
-      if (error) {
-        setActionError(`"${name}" 고정 해제 실패: ${error.message}`);
-        return;
-      }
-    } else {
-      const { error } = await supabase.from("pinned_menus").insert({ name });
-      if (error) {
-        setActionError(`"${name}" 고정 실패: ${error.message}`);
-        return;
-      }
+  async function removeCandidate(id: string, name: string): Promise<boolean> {
+    try {
+      // 영향 행 수를 보지 않는다 — "이미 빠져 있음" 이 원하던 상태이고, 그것을 실패로 알리면 사용자는
+      // 고칠 것이 없는 배너를 본다(매장 삭제와 갈리는 지점이다).
+      const { error } = await supabase.from("candidates").delete().eq("restaurant_id", id);
+      if (error) return reportCandidateWrite(formatCandidateWriteError("빼기", name, error));
+      setActionError(null);
+      return true;
+    } catch (e) {
+      return reportCandidateWrite(
+        formatCandidateWriteError("빼기", name, { message: thrownMessage(e) }),
+      );
     }
-    setActionError(null);
   }
 
   async function respin() {
@@ -247,13 +252,16 @@ export default function TodayPage() {
 
   const clockTime = formatHhMmSs(now);
   const headline = phaseHeadline(phase, todayResult?.menu);
-  const subhead = phaseSubhead(phase, menus.length, todayResult?.menu);
+  const subhead = phaseSubhead(phase, todayCandidates.length, spinTimeText, todayResult?.menu);
 
-  // 페이지 쿼리 3개(loadError)에 설정 실패·경고를 렌더 시점에 합친다. 설정 쪽은 훅이 소유하므로
-  // 닫기 버튼(setLoadError(null))으로 사라지지 않고, 컷오버 전에는 상시 표시되는 것이 정상이다.
-  // 파싱 경고는 이미 완성된 문장이라 "설정 불러오기 실패:" 접두를 붙이지 않고 그대로 싣는다.
+  // 페이지 쿼리 하나(loadError)에 훅 셋의 실패·경고를 렌더 시점에 합친다. 훅 쪽은 각자가 소유하므로
+  // 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버(Phase 8) 전 라이브에는 매장·후보·설정
+  // 세 테이블이 아직 없어 그 세 조각이 함께 뜨는 것이 정상이고, 오히려 배너가 안 뜨면 에러를 삼키고
+  // 있다는 신호다. 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않고 그대로 싣는다.
   const loadBanner = joinLoadErrors([
     loadError,
+    formatLoadError("매장 카탈로그", restaurantsError ? { message: restaurantsError } : null),
+    formatLoadError("오늘 후보", candidatesError ? { message: candidatesError } : null),
     formatLoadError("설정", settingsError ? { message: settingsError } : null),
     settingsWarning,
   ]);
@@ -262,7 +270,7 @@ export default function TodayPage() {
     <>
       <TopBar
         active="today"
-        candidateCount={menus.length}
+        candidateCount={todayCandidates.length}
         phase={phase}
         clockTime={clockTime}
       />
@@ -276,7 +284,7 @@ export default function TodayPage() {
             <h1 style={pageHeadStyles.h1}>{headline}</h1>
             <div style={pageHeadStyles.sub}>{subhead}</div>
           </div>
-          <PhaseTimeline current={phase} />
+          <PhaseTimeline current={phase} spinTime={settings.spinTime} />
         </div>
 
         <ErrorBanner message={loadBanner} onCloseAction={() => setLoadError(null)} />
@@ -287,12 +295,19 @@ export default function TodayPage() {
             <div className="card" style={layoutStyles.stage}>
               <StageHeader phase={phase} clockTime={clockTime} />
               <div style={layoutStyles.wheelHolder}>
-                <Wheel items={menus} phase={wheelPhase} winnerIndex={winnerIndex} size={460} />
+                <Wheel
+                  items={todayCandidates}
+                  phase={wheelPhase}
+                  winnerIndex={winnerIndex}
+                  size={460}
+                  spinTimeText={spinTimeText}
+                />
               </div>
               <ResultBlock
                 phase={phase}
-                candidateCount={menus.length}
-                winner={todayResult ? { name: todayResult.menu } : null}
+                candidateCount={todayCandidates.length}
+                winner={winner}
+                spinTimeText={spinTimeText}
               />
               {phase === "decided" && todayResult && (
                 <div style={respinStyles.wrap}>
@@ -311,13 +326,14 @@ export default function TodayPage() {
           </div>
 
           <div style={layoutStyles.right}>
-            <MenuList
-              items={menus}
+            <CandidateList
+              candidates={todayCandidates}
+              catalog={catalog}
+              status={listStatus}
               phase={phase}
-              pinnedNames={pinnedNames}
-              onAddAction={addMenus}
-              onRemoveAction={removeMenu}
-              onTogglePinAction={togglePin}
+              spinTimeText={spinTimeText}
+              onAddAction={addCandidate}
+              onRemoveAction={removeCandidate}
             />
           </div>
         </div>
@@ -373,8 +389,8 @@ function Footer({ clockTime }: { clockTime: string }) {
   );
 }
 
-function byCreatedAt(a: MenuRow, b: MenuRow) {
-  return a.created_at < b.created_at ? -1 : 1;
+function thrownMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function phaseHeadline(phase: Phase, winnerName?: string) {
@@ -385,14 +401,15 @@ function phaseHeadline(phase: Phase, winnerName?: string) {
   return "오늘의 점심";
 }
 
-function phaseSubhead(phase: Phase, count: number, winnerName?: string) {
+// 시각을 인자로 받는다. 기본값을 두면 설정을 넘기지 않은 호출부가 조용히 옛 시각을 그리게 된다(SPIN-06).
+function phaseSubhead(phase: Phase, count: number, spinTimeText: string, winnerName?: string) {
   if (phase === "accepting")
-    return `현재 ${count}개의 후보가 룰렛에 올라가 있어요. 11:55에 자동으로 결정돼요.`;
-  if (phase === "spinning") return "룰렛은 11:55에 시작되어 약 5초간 돌아갑니다.";
+    return `현재 ${count}개 매장이 룰렛에 올라가 있어요. ${spinTimeText}에 자동으로 결정돼요.`;
+  if (phase === "spinning") return `룰렛은 ${spinTimeText}에 시작되어 약 5초간 돌아갑니다.`;
   if (phase === "decided" && winnerName)
     return `"${winnerName}" · 더는 변경할 수 없어요. 결과는 자정에 초기화됩니다.`;
   if (phase === "stalled")
-    return `추첨 시각이 지났지만 결과가 없어요. 현재 ${count}개의 후보가 올라가 있어요.`;
+    return `추첨 시각이 지났지만 결과가 없어요. 현재 ${count}개 매장이 올라가 있어요.`;
   return "";
 }
 

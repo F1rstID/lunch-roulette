@@ -1,7 +1,7 @@
 // 0005 컷오버 마이그레이션의 계약을 파일 텍스트로 못 박는다. 이 페이즈에는 로컬 Supabase 스택이 없어
 // SQL 을 실행해 볼 수 없다 — 그래서 "실행 결과"가 아니라 "파일에 무엇이 쓰여 있는가"가 유일한 검증 대상이다.
 // 기대 컬럼 목록을 리터럴 배열로 적고 lib/supabase/client.ts 나 SQL 에서 가져오지 않는 이유: 양쪽이 같이 움직이면
-// "SQL 과 TS 가 각자 따로 바뀌는 것을 붙잡는다"는 이 스펙의 존재 이유가 사라진다 (components/MenuList.test.ts:3-4 와 같은 논증).
+// "SQL 과 TS 가 각자 따로 바뀌는 것을 붙잡는다"는 이 스펙의 존재 이유가 사라진다 (lib/menus.test.ts:5-6 과 같은 논증).
 // client.ts 를 import 하지 않고 텍스트로 읽는 이유: 그 모듈은 로드 시점에 NEXT_PUBLIC_SUPABASE_* 를 읽어 테스트를 환경변수에 묶는다.
 // 주석 제거 사본(sql)과 원본(rawSql)을 둘 다 드는 이유: 문 개수는 한글 주석에 섞인 같은 토큰까지 세면 안 되고,
 // 반대로 낭독 리뷰용 주석(동작 불변·치환·재회전)의 존재 여부는 원본에서만 확인할 수 있다.
@@ -366,8 +366,9 @@ describe("TS/D-13 — 행 타입이 SQL 컬럼 목록과 일치한다", () => {
     expect(typeFields(clientSrc, "ResultRow")).toEqual(RESULT_ROW_FIELDS);
   });
 
-  it("MenuRow 와 PinnedMenuRow 가 아직 남아 있다 (#42)", () => {
-    // 페이지가 아직 참조하므로 이 페이즈에서 지우면 tsc 가 깨진다. 제거는 Phase 6.
-    expect([count(clientSrc, /export type MenuRow/g), count(clientSrc, /export type PinnedMenuRow/g)]).toEqual([1, 1]);
+  it("MenuRow 와 PinnedMenuRow 가 사라졌다 (#42)", () => {
+    // 오늘 탭이 candidates 로 옮겨 가며 두 타입의 참조가 0이 됐다(D-24). 기대를 뒤집어 남겨 두는 이유:
+    // 지워진 사실 자체가 계약이다 — 구 테이블을 다시 읽는 코드가 들어오면 여기서 먼저 걸린다.
+    expect([count(clientSrc, /export type MenuRow/g), count(clientSrc, /export type PinnedMenuRow/g)]).toEqual([0, 0]);
   });
 });

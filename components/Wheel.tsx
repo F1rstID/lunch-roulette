@@ -12,6 +12,8 @@ type Props = {
   items: WheelItem[];
   phase: WheelPhase;
   winnerIndex: number;
+  // 설정에서 온 추첨 시각 문구. 기본값을 두지 않는다 — 두면 시각이 다시 이 파일에 숨는다(SPIN-06).
+  spinTimeText: string;
   onSpinCompleteAction?: () => void;
   size?: number;
 };
@@ -43,6 +45,7 @@ export function Wheel({
   items,
   phase,
   winnerIndex,
+  spinTimeText,
   onSpinCompleteAction,
   size = 460,
 }: Props) {
@@ -255,7 +258,7 @@ export function Wheel({
           fill="white"
           letterSpacing="0.01em"
         >
-          11:55
+          {spinTimeText}
         </text>
       </svg>
     </div>

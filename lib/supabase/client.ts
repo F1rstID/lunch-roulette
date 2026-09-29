@@ -9,12 +9,6 @@ export const supabase = createClient(url, key, {
   realtime: { params: { eventsPerSecond: 10 } },
 });
 
-export type MenuRow = {
-  id: string;
-  name: string;
-  created_at: string;
-};
-
 export type ResultRow = {
   id: string;
   date: string;
@@ -22,12 +16,6 @@ export type ResultRow = {
   candidates: { name: string; restaurant_id?: string }[]; // Phase 4 부터 restaurant_id 를 함께 싣는다. 전환 이전 행에는 그 키가 아예 없어서 optional 이다
   spun_at: string;
   restaurant_id: string | null; // 매장 삭제 시 set null (supabase/migrations/0005_restaurants_settings.sql)
-};
-
-// 고정 메뉴. 매일 자정 재시드의 소스 (supabase/migrations/0004_pinned_menus.sql).
-export type PinnedMenuRow = {
-  name: string;
-  created_at: string;
 };
 
 // 매장 카탈로그. 자정에 지워지지 않는 영구 테이블 (supabase/migrations/0005_restaurants_settings.sql).
