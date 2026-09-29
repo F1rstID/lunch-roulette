@@ -12,18 +12,13 @@
 
 import * as React from "react";
 import { useRef, useState, type CSSProperties } from "react";
-import { joinMenus, parseLocationLink, parseRestaurantForm, type RestaurantInput } from "@/lib/restaurants";
+import { joinMenus, parseRestaurantForm, type RestaurantInput } from "@/lib/restaurants";
 // 값이 아니라 타입만 쓴다. `import type` 문장은 트랜스파일에서 통째로 지워져 데이터 클라이언트가
 // 로드되지 않는다 — 이 파일이 환경변수 없이도 정적 검사를 받을 수 있는 근거다.
 import type { RestaurantRow } from "@/lib/supabase/client";
-
-// 메뉴 입력창 자체의 상한. 원소 상한(24)과 별개다 — 쉼표로 여러 개를 한 줄에 쓰려면 입력창이 훨씬 길어야
-// 한다(components/MenuList.tsx 의 INPUT_MAX_LEN 과 같은 논증).
-const MENUS_INPUT_MAX_LEN = 120;
-
-// 행에 그대로 펼칠 메뉴 칩 개수. 넘치면 "+n" 한 칸으로 접는다 — 메뉴가 스무 개인 매장 하나가 목록을
-// 밀어내면 훑어보기라는 목적이 깨진다. 전체 목록은 칩 툴팁과 편집 폼에서 볼 수 있다.
-const MENU_CHIP_LIMIT = 4;
+// 칩·위치 렌더는 결과 화면과 공유하는 조각이다. 같은 매장이 두 화면에서 다르게 보이지 않게 한 벌만 둔다.
+import { MenuChips } from "@/components/MenuChips";
+import { LocationLink } from "@/components/LocationLink";
 
 // 목록 영역이 무엇을 그릴지 정하는 세 상태. 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가
 // 구분되지 않아, 세 경우가 전부 등록 권유 문구로 뭉개졌다(WR-03).
@@ -236,11 +231,11 @@ function RestaurantForm({
       style={mode === "create" ? s.formCreate : s.formEdit}
     >
       <div style={s.fields}>
-        {/* 이름·위치에 maxLength 를 걸지 않는다: HTML maxlength 는 UTF-16 코드유닛이라 이모지 하나를
+        {/* 세 칸 어디에도 maxLength 를 걸지 않는다: HTML maxlength 는 UTF-16 코드유닛이라 이모지 하나를
             2로 세고, DB·parseRestaurantForm 은 코드포인트로 센다. 코드유닛으로 막으면 DB 가 허용하는
             24 코드포인트 이름("가"×23 + 🍕)을 입력 단계에서 거부하고, 저장된 값이 상한을 넘는 행은
-            편집 폼이 "지우기만 가능" 상태로 열린다. 초과 거절은 parseRestaurantForm 이 이유까지
-            말해 주는 한 곳에서만 한다. */}
+            편집 폼이 "지우기만 가능" 상태로 열린다. 메뉴 칸도 같은 이유로 상한이 없다 — 개수 30·원소
+            24 의 초과 거절은 parseRestaurantForm 이 이유까지 말해 주는 한 곳에서만 한다. */}
         <input
           ref={nameRef}
           type="text"
@@ -256,7 +251,6 @@ function RestaurantForm({
           type="text"
           aria-label="메뉴 (쉼표로 구분)"
           placeholder="메뉴 (선택) 예) 김치찌개, 제육"
-          maxLength={MENUS_INPUT_MAX_LEN}
           value={menusText}
           onChange={(e) => setMenusText(e.target.value)}
           style={{ ...s.input, flex: "2 1 220px" }}
@@ -310,42 +304,14 @@ function RestaurantRowView({
   onAskRemove: () => void;
   onTogglePin: () => void;
 }) {
-  // 링크 판정은 순수 모듈이 한다. 여기서는 값이 있으면 앵커, 없으면 텍스트라는 두 갈래만 그린다.
-  const link = parseLocationLink(row.location);
-  const shownMenus = row.menus.slice(0, MENU_CHIP_LIMIT);
-  const hiddenCount = row.menus.length - shownMenus.length;
-  const allMenus = joinMenus(row.menus);
-
   return (
     <div style={s.rowInner}>
       <div style={s.rowMain}>
         <div style={s.name}>{row.name}</div>
-        {row.menus.length > 0 && (
-          <div style={s.chips}>
-            {/* key 에 인덱스를 섞는 이유: UI 경로는 parseMenuInput 이 중복을 지우지만 DB check 는
-                배열 안 중복을 막지 않는다(0005:26). RLS 가 열려 있어 PostgREST 직접 쓰기로
-                ["김밥","김밥"] 이 들어오면 이름만으로는 key 가 겹쳐 칩 하나가 사라진다. */}
-            {shownMenus.map((menu, i) => (
-              <span key={`${menu}-${i}`} title={allMenus} style={s.chip}>
-                {menu}
-              </span>
-            ))}
-            {hiddenCount > 0 && (
-              <span title={allMenus} style={s.chipMore}>
-                {`+${hiddenCount}`}
-              </span>
-            )}
-          </div>
-        )}
+        <MenuChips menus={row.menus} />
         {row.location && (
           <div style={s.meta}>
-            {link ? (
-              <a href={link.href} target="_blank" rel="noopener noreferrer" style={s.link}>
-                {link.host}
-              </a>
-            ) : (
-              <span>{row.location}</span>
-            )}
+            <LocationLink location={row.location} />
           </div>
         )}
       </div>
@@ -517,28 +483,6 @@ const s = {
     color: "var(--ink)",
     letterSpacing: "-0.01em",
   },
-  chips: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 4,
-    marginTop: 4,
-  },
-  chip: {
-    fontSize: 11.5,
-    padding: "1px 7px",
-    borderRadius: 999,
-    background: "var(--bg-soft)",
-    color: "var(--ink-soft)",
-    border: "1px solid var(--line-soft)",
-  },
-  chipMore: {
-    fontSize: 11.5,
-    padding: "1px 7px",
-    borderRadius: 999,
-    background: "var(--panel)",
-    color: "var(--muted)",
-    border: "1px solid var(--line)",
-  },
   meta: {
     fontSize: 12,
     color: "var(--muted)",
@@ -547,7 +491,6 @@ const s = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  link: { color: "var(--accent-ink)" },
   editBtn: {
     appearance: "none",
     border: "1px solid var(--line)",
