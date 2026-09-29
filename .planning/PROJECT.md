@@ -35,12 +35,14 @@
 - ✓ `spin-roulette`·`respin-roulette` 를 `candidates`⋈`restaurants` 조인 + `settings.spin_time`/`cooldown_days` + `_shared/cooldown.ts` 위에서 재작성. 설정·쿨다운 조회 실패는 기본값 폴백 + `console.error` + 응답 boolean(`settings_fallback`·`cooldown_fallback`·`cooldown_skipped`), 후보 0개는 `no_candidates`(행 없음 → 다음 폴링 재시도), 경합은 `23505`, respin 은 POST 전용·`upsert(onConflict: date)` — Phase 4 (SPIN-01·02·04, SETT-04). **미배포**(Phase 8)
 - ✓ `npm run check:edge`(`deno check --config supabase/functions/deno.json`) 정적 게이트 + `jsr:@supabase/supabase-js@2.117.2` 핀 + `supabase/functions/deno.lock`. 텍스트 계약 58건(`edgeImports.test.ts`)이 형태를 고정 — Phase 4
 - ✓ `respin()` 이 `invoke()` 반환의 `response` 로 500 본문을 읽어 함수 문장을 배너에 표시(`lib/errors.ts` `formatRespinError`, `{error}`→`{message}`→fallback, 200자 상한). 페이즈 마감 시 234 tests / 10 files — Phase 4
+- ✓ 매장 탭 `/restaurants`: 카탈로그 등록(이름·쉼표 메뉴·위치)·행 인라인 편집·2단계 인라인 삭제 확인·📌 즉시 토글, Realtime 3분기(`lib/useRestaurants.ts` 읽기 전용 훅 + `lib/restaurants.ts` 순수 리듀서 — 조회 전 이벤트는 `pending` 버퍼로 재적용), 정렬 핀 먼저·이름순, 쓰기 실패·중복(23505)·0행 수정/삭제를 한국어 배너로. TopBar 순서 오늘·매장·기록·랭킹 — Phase 5 (CATL-01~06). **미배포**(Phase 8), 컷오버 전 라이브에선 배너+빈 목록이 정상
+- ✓ `parseMenuInput`·`addMenus` 절단을 코드포인트 기준으로(todo wr-01), `parseRestaurantForm` 이 DB check(0005)와 1:1, 위치 링크는 `http(s)` 화이트리스트만 `<a>`. 페이즈 마감 시 296 tests / 11 files — Phase 5
 
 ### Active
 
 **매장 모델**
-- [ ] 매장 카탈로그(`restaurants`): 이름 필수, 메뉴 목록·위치 선택, 핀 플래그. 영구 보관, 자정에 안 지워짐
-- [ ] 별도 "매장" 탭에서 익명 누구나 등록·수정·삭제·핀 토글
+- [x] 매장 카탈로그(`restaurants`): 이름 필수, 메뉴 목록·위치 선택, 핀 플래그. 영구 보관, 자정에 안 지워짐 — Phase 2(스키마)·Phase 5(UI) 완료
+- [x] 별도 "매장" 탭에서 익명 누구나 등록·수정·삭제·핀 토글 — Phase 5 완료
 - [ ] 오늘 후보(`candidates`)는 카탈로그 목록에서 토글로 담고 뺌. 이름 필터. 핀 매장은 자정에 자동 후보
 - [ ] 룰렛은 매장을 뽑는다. 결과 아래 그 매장의 메뉴 목록을 참고로 표시
 - [ ] 기록·랭킹은 매장 기준. 집계는 **전환일 이후** 결과만. 과거 60행은 보존
@@ -121,6 +123,10 @@
 | `settings`·쿨다운 조회 실패는 기본값으로 **진행** + `console.error` + 응답 boolean | Core Value("매일 하나 확정") > 설정 존중. 0행은 기본값이지 에러 아님. 클라이언트 SETT-03 과 대칭 | ✓ Good (Phase 4, 사용자 D2) |
 | `jsr:@supabase/supabase-js@2.117.2` 소스 핀 + `supabase/functions/deno.lock` 커밋(생성물, 손편집 금지) | 배포는 API 측 번들링이라 lock 을 읽지 않음 → 소스 핀만이 배포 버전을 고정. lock 은 로컬 `check:edge` 재현성. 미참조 명세자는 `deno` 가 지우지 않아 재생성으로 정리 | ✓ Good (Phase 4, 사용자 D4) |
 | respin 은 POST 전용(405), 던져진 예외도 `json()` 500 으로 착지 | 리뷰 실측: GET/HEAD(링크 미리보기)로 오늘 결과 덮어쓰기 가능, 예외는 CORS 없이 나가 배너가 사유를 못 읽음 | ✓ Good (Phase 4 리뷰 WR-01·IN-08) |
+| 매장 탭: 상단 상시 폼 + 행 인라인 편집 + 2단계 인라인 삭제 확인(`window.confirm` 금지), 페이즈 잠금 없음 | 등록 중 입력을 잃지 않고 목록 맥락 유지. 카탈로그는 영구 데이터라 즉시 삭제 전례를 따르지 않음. 브라우저 모달은 스타일·자동화 밖 | ✓ Good (Phase 5, 사용자 위임 D-04~D-07·D-12) |
+| 목록 리듀서는 이벤트 하나로 `loaded` 를 올리지 않고 조회 전 이벤트를 `pending` 버퍼에 쌓아 조회 결과 위에 재적용 | 리뷰 실측: `settings` 단일행 논증을 목록에 복제하면 초기 SELECT 보다 먼저 온 Realtime 이벤트가 목록 전체를 버림 | ✓ Good (Phase 5 리뷰 CR-01) |
+| `lib/restaurants.ts` → `components/MenuList.tsx` `parseMenuInput` import 는 `lib/` 단방향 규칙의 의도적 예외 | 쉼표 파싱을 두 벌로 만들지 않음(CATL-06). Phase 6 이 `MenuList` 를 지울 때 `lib/` 로 이동 | ✓ Good (Phase 5, 문서 3곳 기록) |
+| Phase 5~7 빠른 레인: 리서치·플랜체커·패턴맵·discuss·검증자·보안감사 생략, 플랜 2개, 리뷰(fable)+fixer(opus) 만. Phase 8 은 전체 루틴 | 사용자 2026-09-29 속도 불만. Phase 4 실측 5h vs Phase 5 실측 ~1.7h(계획 19m·실행 31m·리뷰 11m·fix 16m·마감 10m). 검증자·감사자는 Phase 4 에서 발견 0 | ✓ Good (Phase 5 실측) |
 | 매퍼 발견 버그 4건 로드맵 포함 | P1은 라이브 장애급, P2는 후보 테이블 교체와 같은 자리 | — Pending |
 
 ## Evolution
@@ -141,4 +147,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-28 after Phase 4 (서버 추첨) completion*
+*Last updated: 2026-09-29 after Phase 5 (매장 탭) completion*
