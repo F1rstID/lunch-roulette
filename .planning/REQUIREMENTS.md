@@ -53,7 +53,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **QUAL-02**: Edge Function 순수 로직은 `supabase/functions/_shared/`에 Deno import 없이 두어 vitest로 테스트되고, `kstNow` 복붙이 한 곳으로 합쳐진다
 - [x] **QUAL-03**: `next` 16.3.5로 범프되어 `npm audit`에 critical·high가 0이다
 - [x] **QUAL-04**: 3개 페이지의 초기 SELECT 에러가 배너로 표면화된다 (현재 삼킴)
-- [ ] **QUAL-05**: `tsc --noEmit`·`lint`·`test`·`build` 전부 통과한 상태로 PR을 연다
+- [x] **QUAL-05**: `tsc --noEmit`·`lint`·`test`·`build` 전부 통과한 상태로 PR을 연다
 
 ### 전환·문서 (SHIP)
 
@@ -125,7 +125,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUAL-02 | Phase 3 — 순수 로직 | Complete |
 | QUAL-03 | Phase 1 — 안전망 | Complete |
 | QUAL-04 | Phase 1 — 안전망 | Complete |
-| QUAL-05 | Phase 8 — 컷오버 | Pending |
+| QUAL-05 | Phase 8 — 컷오버 | Complete |
 | SHIP-01 | Phase 2 — 데이터 모델 | Complete |
 | SHIP-02 | Phase 8 — 컷오버 | Complete |
 | SHIP-03 | Phase 8 — 컷오버 | Complete |

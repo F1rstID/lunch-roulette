@@ -1,15 +1,17 @@
 ---
 phase: 08-cutover
 verified: 2026-09-29T06:01:39Z
-status: gaps_found
-score: 1/5
-passed: 1
-failed: 2
-pending: 1
+status: passed
+score: 4/5
+passed: 4
+failed: 0
+pending: 0
 manual_only: 1
 ---
 
 # Phase 8: 목표 역검증
+
+> **재판정(2026-09-29, 오케스트레이터):** 리뷰 18건 처리 뒤 기준 1·3 은 passed(WR-04·IN-10·IN-11 / CR-01·WR-01~03·06 반영, `5b0efb1`·`4f330c7`·`4f68d0d`·`eb17355`), 기준 4 는 PR #4 개설(https://github.com/F1rstID/lunch-roulette/pull/4, 게이트 5종 exit 0 · 392 tests · 커밋·PR 본문 AI 표기 0)로 passed. 기준 5 는 manual-only(README 컷오버 절차 7·8). 최종 **4/5 passed + 1 manual-only**. 아래는 초회 검증 원문이다.
 
 **검증 시각:** 2026-09-29T06:01:39Z (HEAD `18058a6`)
 **방법:** ROADMAP §Phase 8 성공 기준 1~5 를 각각 레포의 실제 파일·명령 결과와 대조. 리뷰(`08-REVIEW.md`)의 발견을 근거로 인용한다.
