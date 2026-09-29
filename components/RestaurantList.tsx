@@ -56,6 +56,13 @@ export function RestaurantList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
+  // 편집·삭제 확인 중인 행이 원격에서 지워지면 목록에서 빠지고 두 id 는 없는 행을 가리킨 채 남는다.
+  // effect 로 되돌리지 않고 렌더 시점에 목록 멤버십으로 거른다: effect 안의 setState 는
+  // react-hooks/set-state-in-effect 가 막는 패턴이고(components/Wheel.tsx 선례), 파생값으로 두면
+  // stale id 가 남아도 그것을 보고 무언가를 그리는 일 자체가 생기지 않는다.
+  const editing = editingId !== null && items.some((r) => r.id === editingId) ? editingId : null;
+  const confirming = confirmingId !== null && items.some((r) => r.id === confirmingId) ? confirmingId : null;
+
   const pinnedCount = items.filter((r) => r.pinned).length;
 
   return (
@@ -94,7 +101,7 @@ export function RestaurantList({
         )}
         {items.map((r) => (
           <li key={r.id} style={s.row}>
-            {editingId === r.id ? (
+            {editing === r.id ? (
               // key 를 행 id 로 주는 것이 "편집 초안 유지" 의 근거다 — 같은 행에 Realtime 갱신이 와도
               // 폼이 다시 마운트되지 않아 치던 값이 남고, 저장이 마지막 쓰기로 덮는다.
               <RestaurantForm
@@ -108,7 +115,7 @@ export function RestaurantList({
                 }}
                 onCancel={() => setEditingId(null)}
               />
-            ) : confirmingId === r.id ? (
+            ) : confirming === r.id ? (
               <DeleteConfirm
                 onConfirm={async () => {
                   // 성공하든 실패하든 — 예상 밖 예외로 빠져나가더라도 — 확인 상태는 닫는다.
