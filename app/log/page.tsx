@@ -7,9 +7,14 @@ import { todayKstDate, formatHhMmSs, kstParts } from "@/lib/time";
 import { currentPhase, displayPhase } from "@/lib/phase";
 import { formatLoadError, joinLoadErrors } from "@/lib/errors";
 import { useSettings } from "@/lib/useSettings";
+import { filterSince } from "@/lib/history";
 import { TopBar } from "@/components/TopBar";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { CalendarLog } from "@/components/CalendarLog";
+
+// 구독마다 토픽에 붙일 일련번호. 토픽은 페이지가 아니라 구독 인스턴스마다 유일해야 한다 — 같은 토픽으로 재구독하면
+// realtime-js 가 leave 중인 옛 채널을 돌려주고 join 을 건너뛴다(app/page.tsx 의 results-<n> 과 같은 논증).
+let topicSeq = 0;
 
 export default function LogPage() {
   const [now, setNow] = useState(() => new Date());
@@ -49,7 +54,9 @@ export default function LogPage() {
     settingsLoaded,
   );
 
-  // 월 변경 시 또는 마운트 시 해당 월 데이터 로드 (보는 달 + 다음 달 = 2개월 창)
+  // 월 변경 시 또는 마운트 시 해당 월 데이터 로드 (보는 달 + 다음 달 = 2개월 창).
+  // 전환일로 조회를 자르지 않는 이유: 창이 이미 두 달이라 행 수가 작고, 전환일이 바뀌면(settings Realtime) 재조회 없이
+  // 아래 filterSince 만 다시 돌면 된다.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -77,7 +84,7 @@ export default function LogPage() {
   // 자동 추첨(INSERT)은 추가, 다시 돌리기(UPDATE)는 같은 id 행을 교체
   useEffect(() => {
     const ch: RealtimeChannel = supabase
-      .channel("log-results")
+      .channel(`results-log-${++topicSeq}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "results" },
@@ -100,15 +107,27 @@ export default function LogPage() {
     };
   }, []);
 
+  // 화면에 올리는 행은 전환일 이후만이다(HIST-01). 위 phase 계산은 필터 전 행을 본다 — 오늘 결과가 있다는 사실은
+  // 전환일과 무관하고, 전환 절차가 history_since 를 다음 날로 밀어 두는 하루(wr-01) 에도 상단 라벨이 맞아야 한다.
+  const visible = useMemo(
+    () => filterSince(results, settings.historySince),
+    [results, settings.historySince],
+  );
+
   const logMap = useMemo<Record<string, ResultRow>>(() => {
     const m: Record<string, ResultRow> = {};
-    for (const r of results) m[r.date] = r;
+    for (const r of visible) m[r.date] = r;
     return m;
-  }, [results]);
+  }, [visible]);
 
-  const count = results.filter((r) =>
+  const count = visible.filter((r) =>
     r.date.startsWith(`${calMonth.y}-${String(calMonth.m).padStart(2, "0")}`),
   ).length;
+
+  // 전환일 이전 달이 비어 보이는 것은 고장이 아니라 경계다 — 부제가 그 경계를 말한다.
+  const subhead = settings.historySince
+    ? `${settings.historySince.replace(/-/g, ".")} 부터의 매장 기록, 그리고 그날의 후보 수까지.`
+    : "매일 룰렛이 정해준 매장, 그리고 그날의 후보 수까지.";
 
   // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버 전에는
   // settings 테이블이 없어 상시 표시되는 것이 정상이다. 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않는다.
@@ -131,7 +150,7 @@ export default function LogPage() {
               점심 기록
             </div>
             <h1 style={head.h1}>{count}일의 점심</h1>
-            <div style={head.sub}>매일 룰렛이 정해준 메뉴, 그리고 그날의 후보 수까지.</div>
+            <div style={head.sub}>{subhead}</div>
           </div>
         </div>
 

@@ -1,31 +1,11 @@
 "use client";
 
 import { useMemo, type CSSProperties } from "react";
-import type { ResultRow } from "@/lib/supabase/client";
+// 집계(키·정렬)는 lib/history.ts 가 정한다 — 이 컴포넌트는 호출만 하고 판단을 갖지 않는다.
+// 결과 행 전체가 아니라 HistoryRow 만 받는 이유: 랭킹 페이지가 조회 컬럼을 그만큼으로 좁힌다.
+import { buildRanking, type HistoryRow, type RankEntry } from "@/lib/history";
 
-type RankEntry = {
-  menu: string;
-  wins: number;
-  lastDate: string;
-  share: number;
-};
-
-function buildRanking(results: ResultRow[]) {
-  const tally = new Map<string, { menu: string; wins: number; lastDate: string }>();
-  for (const e of results) {
-    const cur = tally.get(e.menu) || { menu: e.menu, wins: 0, lastDate: "" };
-    cur.wins += 1;
-    if (!cur.lastDate || e.date > cur.lastDate) cur.lastDate = e.date;
-    tally.set(e.menu, cur);
-  }
-  const total = Array.from(tally.values()).reduce((a, x) => a + x.wins, 0);
-  const list: RankEntry[] = Array.from(tally.values())
-    .map((x) => ({ ...x, share: total ? x.wins / total : 0 }))
-    .sort((a, b) => b.wins - a.wins || (a.lastDate < b.lastDate ? 1 : -1));
-  return { list, total };
-}
-
-export function RankingView({ results }: { results: ResultRow[] }) {
+export function RankingView({ results }: { results: HistoryRow[] }) {
   const { list, total } = useMemo(() => buildRanking(results), [results]);
   const topThree = list.slice(0, 3);
   const rest = list.slice(3);
@@ -46,17 +26,17 @@ export function RankingView({ results }: { results: ResultRow[] }) {
           <div className="micro" style={{ marginBottom: 8 }}>
             역대 당첨 랭킹
           </div>
-          <h1 style={head.h1}>가장 많이 당첨된 메뉴</h1>
+          <h1 style={head.h1}>가장 많이 당첨된 매장</h1>
           <div style={head.sub}>
             지금까지 룰렛이 정한 점심 <span className="mono">{total}</span>번 · 총{" "}
-            <span className="mono">{list.length}</span>개 메뉴
+            <span className="mono">{list.length}</span>개 매장
           </div>
         </div>
       </div>
 
       <section style={s.podiumWrap}>
         {topThree.map((m, i) => (
-          <PodiumCard key={m.menu} entry={m} rank={i + 1} />
+          <PodiumCard key={m.key} entry={m} rank={i + 1} />
         ))}
         {topThree.length < 3 &&
           Array.from({ length: 3 - topThree.length }).map((_, i) => (
@@ -80,17 +60,17 @@ export function RankingView({ results }: { results: ResultRow[] }) {
         <section className="card" style={s.tableCard}>
           <header style={s.tableHeader}>
             <span className="micro">4위부터</span>
-            <span style={{ color: "var(--muted)", fontSize: 12.5 }}>{rest.length}개 메뉴</span>
+            <span style={{ color: "var(--muted)", fontSize: 12.5 }}>{rest.length}개 매장</span>
           </header>
           <div style={s.tableHead}>
             <span>순위</span>
-            <span>메뉴</span>
+            <span>매장</span>
             <span style={{ textAlign: "right" }}>당첨</span>
             <span>비율</span>
             <span style={{ textAlign: "right" }}>최근 당첨일</span>
           </div>
           {rest.map((m, i) => (
-            <RankRow key={m.menu} entry={m} rank={i + 4} maxWins={maxWins} />
+            <RankRow key={m.key} entry={m} rank={i + 4} maxWins={maxWins} />
           ))}
         </section>
       )}
@@ -133,7 +113,7 @@ function PodiumCard({ entry, rank }: { entry: RankEntry; rank: number }) {
           {labels[rank]}
         </span>
       </div>
-      <h3 style={s.podiumName}>{entry.menu}</h3>
+      <h3 style={s.podiumName}>{entry.name}</h3>
       <div style={s.podiumWins}>
         <span
           className="mono"
@@ -183,7 +163,7 @@ function RankRow({
             letterSpacing: "-0.01em",
           }}
         >
-          {entry.menu}
+          {entry.name}
         </span>
       </div>
       <span className="mono" style={{ ...s.tableWins, textAlign: "right" }}>

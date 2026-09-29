@@ -4,6 +4,8 @@ import * as React from "react";
 import { useState, type CSSProperties } from "react";
 import type { ResultRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
+// 격자 산술과 "이번 달 최다 매장" 집계는 lib/history.ts 가 정한다 — 랭킹 페이지와 같은 키 규칙을 쓰기 위해서다.
+import { buildMonthGrid, buildRanking } from "@/lib/history";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -12,32 +14,6 @@ function pad2(n: number) {
 }
 function fmtDate(y: number, m: number, d: number) {
   return `${y}-${pad2(m)}-${pad2(d)}`;
-}
-
-function buildMonthGrid(year: number, month: number) {
-  const first = new Date(year, month - 1, 1);
-  const startWeekday = first.getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const daysInPrev = new Date(year, month - 1, 0).getDate();
-
-  const cells: { y: number; m: number; d: number; dim: boolean }[] = [];
-  for (let i = startWeekday - 1; i >= 0; i--) {
-    const d = daysInPrev - i;
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
-    cells.push({ y: prevYear, m: prevMonth, d, dim: true });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ y: year, m: month, d, dim: false });
-  }
-  let trail = 1;
-  while (cells.length < 42) {
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const nextYear = month === 12 ? year + 1 : year;
-    cells.push({ y: nextYear, m: nextMonth, d: trail, dim: true });
-    trail++;
-  }
-  return cells;
 }
 
 type Props = {
@@ -54,17 +30,8 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
 
   const monthPrefix = `${year}-${pad2(month)}`;
   const entriesThisMonth = Object.values(logMap).filter((e) => e.date.startsWith(monthPrefix));
-  const topMenu = (() => {
-    const counts: Record<string, number> = {};
-    entriesThisMonth.forEach((e) => {
-      counts[e.menu] = (counts[e.menu] || 0) + 1;
-    });
-    let best: { name: string; count: number } | null = null;
-    for (const k of Object.keys(counts)) {
-      if (!best || counts[k] > best.count) best = { name: k, count: counts[k] };
-    }
-    return best;
-  })();
+  // 이름이 아니라 매장 키로 센다 — 개명한 매장이 두 줄로 갈라지면 "가장 많이 간 매장" 이 틀린다.
+  const topRestaurant = buildRanking(entriesThisMonth).list[0] ?? null;
 
   const sel = selected ? logMap[selected] : null;
 
@@ -78,7 +45,9 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             </div>
             <div style={s.gridSub}>
               {entriesThisMonth.length}일 점심 ·{" "}
-              {topMenu ? `가장 많은 메뉴 "${topMenu.name}" (${topMenu.count}회)` : "기록 없음"}
+              {topRestaurant
+                ? `가장 많이 간 매장 "${topRestaurant.name}" (${topRestaurant.wins}회)`
+                : "기록 없음"}
             </div>
           </div>
           <div style={s.navGroup}>
@@ -207,7 +176,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.6 }}>
               점심 기록이 있는 날을 누르면<br />
-              그날 무엇을 먹었는지 볼 수 있어요.
+              그날 어디서 먹었는지 볼 수 있어요.
             </div>
           </div>
         )}
@@ -238,7 +207,7 @@ function DetailView({ entry }: { entry: ResultRow }) {
 
       <dl style={s.detailList}>
         <DetailRow label="후보 수">
-          <span className="mono">{winnerOf}개</span>의 메뉴 중 선택
+          <span className="mono">{winnerOf}개</span>의 매장 중 선택
         </DetailRow>
         {winnerOf > 0 && (
           <DetailRow label="당첨 확률">

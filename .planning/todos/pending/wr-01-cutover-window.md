@@ -15,4 +15,6 @@ resolves_phase: 8
 6. 3~5 를 나눠서 하지 않는다. 한 세션 안에서 몇 분 내 연속 수행하고, 다음 날 11:55 전에 끝낸다.
 7. 배포 직후 `respin-roulette` 를 수동 invoke 해 응답을 눈으로 확인한다 — `menu` 가 실제 매장명 문자열이고 `restaurant_id` 가 uuid 여야 한다(`ok: true` 와 `candidate_count` > 0 도 함께 본다). PostgREST 의 매장 임베드가 배열로 오느냐 객체로 오느냐는 `deno check` 도 계약 테스트도 잡지 못하고 **첫 실호출에서만** 드러난다. `menu` 가 빈 문자열이거나 `restaurant_id` 가 없으면 임베드 접기가 틀린 것이다 — 그 상태로 다음 추첨 시각을 넘기지 않는다(`spin-roulette` 는 시간 가드 때문에 사전 확인이 불가능하므로 이 한 번이 유일한 창이다).
 
+8. **적용이 그날 추첨 이후(1번 순서대로면 항상 그렇다)면 전환일을 다음 날로 민다:** `update public.settings set history_since = history_since + 1 where id = 1;` — `history_since` 기본값은 적용일 당일이라 그날의 구 모델 결과(`restaurant_id is null`, 메뉴명)가 `date >= history_since` 를 통과해 기록·랭킹에 한 줄 섞인다. Phase 7 은 읽는 쪽에서 이 행을 구분하지 않기로 했다(07-CONTEXT D-09: "전환일 당일 + id null 제외" 규칙은 그날 당첨 매장이 나중에 삭제되면 정당한 행까지 지운다). 적용을 그날 추첨 **전**에 마쳤다면 이 줄은 건너뛴다 — 그날 결과가 이미 매장 기준이다.
+
 파일 머리 주석(2~6행)에도 같은 순서가 조건부 문장으로 적혀 있다 — "동작 불변" 은 Phase 4·6·7 코드가 배포된 뒤에만 참이다.
