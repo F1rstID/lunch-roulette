@@ -106,6 +106,33 @@ const S_TIE_EARLY: Store = {
   created_at: RESEED_AT,
 };
 
+// 같은 순간을 다른 형식으로 적은 시각 네 벌. 초기 조회 행은 PostgREST 가, 이후 행은 Realtime 페이로드가
+// 만들므로 목록은 정상 상태에서 **두 출처가 섞인** 배열이다 — 형식이 갈려도 순서는 순간으로 정해져야 한다.
+// 오프셋을 아예 안 적은 "2026-09-28T17:00:00" 형식은 계약으로 고정하지 않는다: ES 명세상 로컬 시각이라
+// 러너의 TZ 에 따라 가리키는 순간이 달라져 기대값을 적을 수 없고, Postgres 도 timestamptz 를 그렇게
+// 내보내지 않는다.
+const INSTANT_Z = "2026-09-28T17:00:00Z";
+const INSTANT_MILLIS = "2026-09-28T17:00:00.000Z";
+const INSTANT_KST = "2026-09-29T02:00:00+09:00";
+
+// 등록 시각만 다른 두 매장. 첫 키가 동률일 때 두 번째 키가 순서를 정하는지 보는 데 쓴다.
+const S_EARLY_REG: Store = {
+  id: "r10",
+  name: "가게A",
+  menus: [],
+  location: null,
+  pinned: false,
+  created_at: "2026-09-29T00:00:00+09:00",
+};
+const S_LATE_REG: Store = {
+  id: "r11",
+  name: "가게B",
+  menus: [],
+  location: null,
+  pinned: false,
+  created_at: "2026-09-29T08:00:00+09:00",
+};
+
 const C_GIM: Candidate = { restaurant_id: "r1", created_at: "2026-09-29T03:00:00+09:00" };
 const C_MARA: Candidate = { restaurant_id: "r2", created_at: "2026-09-29T04:00:00+09:00" };
 // 재시드로 함께 들어간 두 행. 첫 키가 동률이라 매장 등록 순서가 순서를 정한다.
@@ -171,6 +198,42 @@ describe("joinCandidates — 휠 순서의 정의처 (D-06)", () => {
 
   it("후보가 0개면 빈 배열이다", () => {
     expect(joinCandidates([], [S_GIM, S_MARA])).toEqual([]);
+  });
+
+  // 아래 셋은 문자열 비교로는 전부 반대 답이 나온다 — 두 출처의 직렬화가 같다는 전제를 지우는 단언이다.
+  it('"Z" 와 "+09:00" 이 같은 순간이면 동률로 보고 다음 키(매장 등록 시각)로 넘어간다', () => {
+    const rows = joinCandidates(
+      [
+        { restaurant_id: "r10", created_at: INSTANT_KST },
+        { restaurant_id: "r11", created_at: INSTANT_Z },
+      ],
+      [S_EARLY_REG, S_LATE_REG],
+    );
+    expect(rows.map((c) => c.id)).toEqual(["r10", "r11"]);
+  });
+
+  it("소수 초가 붙은 형식도 같은 순간이면 동률이다", () => {
+    const rows = joinCandidates(
+      [
+        { restaurant_id: "r11", created_at: INSTANT_MILLIS },
+        { restaurant_id: "r10", created_at: INSTANT_Z },
+      ],
+      [S_EARLY_REG, S_LATE_REG],
+    );
+    expect(rows.map((c) => c.id)).toEqual(["r10", "r11"]);
+  });
+
+  it("오프셋이 다르면 문자열이 아니라 순간으로 앞뒤를 정한다", () => {
+    const rows = joinCandidates(
+      [
+        // 02:00 UTC — 문자열로는 앞서 보이지만 실제로는 30분 늦다.
+        { restaurant_id: "r10", created_at: "2026-09-29T02:00:00+00:00" },
+        // 01:30 UTC
+        { restaurant_id: "r11", created_at: "2026-09-29T10:30:00+09:00" },
+      ],
+      [S_EARLY_REG, S_LATE_REG],
+    );
+    expect(rows.map((c) => c.id)).toEqual(["r11", "r10"]);
   });
 });
 
@@ -268,6 +331,27 @@ describe("isNewSpin — 휠을 다시 돌릴지 (D-08, todo in-06)", () => {
 
   it("spun_at 이 같으면 새 추첨이 아니다 — on delete set null 이 내보내는 UPDATE 로 휠이 돌지 않는다", () => {
     expect(isNewSpin(RESULT_GIM, RESULT_ORPHAN)).toBe(false);
+  });
+
+  // prev 는 REST 로 읽은 행이고 next 는 Realtime 페이로드다. 직렬화가 갈리면 문자열 비교는 같은 추첨을
+  // "새 추첨" 이라 답하고, 매장 하나를 지울 때마다 열린 모든 탭의 휠이 5초씩 돈다(in-06 재발).
+  it('같은 순간을 "+09:00" 과 "Z" 로 적어도 같은 추첨이다', () => {
+    expect(isNewSpin(RESULT_GIM, { ...RESULT_ORPHAN, spun_at: "2026-09-28T17:55:00Z" })).toBe(false);
+  });
+
+  it("소수 초가 붙어도 같은 순간이면 같은 추첨이다", () => {
+    expect(isNewSpin(RESULT_GIM, { ...RESULT_ORPHAN, spun_at: "2026-09-28T17:55:00.000+00:00" })).toBe(false);
+  });
+
+  // 파싱 불가는 "다르다" 가 아니라 문자열 비교로 떨어뜨린다 — 회전 쪽으로 기울이면 위 재발 경로가 열린다.
+  it("파싱할 수 없는 시각이라도 문자열이 같으면 같은 추첨이다", () => {
+    const broken = { ...RESULT_GIM, spun_at: "not-a-timestamp" };
+    expect(isNewSpin(broken, { ...broken, restaurant_id: null })).toBe(false);
+  });
+
+  it("파싱할 수 없는 시각의 문자열이 다르면 새 추첨이다", () => {
+    const broken = { ...RESULT_GIM, spun_at: "not-a-timestamp" };
+    expect(isNewSpin(broken, { ...broken, spun_at: "also-not-a-timestamp" })).toBe(true);
   });
 });
 

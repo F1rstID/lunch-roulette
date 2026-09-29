@@ -27,6 +27,23 @@ export type TodayCandidate = {
 // slice 가 null 이면 아직 담기지 않은 매장이다. 숫자면 그 값이 곧 휠 조각 번호다.
 export type TodayRow = { restaurant: RestaurantRow; slice: number | null };
 
+// 시각 두 개를 "같은 순간인가" 로 비교한다. 문자열 비교를 쓰지 않는 이유: 목록은 정상 상태에서 초기
+// 조회(PostgREST)와 이후 이벤트(Realtime)가 만든 행이 **섞인** 배열이고, 두 경로의 직렬화가 같다는 것은
+// 코드가 아니라 전제였다. "…T02:00:00+00:00" 과 "…T02:00:00Z" 는 같은 순간인데 문자열로는 다르고, 그
+// 차이가 정렬에 새면 탭마다 다른 조각 번호가 보인다.
+// 파싱 불가(NaN)는 문자열 비교로 떨어뜨린다 — 0 으로 뭉개면 비교기가 전순서를 잃어(a<b 이면서 b<a)
+// sort 결과가 엔진 구현에 따라 흔들린다.
+function compareInstants(a: string, b: string): number {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta) || Number.isNaN(tb)) {
+    if (a === b) return 0;
+    return a < b ? -1 : 1;
+  }
+  if (ta === tb) return 0;
+  return ta < tb ? -1 : 1;
+}
+
 export function joinCandidates(candidates: CandidateRow[], restaurants: RestaurantRow[]): TodayCandidate[] {
   const byId = new Map(restaurants.map((row) => [row.id, row]));
   const pairs: { candidate: CandidateRow; store: RestaurantRow }[] = [];
@@ -38,14 +55,12 @@ export function joinCandidates(candidates: CandidateRow[], restaurants: Restaura
     pairs.push({ candidate, store });
   }
   // 입력 배열을 변형하지 않는다 — 1초 tick 으로 매초 리렌더되는 페이지가 이 함수를 부르고, 넘어온 배열은
-  // 리듀서가 들고 있는 상태다. 두 시각 모두 같은 직렬화 형식이라 문자열 비교가 곧 시간 순서다.
+  // 리듀서가 들고 있는 상태다.
   pairs.sort((a, b) => {
-    if (a.candidate.created_at !== b.candidate.created_at) {
-      return a.candidate.created_at < b.candidate.created_at ? -1 : 1;
-    }
-    if (a.store.created_at !== b.store.created_at) {
-      return a.store.created_at < b.store.created_at ? -1 : 1;
-    }
+    const byCandidate = compareInstants(a.candidate.created_at, b.candidate.created_at);
+    if (byCandidate !== 0) return byCandidate;
+    const byStore = compareInstants(a.store.created_at, b.store.created_at);
+    if (byStore !== 0) return byStore;
     // 마지막 키. 여기까지 동률이면 완전 순서를 만들어야 새로고침마다 순서가 흔들리지 않는다.
     if (a.store.id === b.store.id) return 0;
     return a.store.id < b.store.id ? -1 : 1;
@@ -104,8 +119,16 @@ export function findWinnerIndex(items: { id: string }[], result: ResultRow | nul
 // 걸러 내지 않으면 매장 하나를 지울 때마다 열린 모든 탭의 휠이 5초씩 돌아 화면이 잠긴다(todo in-06).
 // 다시 돌리기는 추첨 시각을 항상 새로 쓰므로 정상 재회전은 살아 있다. 이전 값을 페이로드에서 읽을 수 없어서
 // (DELETE 계열 페이로드에는 PK 만 온다) 호출부가 상태 거울을 들고 이 함수에 넘긴다.
+// 두 시각을 문자열이 아니라 순간으로 본다(compareInstants 와 같은 이유): prev 는 REST 로 읽은 행이고
+// next 는 Realtime 페이로드라 직렬화가 갈리면 같은 추첨이 "다른 추첨" 으로 읽혀 휠이 헛돈다.
+// 파싱 불가(NaN)는 "다르다" 가 아니라 문자열 비교로 떨어뜨린다 — NaN !== NaN 을 그대로 쓰면 매장 삭제가
+// 내보내는 set-null UPDATE(같은 문자열)마다 true 가 되어 in-06 이 막은 재회전이 소리 없이 돌아온다.
 export function isNewSpin(prev: ResultRow | null, next: ResultRow): boolean {
-  return prev === null || prev.spun_at !== next.spun_at;
+  if (prev === null) return true;
+  const before = Date.parse(prev.spun_at);
+  const after = Date.parse(next.spun_at);
+  if (Number.isNaN(before) || Number.isNaN(after)) return prev.spun_at !== next.spun_at;
+  return before !== after;
 }
 
 // 병합 규칙의 정의처는 lib/rowset.ts 한 곳이다. 여기서 정하는 것은 "무엇이 같은 행인가" 뿐이고,
