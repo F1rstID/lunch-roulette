@@ -58,8 +58,11 @@ export function CandidateList({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const readOnly = isCandidateListLocked(phase);
-  // useMemo 로 감싸지 않는다: 입력이 매 렌더 새 배열이 아니고, 감싸면 의존성 배열이 필터 state 까지
-  // 끌고 들어와 얻는 것이 없다. 판단은 순수 함수가 끝냈고 여기서는 부르기만 한다.
+  // useMemo 로 감싸지 않는다: 행 수가 수십 개라 비용이 무시할 만하다. "감싸도 얻는 것이 없다" 는 아니다 —
+  // candidates·catalog 는 페이지가 메모해 넘긴 안정 참조이고 query 는 의존성 셋 중 하나일 뿐이라,
+  // [candidates, catalog, query] 로 감싸면 매초 tick 렌더(부모의 ~Action 이 매 렌더 새 함수라 이 컴포넌트는
+  // 매초 다시 그려진다)에서 재계산이 실제로 준다. 카탈로그가 수백 행이 되면 그때 감싼다.
+  // 판단은 순수 함수가 끝냈고 여기서는 부르기만 한다.
   const rows = listTodayRows(candidates, catalog, query);
 
   return (
