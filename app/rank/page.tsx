@@ -13,11 +13,13 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { RankingView } from "@/components/RankingView";
 
 // 랭킹이 읽는 컬럼만 조회한다. candidates jsonb 가 행마다 가장 무겁고 랭킹은 그것을 쓰지 않는다.
-// id 는 Realtime 이벤트의 멱등 병합에 필요하다. 상태 행 타입을 이 목록에서 파생하는 이유: 한쪽에만 컬럼을 더하면
-// tsc 가 잡지 못하고 런타임에 undefined 필드가 조용히 생긴다.
-const RANK_COLUMN_LIST = ["id", "date", "menu", "restaurant_id"] as const satisfies readonly (keyof ResultRow)[];
-const RANK_COLUMNS = RANK_COLUMN_LIST.join(",");
-type RankResultRow = Pick<ResultRow, (typeof RANK_COLUMN_LIST)[number]>;
+// id 는 Realtime 이벤트의 멱등 병합에 필요하다. 리터럴 한 줄로 두는 이유: supabase-js 는 select 문자열이 리터럴
+// 타입일 때만 응답 타입을 파싱한다(배열을 join 하면 string 이 되어 GenericStringError 로 떨어진다).
+const RANK_COLUMNS = "id,date,menu,restaurant_id";
+// 상태 행 타입을 그 리터럴에서 파생한다 — 한쪽에만 컬럼을 더하면 tsc 가 잡지 못하고 런타임에 undefined 필드가 조용히 생긴다.
+// ResultRow 에 없는 이름이 리터럴에 섞이면 Pick 의 제약에서 컴파일 에러가 난다.
+type SplitColumns<S extends string> = S extends `${infer Head},${infer Tail}` ? Head | SplitColumns<Tail> : S;
+type RankResultRow = Pick<ResultRow, SplitColumns<typeof RANK_COLUMNS>>;
 
 // Realtime 페이로드는 전체 행이다. 조회와 같은 모양으로 깎아 넣어야 상태의 행 모양이 출처에 따라 달라지지 않는다.
 const toRankResultRow = ({ id, date, menu, restaurant_id }: ResultRow): RankResultRow => ({
