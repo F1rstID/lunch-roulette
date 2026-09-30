@@ -30,13 +30,13 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
           </div>
         </div>
         <div className="l-stat-cell" style={s.metric}>
-          <span className="micro">CANDIDATES</span>
+          <span className="micro">후보</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount}
           </div>
         </div>
         <div className="l-stat-cell" style={s.metric}>
-          <span className="micro">PROBABILITY</span>
+          <span className="micro">확률</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount ? `${(100 / candidateCount).toFixed(1)}%` : "—"}
           </div>
@@ -67,7 +67,7 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
           </div>
         </div>
         <div className="l-stat-cell" style={{ ...s.metric, borderColor: "oklch(0.86 0.06 60)" }}>
-          <span className="micro">CANDIDATES</span>
+          <span className="micro">후보</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount}
           </div>
@@ -83,8 +83,8 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
           <span className="micro" style={{ color: "var(--accent-ink)" }}>
             오늘의 점심
           </span>
-          <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)" }}>
-            FINALIZED · {spinTimeText}
+          <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
+            <span className="mono">{spinTimeText}</span> 확정
           </span>
         </div>
         <div style={s.winnerName}>{winner.name}</div>

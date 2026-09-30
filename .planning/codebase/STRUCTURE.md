@@ -133,6 +133,7 @@ lunch_roulette/
 - `lib/candidates.ts`: `joinCandidates`·`filterRestaurantsByName`·`listTodayRows`·`findWinnerIndex`·`isNewSpin`·`candidatesReducer` (오늘 후보 도메인의 모든 판단, 순수)
 - `lib/useCandidates.ts`: 오늘 후보 SELECT 1회 + `candidates-<n>` 토픽 2분기 구독 (판단 0, 읽기 전용)
 - `lib/menus.ts`: `parseMenuInput`·`truncateToCodePoints` (쉼표 다중 입력 파싱·코드포인트 절단, 순수 함수)
+- `lib/wheelLabel.ts`: `normalizeDeg`·`isLabelFlipped`·`fitWheelLabel` (휠 라벨의 각도·절단 판단, 순수 — Quick 002)
 - `lib/history.ts`: `filterSince`·`buildRanking`·`buildMonthGrid` (기록·랭킹의 모든 판단, 순수 — Phase 7 이 두 컴포넌트에서 내렸다)
 
 **Styling:**

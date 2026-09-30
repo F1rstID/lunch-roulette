@@ -119,7 +119,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
               <button
                 key={i}
                 className="l-cal-cell"
-                // 좁은 화면에서는 매장명과 TODAY 가 display: none 이라 접근성 트리에서도 빠진다.
+                // 좁은 화면에서는 매장명과 "오늘" 표시가 display: none 이라 접근성 트리에서도 빠진다.
                 // 보이는 글자에 기대지 않고 이름을 직접 준다.
                 aria-label={entry ? `${c.m}월 ${c.d}일 ${entry.menu}` : undefined}
                 aria-current={isToday ? "date" : undefined}
@@ -152,8 +152,8 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
                     {c.d}
                   </span>
                   {isToday && (
-                    <span style={s.todayTag} className="mono l-hide-narrow">
-                      TODAY
+                    <span style={s.todayTag} className="l-hide-narrow">
+                      오늘
                     </span>
                   )}
                 </div>
@@ -326,9 +326,8 @@ const s = {
     letterSpacing: "-0.01em",
   },
   todayTag: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 600,
-    letterSpacing: "0.08em",
     color: "var(--accent-ink)",
   },
   entryChip: {

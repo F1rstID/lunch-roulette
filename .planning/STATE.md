@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
 stopped_at: Cutover executed 2026-09-29 - live on new model, PR #4 merged (7c43a81). Remaining: user live check (README 7-8), test restaurant cleanup
-last_updated: 2026-09-30T01:36:00.000Z
-last_activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR 대기(main 미반영). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
+last_updated: 2026-09-30T02:50:00.000Z
+last_activity: 2026-09-30 -- Quick 002 완료: 휠 라벨 방사형(15칸 겹침 0) + 시계 1곳 + 영문 소형 라벨 한글화. 브랜치 feat/ui-wheel-labels, 리뷰 1회 반영, PR 대기(main 미반영). Quick 001 은 PR #5 로 라이브
 progress:
   total_phases: 8
   completed_phases: 7
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 Phase: 8 (complete)
 Plan: 1 of 1 (complete)
 Status: Cutover executed — live on new model; user live check + 익일 추첨 확인 remaining
-Last activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR 대기(main 미반영). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
+Last activity: 2026-09-30 -- Quick 002 완료: 휠 라벨 방사형(15칸 겹침 0) + 시계 1곳 + 영문 소형 라벨 한글화. 브랜치 feat/ui-wheel-labels, 리뷰 1회 반영, PR 대기(main 미반영). Quick 001 은 PR #5 로 라이브
 
 Progress: [██████████] 100%
 
@@ -176,6 +176,7 @@ Progress: [██████████] 100%
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 001 | 모바일 레이아웃 + 눈에 보이는 결함 3건 | 2026-09-30 | 9bd13c6 | [001-mobile-layout](./quick/001-mobile-layout/) |
+| 002 | 휠 라벨 가독성 + 시계 중복·영문 라벨 정리 | 2026-09-30 | 6ec1744 | [002-wheel-labels-copy](./quick/002-wheel-labels-copy/) |
 
 ## Deferred Items
 
