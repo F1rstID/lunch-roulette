@@ -134,7 +134,9 @@ function PodiumCard({ entry, rank }: { entry: RankEntry; rank: number }) {
       <div style={s.podiumMeta}>
         <span>{(entry.share * 100).toFixed(1)}%</span>
         <span style={{ color: "var(--line)" }}>·</span>
-        <span className="mono">{entry.lastDate.slice(5).replace("-", ".")} 최근</span>
+        <span>
+          <span className="mono">{entry.lastDate.slice(5).replace("-", ".")}</span> 최근
+        </span>
       </div>
     </div>
   );

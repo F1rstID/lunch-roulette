@@ -19,9 +19,12 @@ export function normalizeDeg(deg: number): number {
 
 // 12시가 0, 시계 방향. 오른쪽 반원의 라벨은 허브에서 테두리 쪽으로 읽히지만, 왼쪽 반원(180 초과)은
 // 같은 회전이면 화면에서 거꾸로 서므로 180° 돌려 테두리에서 허브 쪽으로 읽히게 한다.
-// 정확히 0 과 180 은 세로 글자라 어느 쪽이든 같다 — 뒤집지 않는다.
+// 정확히 0 과 180 은 세로 글자라 어느 쪽이든 같다 — 뒤집지 않는다. 180 은 칸 각도의 배수 산술에서
+// 부동소수 잔차(180.00000000000003)로 나올 수 있어, 그 잔차가 회전마다 뒤집기를 바꾸지 않게 허용 오차를 둔다.
+const FLIP_EPSILON_DEG = 1e-6;
+
 export function isLabelFlipped(screenMidDeg: number): boolean {
-  return normalizeDeg(screenMidDeg) > 180;
+  return normalizeDeg(screenMidDeg) > 180 + FLIP_EPSILON_DEG;
 }
 
 // 띠에 들어가지 않는 이름은 앞부분만 남기고 "…" 를 붙인다. "…" 도 한 글자 자리를 쓰므로 상한에서 하나를 뺀다.

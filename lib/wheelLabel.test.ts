@@ -40,10 +40,16 @@ describe("isLabelFlipped", () => {
     expect(isLabelFlipped(348)).toBe(true);
   });
 
-  it("세로로 서는 0 과 180 은 뒤집지 않는다", () => {
+  it("세로로 서는 0 과 180 은 뒤집지 않는다 — 부동소수 잔차가 붙어도 같다", () => {
     expect(isLabelFlipped(0)).toBe(false);
     expect(isLabelFlipped(180)).toBe(false);
     expect(isLabelFlipped(360)).toBe(false);
+    expect(isLabelFlipped(180.00000000000003)).toBe(false);
+    // 칸 14개, 당첨 인덱스 12 의 정지 각에서 6시에 오는 인덱스 5 의 화면 각도를 Wheel.tsx 와 같은 산술로 낸 값.
+    // 정확히 -180 이어야 하지만 -179.99999999999994 가 나온다.
+    const sliceDeg = 360 / 14;
+    const restRotation = -(sliceDeg * 12 + sliceDeg / 2);
+    expect(isLabelFlipped(5 * sliceDeg + sliceDeg / 2 + restRotation)).toBe(false);
   });
 
   it("회전을 더한 각도와 음수 각도도 같은 규칙이다", () => {
