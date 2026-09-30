@@ -146,7 +146,7 @@ export default function LogPage() {
       <main className="wrap" style={{ flex: 1 }}>
         <ErrorBanner message={loadBanner} onCloseAction={() => setLoadError(null)} />
 
-        <div style={head.wrap}>
+        <div className="l-page-head">
           <div>
             <div className="micro" style={{ marginBottom: 8 }}>
               점심 기록
@@ -168,13 +168,8 @@ export default function LogPage() {
   );
 }
 
+// 머리 영역의 여백은 app/globals.css 의 l-page-head 가 가진다(네 페이지 공용).
 const head = {
-  wrap: {
-    padding: "36px 0 24px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
   h1: { fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", margin: "0 0 6px" },
   sub: { color: "var(--muted)", fontSize: 14 },
 } satisfies Record<string, CSSProperties>;

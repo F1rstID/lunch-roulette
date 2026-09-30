@@ -35,14 +35,16 @@ export function TopBar({ active, candidateCount = 0, phase, clockTime }: Props) 
 
   return (
     <header style={s.topbar}>
-      <div className="wrap" style={s.topbarInner}>
+      <div className="wrap l-topbar">
         <div style={s.brand}>
           <span style={s.brandMark} aria-hidden />
           <span>점심 룰렛</span>
-          <span style={s.brandSub}>· LUNCH ROULETTE</span>
+          <span className="l-hide-stack" style={s.brandSub}>
+            · LUNCH ROULETTE
+          </span>
         </div>
 
-        <nav style={s.tabs}>
+        <nav className="l-topbar-tabs">
           <TabLink href="/" active={active === "today"}>
             오늘
             {/* 뱃지는 활성 탭 안에서만 그려진다 — 가드가 이미 active === "today" 라 배경색 분기는
@@ -65,7 +67,7 @@ export function TopBar({ active, candidateCount = 0, phase, clockTime }: Props) 
             <span className={`dot ${phaseInfo.dot}`} />
             {phaseInfo.label}
           </span>
-          <span style={s.clockReadout}>
+          <span className="l-hide-narrow" style={s.clockReadout}>
             <span style={{ fontSize: 11.5, color: "var(--muted)" }}>NOW</span>
             <span className="mono" style={{ fontSize: 12.5, color: "var(--ink)" }}>
               {clockTime}
@@ -105,12 +107,6 @@ const s = {
     borderBottom: "1px solid var(--line)",
     background: "var(--bg)",
   },
-  topbarInner: {
-    display: "flex",
-    alignItems: "center",
-    gap: 28,
-    height: 56,
-  },
   brand: {
     display: "flex",
     alignItems: "center",
@@ -136,7 +132,7 @@ const s = {
     marginLeft: 6,
     fontSize: 13,
   },
-  tabs: { display: "flex", gap: 4, marginLeft: 8 },
+  // 상단 바의 배치(한 줄 ↔ 두 줄)와 탭 묶음은 app/globals.css 의 l-topbar·l-topbar-tabs 가 가진다.
   tab: {
     padding: "8px 12px",
     borderRadius: 7,

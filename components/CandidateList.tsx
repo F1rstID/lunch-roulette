@@ -94,6 +94,7 @@ export function CandidateList({
           placeholder="매장 이름으로 찾기"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          className="l-input"
           style={s.input}
         />
       </div>
@@ -165,7 +166,9 @@ export function CandidateList({
       )}
 
       <footer style={s.footer}>
-        <span className="micro">규칙</span>
+        <span className="micro" style={s.footerLabel}>
+          규칙
+        </span>
         <span style={s.footerText}>
           {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · `}
           <Link href="/restaurants" style={s.footerLink}>
@@ -226,6 +229,7 @@ function CandidateRowView({
         aria-label={`${row.restaurant.name} ${picked ? "빼기" : "담기"}`}
         disabled={disabled}
         onClick={onToggle}
+        className="l-tap"
         style={{
           ...s.toggle,
           background: picked ? "var(--bg-soft)" : "var(--ink)",
@@ -276,18 +280,18 @@ const s = {
     padding: "0 12px",
     border: "1px solid var(--line)",
     borderRadius: 9,
-    fontSize: 14,
+    // 글자 크기는 app/globals.css 의 l-input 이 가진다(휴대폰에서 16px).
     outline: "none",
     background: "var(--panel)",
     color: "var(--ink)",
     transition: "border-color .12s, box-shadow .12s",
   },
+  // 높이 상한을 두지 않는다 — 목록 안쪽 스크롤은 휴대폰에서 페이지 스크롤을 가두고, 넓은 화면에서는
+  // 아래를 비워 둔 채 매장을 절반만 보여 준다. 길어지면 페이지가 길어진다.
   list: {
     listStyle: "none",
     margin: 0,
     padding: 0,
-    maxHeight: 420,
-    overflowY: "auto",
   },
   empty: {
     padding: "32px 20px",
@@ -355,9 +359,11 @@ const s = {
     background: "var(--bg-soft)",
     borderTop: "1px solid var(--line-soft)",
     display: "flex",
-    alignItems: "center",
+    alignItems: "baseline",
     gap: 10,
   },
+  // 라벨이 줄어들지 않게 막는다 — 막지 않으면 옆 문장이 길 때 "규/칙" 으로 꺾인다.
+  footerLabel: { flexShrink: 0 },
   footerText: { color: "var(--ink-soft)", fontSize: 12.5 },
   footerLink: { color: "var(--accent-ink)" },
 } satisfies Record<string, CSSProperties>;

@@ -16,7 +16,7 @@ export function ErrorBanner({ message, onCloseAction }: Props) {
 
   return (
     <div role="alert" style={s.wrap}>
-      <span>{message}</span>
+      <span style={s.message}>{message}</span>
       <button type="button" onClick={onCloseAction} style={s.close} aria-label="닫기">
         ×
       </button>
@@ -38,6 +38,8 @@ const s = {
     color: "var(--red)",
     fontSize: 13,
   },
+  // 메시지에는 매장명과 서버 문구가 들어간다. 줄어들 수 있어야 긴 한 단어가 닫기 버튼을 화면 밖으로 밀지 않는다.
+  message: { minWidth: 0 },
   close: {
     appearance: "none",
     border: "none",

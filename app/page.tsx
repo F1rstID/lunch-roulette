@@ -277,7 +277,7 @@ export default function TodayPage() {
       />
 
       <main className="wrap" style={{ flex: 1 }}>
-        <div style={pageHeadStyles.head}>
+        <div className="l-page-head">
           <div>
             <div className="micro" style={{ marginBottom: 8 }}>
               {formatKstLongDay(now)}
@@ -291,11 +291,11 @@ export default function TodayPage() {
         <ErrorBanner message={loadBanner} onCloseAction={() => setLoadError(null)} />
         <ErrorBanner message={actionError} onCloseAction={() => setActionError(null)} />
 
-        <div style={layoutStyles.cols}>
+        <div className="l-cols-today" style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
             <div className="card" style={layoutStyles.stage}>
               <StageHeader phase={phase} clockTime={clockTime} />
-              <div style={layoutStyles.wheelHolder}>
+              <div className="l-wheel-holder" style={layoutStyles.wheelHolder}>
                 <Wheel
                   items={todayCandidates}
                   phase={wheelPhase}
@@ -414,14 +414,8 @@ function phaseSubhead(phase: Phase, count: number, spinTimeText: string, winnerN
   return "";
 }
 
+// 머리 영역의 배치(제목 옆 타임라인 ↔ 아래 타임라인)는 app/globals.css 의 l-page-head 가 가진다.
 const pageHeadStyles = {
-  head: {
-    padding: "36px 0 24px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: 32,
-  },
   h1: {
     fontSize: 28,
     fontWeight: 700,
@@ -432,12 +426,9 @@ const pageHeadStyles = {
 } satisfies Record<string, CSSProperties>;
 
 const layoutStyles = {
-  cols: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)",
-    gap: 24,
-    paddingBottom: 56,
-  },
+  // 격자(2단 ↔ 1단)는 l-cols-today 가 가진다. 여기에 display·gridTemplateColumns 를 다시 적으면
+  // inline 이 이겨 휴대폰에서도 2단으로 남는다.
+  cols: { paddingBottom: 56 },
   left: { display: "flex", flexDirection: "column", gap: 16 },
   right: { display: "flex", flexDirection: "column", gap: 16 },
   stage: {
@@ -450,7 +441,6 @@ const layoutStyles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    padding: "32px 24px 24px",
     background:
       "radial-gradient(circle at center, oklch(0.99 0.005 80) 0%, oklch(0.965 0.006 80) 70%)",
   },
@@ -473,7 +463,8 @@ const respinStyles = {
   wrap: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: "6px 12px",
     padding: "14px 26px 18px",
     borderTop: "1px solid var(--line)",
     background: "white",
@@ -500,8 +491,10 @@ const footerStyles = {
   },
   inner: {
     display: "flex",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: "4px 16px",
     color: "var(--muted)",
     fontSize: 12,
   },

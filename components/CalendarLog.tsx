@@ -36,10 +36,10 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
   const sel = selected ? logMap[selected] : null;
 
   return (
-    <div style={s.layout}>
+    <div className="l-cols-log" style={s.layout}>
       <div className="card" style={s.gridCard}>
         <header style={s.gridHeader}>
-          <div>
+          <div style={s.gridHeaderText}>
             <div style={s.gridTitle} className="mono">
               {year}.{pad2(month)}
             </div>
@@ -52,6 +52,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
           </div>
           <div style={s.navGroup}>
             <button
+              className="l-tap"
               style={s.navBtn}
               onClick={() => {
                 const ny = month === 1 ? year - 1 : year;
@@ -63,6 +64,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
               ‹
             </button>
             <button
+              className="l-tap"
               style={s.navBtn}
               onClick={() => {
                 const ny = month === 12 ? year + 1 : year;
@@ -76,7 +78,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
           </div>
         </header>
 
-        <div style={s.weekRow}>
+        <div className="l-cal-week" style={s.weekRow}>
           {WEEKDAYS.map((w, i) => (
             <div
               key={w}
@@ -95,7 +97,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
           ))}
         </div>
 
-        <div style={s.grid}>
+        <div className="l-cal-grid" style={s.grid}>
           {cells.map((c, i) => {
             const key = fmtDate(c.y, c.m, c.d);
             const entry = logMap[key];
@@ -106,6 +108,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             return (
               <button
                 key={i}
+                className="l-cal-cell"
                 style={{
                   ...s.cell,
                   background: isSelected ? "oklch(0.95 0.04 60)" : "white",
@@ -134,7 +137,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
                     {c.d}
                   </span>
                   {isToday && (
-                    <span style={s.todayTag} className="mono">
+                    <span style={s.todayTag} className="mono l-hide-narrow">
                       TODAY
                     </span>
                   )}
@@ -151,7 +154,10 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
                         flexShrink: 0,
                       }}
                     />
-                    <span style={s.entryName}>{entry.menu}</span>
+                    {/* 휴대폰 칸은 폭이 40px 남짓이라 이름이 들어가지 않는다. 점만 남기고 이름은 눌러서 본다. */}
+                    <span className="l-hide-narrow" style={s.entryName}>
+                      {entry.menu}
+                    </span>
                   </div>
                 )}
               </button>
@@ -236,24 +242,22 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 }
 
 const s = {
-  layout: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) 320px",
-    gap: 24,
-    alignItems: "start",
-    paddingBottom: 64,
-  },
+  // 격자(달력 옆 상세 ↔ 달력 아래 상세)는 app/globals.css 의 l-cols-log 가 가진다.
+  layout: { paddingBottom: 64 },
   gridCard: { padding: 0, overflow: "hidden" },
   gridHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
     padding: "20px 22px 16px",
     borderBottom: "1px solid var(--line)",
   },
+  // 부제에 매장명이 들어간다 — 줄어들 수 있어야 긴 이름이 달 이동 버튼을 밀어내지 않는다.
+  gridHeaderText: { minWidth: 0 },
   gridTitle: { fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em" },
   gridSub: { fontSize: 12.5, color: "var(--muted)", marginTop: 2 },
-  navGroup: { display: "flex", gap: 4 },
+  navGroup: { display: "flex", gap: 4, flexShrink: 0 },
   navBtn: {
     width: 32,
     height: 32,
@@ -266,26 +270,23 @@ const s = {
     display: "grid",
     placeItems: "center",
   },
+  // 요일 줄·날짜 격자·칸의 여백과 칸 높이는 l-cal-week·l-cal-grid·l-cal-cell 이 가진다.
   weekRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(7, 1fr)",
-    padding: "12px 14px 8px",
+    gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
     background: "var(--bg-soft)",
     borderBottom: "1px solid var(--line-soft)",
   },
   weekHead: { fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textAlign: "center" },
+  // 1fr 이 아니라 minmax(0, 1fr) 인 이유: 1fr 의 하한은 내용 폭이라 긴 매장명이 든 열만 넓어진다.
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(7, 1fr)",
-    gap: 8,
-    padding: 14,
+    gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
     background: "var(--bg-soft)",
   },
   cell: {
-    minHeight: 86,
     border: "1px solid var(--line-soft)",
     borderRadius: 9,
-    padding: "8px 8px 6px",
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
@@ -364,7 +365,7 @@ const s = {
   detailList: { margin: 0, padding: 0 },
   detailRow: {
     display: "grid",
-    gridTemplateColumns: "84px 1fr",
+    gridTemplateColumns: "84px minmax(0, 1fr)",
     gap: 12,
     padding: "10px 0",
     borderBottom: "1px solid var(--line-soft)",

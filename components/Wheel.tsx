@@ -15,6 +15,7 @@ type Props = {
   // 설정에서 온 추첨 시각 문구. 기본값을 두지 않는다 — 두면 시각이 다시 이 파일에 숨는다(SPIN-06).
   spinTimeText: string;
   onSpinCompleteAction?: () => void;
+  // 최대 폭이다. 자리가 좁으면 그보다 작게 그려지고, 안쪽 좌표는 viewBox 가 비율대로 줄인다.
   size?: number;
 };
 
@@ -81,9 +82,9 @@ export function Wheel({
 
   if (items.length === 0) {
     return (
-      <div style={outer}>
-        <Pointer size={size} active={false} />
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
+      <div style={{ ...outer, maxWidth: size }}>
+        <Pointer active={false} />
+        <svg viewBox={`0 0 ${size} ${size}`} style={fluidSvg}>
           <circle cx={cx} cy={cy} r={R + 8} fill="white" stroke="oklch(0.85 0.012 70)" />
           <circle cx={cx} cy={cy} r={R} fill="oklch(0.965 0.006 80)" stroke="var(--line-soft)" strokeDasharray="3 4" />
           <circle cx={cx} cy={cy} r={Rinner + 8} fill="white" stroke="oklch(0.85 0.012 70)" />
@@ -100,9 +101,9 @@ export function Wheel({
   }
 
   return (
-    <div style={outer}>
-      <Pointer size={size} active={phase === "spinning" || phase === "decided"} />
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
+    <div style={{ ...outer, maxWidth: size }}>
+      <Pointer active={phase === "spinning" || phase === "decided"} />
+      <svg viewBox={`0 0 ${size} ${size}`} style={fluidSvg}>
         <defs>
           <filter id="wheel-shadow" x="-10%" y="-10%" width="120%" height="120%">
             <feDropShadow dx="0" dy="8" stdDeviation="12" floodColor="oklch(0.2 0.02 70)" floodOpacity="0.10" />
@@ -265,15 +266,15 @@ export function Wheel({
   );
 }
 
-function Pointer({ size, active = true }: { size: number; active?: boolean }) {
-  const left = size / 2 - 14;
+function Pointer({ active = true }: { active?: boolean }) {
   return (
     <div
       aria-hidden
       style={{
         position: "absolute",
         top: -2,
-        left,
+        // 휠 폭이 유동이라 픽셀 좌표를 쓸 수 없다. 14 는 아래 width 의 절반이다.
+        left: "calc(50% - 14px)",
         width: 28,
         height: 38,
         display: "flex",
@@ -308,8 +309,16 @@ function Pointer({ size, active = true }: { size: number; active?: boolean }) {
   );
 }
 
+// 폭은 부모가 정하고 상한(maxWidth)은 호출부가 size 로 얹는다.
 const outer: CSSProperties = {
   position: "relative",
-  display: "inline-block",
+  width: "100%",
   lineHeight: 0,
+};
+
+// width·height 속성을 주지 않는다 — 주면 그 픽셀로 고정돼 좁은 화면에서 카드 밖으로 잘린다.
+const fluidSvg: CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: "auto",
 };

@@ -178,13 +178,15 @@ export default function RestaurantsPage() {
     <>
       <TopBar active="restaurants" phase={phase} clockTime={formatHhMmSs(now)} />
       <main className="wrap" style={{ flex: 1 }}>
-        <div style={pageHeadStyles.head}>
-          <div className="micro" style={{ marginBottom: 8 }}>
-            {formatKstLongDay(now)}
-          </div>
-          <h1 style={pageHeadStyles.h1}>매장</h1>
-          <div style={pageHeadStyles.sub}>
-            룰렛에 올릴 가게를 여기에 모아 둬요 · 오늘 후보 담기는 오늘 탭에서
+        <div className="l-page-head">
+          <div>
+            <div className="micro" style={{ marginBottom: 8 }}>
+              {formatKstLongDay(now)}
+            </div>
+            <h1 style={pageHeadStyles.h1}>매장</h1>
+            <div style={pageHeadStyles.sub}>
+              룰렛에 올릴 가게를 여기에 모아 둬요 · 오늘 후보 담기는 오늘 탭에서
+            </div>
           </div>
         </div>
 
@@ -210,8 +212,8 @@ function thrownMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+// 머리 영역의 여백은 app/globals.css 의 l-page-head 가 가진다(네 페이지 공용).
 const pageHeadStyles = {
-  head: { padding: "36px 0 24px" },
   h1: {
     fontSize: 28,
     fontWeight: 700,
