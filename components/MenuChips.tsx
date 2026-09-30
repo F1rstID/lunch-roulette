@@ -47,6 +47,9 @@ const s = {
     marginTop: 4,
   },
   chip: {
+    // 띄어쓰기 없는 긴 메뉴는 keep-all 아래에서 한 단어다 — 줄어들 수 있어야 칩 안에서 꺾이고,
+    // 그러지 못하면 칩이 행 끝의 버튼을 덮는다.
+    minWidth: 0,
     fontSize: 11.5,
     padding: "1px 7px",
     borderRadius: 999,

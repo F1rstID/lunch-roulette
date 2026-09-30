@@ -145,8 +145,9 @@ input, textarea { font-family: inherit; }
    화면 폭에 따라 바뀌는 속성만 여기 둔다. inline style 은 media query 를 쓸 수 없어서다.
    규칙 1. l- 클래스가 가진 속성을 그 요소의 inline style 에 또 두지 않는다 — inline 이 이겨서
            아래 분기가 에러 없이 꺼진다. 숨김 유틸 2종만 !important 로 이 규칙에서 벗어난다.
-   규칙 2. 분기는 960px(2단 → 1단) · 720px(휴대폰) 둘뿐이다. 720 은 상단 바가 한 줄에 들어가는
-           최소 폭(약 674px)에서 왔다. 값을 늘리면 components/layoutClasses.test.ts 가 막는다.
+   규칙 2. 폭 분기는 960px(2단 → 1단) · 720px(휴대폰) 둘뿐이고, 입력 수단 분기(pointer: coarse)가
+           하나 더 있다. 720 은 상단 바가 한 줄에 들어가는 최소 폭(약 674px)에서 왔다. 조건문을
+           늘리거나 바꾸면 components/layoutClasses.test.ts 가 막는다.
    규칙 3. 색·글꼴·폭과 무관한 간격은 여기 두지 않는다. 그것은 컴포넌트의 스타일 객체가 가진다. */
 .l-topbar {
   display: flex;
@@ -172,6 +173,9 @@ input, textarea { font-family: inherit; }
   min-width: 0;
   max-width: 100%;
 }
+/* 줄어드는 몫은 부제 칸(첫째 자식)이 전부 가져간다. 오늘 탭의 타임라인은 내용이 줄지 못해서,
+   상자만 줄면 마지막 단계가 본문 오른쪽 정렬선 밖으로 밀린다. */
+.l-page-head > :not(:first-child) { flex-shrink: 0; }
 .l-cols-today {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
@@ -184,6 +188,13 @@ input, textarea { font-family: inherit; }
   align-items: start;
 }
 .l-wheel-holder { padding: 32px 24px 24px; }
+.l-stat-bar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+}
+/* 칸 사이 선의 굵기와 자리는 여기가 가진다. 색만 다를 때는 그 칸의 inline borderColor 로 덮는다
+   (회전 중 배경) — 색은 폭과 무관하다. */
+.l-stat-bar > * + * { border-left: 1px solid var(--line); }
 .l-stat-cell { padding: 16px 22px; }
 .l-input { font-size: 14px; }
 .l-cal-week { padding: 12px 14px 8px; }
@@ -248,9 +259,16 @@ input, textarea { font-family: inherit; }
     padding: 24px 0 16px;
   }
   .l-wheel-holder { padding: 20px 12px 16px; }
+  /* 세 칸을 한 줄에 두면 353px 아래 화면에서 마지막 칸이 카드에 잘린다. 문구 칸을 윗줄로 올리고
+     숫자 칸을 아랫줄에 나눈다. 숫자 칸이 하나뿐이면(회전 중) 그 칸이 아랫줄을 다 쓴다. */
+  .l-stat-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .l-stat-bar > :first-child,
+  .l-stat-bar > :nth-child(2):last-child {
+    grid-column: 1 / -1;
+  }
+  .l-stat-bar > * + * { border-top: 1px solid var(--line); }
+  .l-stat-bar > :nth-child(2) { border-left: 0; }
   .l-stat-cell { padding: 14px; }
-  /* iOS Safari 는 16px 미만 입력 칸에 포커스가 가면 페이지를 확대한다. */
-  .l-input { font-size: 16px; }
   .l-cal-week { padding: 10px 8px 6px; }
   .l-cal-grid {
     gap: 4px;
@@ -282,6 +300,9 @@ input, textarea { font-family: inherit; }
     min-height: 40px;
     min-width: 40px;
   }
+  /* iOS Safari 는 16px 미만 입력 칸에 포커스가 가면 페이지를 확대한다. 폭으로 가르면 가로로 든
+     휴대폰(812~932px)이 빠진다. */
+  .l-input { font-size: 16px; }
 }
 
 /* keyframes */

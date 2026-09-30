@@ -272,6 +272,8 @@ function Pointer({ active = true }: { active?: boolean }) {
       aria-hidden
       style={{
         position: "absolute",
+        // 세로 위치와 크기는 휠 460px 기준의 고정값이다. 휠이 줄면 끝이 조각 안으로 몇 px 들어가지만
+        // 가리키는 방향(12시)은 같다. 같이 줄이려면 포인터를 SVG 안으로 옮겨 viewBox 단위로 그려야 한다.
         top: -2,
         // 휠 폭이 유동이라 픽셀 좌표를 쓸 수 없다. 14 는 아래 width 의 절반이다.
         left: "calc(50% - 14px)",

@@ -17,7 +17,7 @@ type Props = {
 export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Props) {
   if (phase === "accepting") {
     return (
-      <div style={s.bar}>
+      <div className="l-stat-bar" style={s.bar}>
         <div className="l-stat-cell">
           <div className="micro" style={{ color: "var(--ink-soft)" }}>
             오늘의 룰렛
@@ -29,13 +29,13 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
             <span style={{ ...s.headlineNote, fontSize: 14 }}>에 자동 시작</span>
           </div>
         </div>
-        <div className="l-stat-cell" style={{ ...s.metric, borderLeft: "1px solid var(--line)" }}>
+        <div className="l-stat-cell" style={s.metric}>
           <span className="micro">CANDIDATES</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount}
           </div>
         </div>
-        <div className="l-stat-cell" style={{ ...s.metric, borderLeft: "1px solid var(--line)" }}>
+        <div className="l-stat-cell" style={s.metric}>
           <span className="micro">PROBABILITY</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount ? `${(100 / candidateCount).toFixed(1)}%` : "—"}
@@ -48,6 +48,7 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
   if (phase === "spinning") {
     return (
       <div
+        className="l-stat-bar"
         style={{
           ...s.bar,
           background: "oklch(0.97 0.04 60)",
@@ -65,7 +66,7 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
             </div>
           </div>
         </div>
-        <div className="l-stat-cell" style={{ ...s.metric, borderLeft: "1px solid oklch(0.86 0.06 60)" }}>
+        <div className="l-stat-cell" style={{ ...s.metric, borderColor: "oklch(0.86 0.06 60)" }}>
           <span className="micro">CANDIDATES</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount}
@@ -122,7 +123,7 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
   // 뒤로는 "결과가 있는데 winner 가 없다" 가 도달 불가라, 같은 문구가 걸릴 자리는 stalled 뿐이다.
   if (phase === "stalled") {
     return (
-      <div style={s.bar}>
+      <div className="l-stat-bar" style={s.bar}>
         <div className="l-stat-cell">
           <div className="micro" style={{ color: "var(--ink-soft)" }}>
             오늘
@@ -144,19 +145,16 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
 }
 
 const s = {
+  // 열 구성(한 줄 세 칸 ↔ 두 줄)과 칸 사이 선은 app/globals.css 의 l-stat-bar 가 가진다.
   bar: {
-    display: "grid",
-    gridTemplateColumns: "1fr auto auto",
     alignItems: "center",
-    gap: 0,
-    padding: 0,
     borderTop: "1px solid var(--line)",
     background: "var(--bg-soft)",
   },
   // 좁은 칸에서는 덧붙는 문구가 통째로 다음 줄로 내려간다. 간격을 margin 이 아니라 columnGap 으로
   // 주는 이유: margin 은 줄이 바뀐 뒤에도 남아 둘째 줄이 들여쓰기된 것처럼 보인다.
   headline: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: 12, rowGap: 0 },
-  // nowrap 이 없으면 한 글자씩 세로로 꺾인다 — 칸이 좁아지면 글자가 아니라 문구가 내려가야 한다.
+  // 어절 사이에서도 끊기지 않게 한다 — 문구가 둘로 갈라지면 시각 옆에 반쪽만 남는다.
   headlineNote: { color: "var(--muted)", whiteSpace: "nowrap" },
   // 칸 여백은 app/globals.css 의 l-stat-cell 이 가진다(휴대폰에서 줄어든다).
   metric: {
