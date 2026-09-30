@@ -21,7 +21,7 @@ export function RankingView({ results }: { results: HistoryRow[] }) {
 
   return (
     <>
-      <div style={head.wrap}>
+      <div className="l-page-head">
         <div>
           <div className="micro" style={{ marginBottom: 8 }}>
             역대 당첨 랭킹
@@ -34,14 +34,16 @@ export function RankingView({ results }: { results: HistoryRow[] }) {
         </div>
       </div>
 
-      <section style={s.podiumWrap}>
+      <section className="l-podium" style={s.podiumWrap}>
         {topThree.map((m, i) => (
           <PodiumCard key={m.key} entry={m} rank={i + 1} />
         ))}
         {topThree.length < 3 &&
           Array.from({ length: 3 - topThree.length }).map((_, i) => (
+            // 빈 자리는 3단 배치의 모양을 잡으려고 있다. 세로로 쌓이는 폭에서는 빈 카드일 뿐이라 숨긴다.
             <div
               key={"f" + i}
+              className="l-hide-narrow"
               style={{
                 ...s.podiumCard,
                 opacity: 0.35,
@@ -62,11 +64,11 @@ export function RankingView({ results }: { results: HistoryRow[] }) {
             <span className="micro">4위부터</span>
             <span style={{ color: "var(--muted)", fontSize: 12.5 }}>{rest.length}개 매장</span>
           </header>
-          <div style={s.tableHead}>
+          <div className="l-rank-row" style={s.tableHead}>
             <span>순위</span>
             <span>매장</span>
             <span style={{ textAlign: "right" }}>당첨</span>
-            <span>비율</span>
+            <span className="l-hide-narrow">비율</span>
             <span style={{ textAlign: "right" }}>최근 당첨일</span>
           </div>
           {rest.map((m, i) => (
@@ -90,10 +92,10 @@ function PodiumCard({ entry, rank }: { entry: RankEntry; rank: number }) {
     3: "oklch(0.72 0.10 50)",
   };
   const labels: Record<number, string> = { 1: "1ST", 2: "2ND", 3: "3RD" };
-  const heights: Record<number, number> = { 1: 230, 2: 198, 3: 178 };
 
+  // 순위별 높이는 app/globals.css 의 l-podium-card[data-rank] 가 가진다 — 세로로 쌓일 때 0 으로 되돌려야 해서다.
   return (
-    <div style={{ ...s.podiumCard, minHeight: heights[rank] }}>
+    <div className="l-podium-card" data-rank={rank} style={s.podiumCard}>
       <div
         style={{
           ...s.podiumMedal,
@@ -150,7 +152,7 @@ function RankRow({
 }) {
   const pct = (entry.wins / maxWins) * 100;
   return (
-    <div style={s.tableRow}>
+    <div className="l-rank-row" style={s.tableRow}>
       <span className="mono" style={s.tableRank}>
         {String(rank).padStart(2, "0")}
       </span>
@@ -169,7 +171,7 @@ function RankRow({
       <span className="mono" style={{ ...s.tableWins, textAlign: "right" }}>
         {entry.wins}
       </span>
-      <div style={s.barWrap}>
+      <div className="l-hide-narrow" style={s.barWrap}>
         <div style={{ ...s.bar, width: `${pct}%` }} />
         <span className="mono" style={s.barLabel}>
           {(entry.share * 100).toFixed(1)}%
@@ -185,14 +187,8 @@ function RankRow({
   );
 }
 
+// 머리 영역의 여백은 app/globals.css 의 l-page-head 가 가진다(네 페이지 공용).
 const head = {
-  wrap: {
-    padding: "36px 0 24px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: 24,
-  },
   h1: {
     fontSize: 28,
     fontWeight: 700,
@@ -203,13 +199,8 @@ const head = {
 } satisfies Record<string, CSSProperties>;
 
 const s = {
-  podiumWrap: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 16,
-    alignItems: "end",
-    marginBottom: 24,
-  },
+  // 격자(3단 ↔ 1단)는 l-podium 이 가진다.
+  podiumWrap: { marginBottom: 24 },
   podiumCard: {
     background: "white",
     border: "1px solid var(--line)",
@@ -264,11 +255,11 @@ const s = {
     borderBottom: "1px solid var(--line)",
     background: "var(--bg-soft)",
   },
+  // 열 구성과 좌우 여백은 l-rank-row 가 가진다. 여기 padding 단축 속성을 쓰면 좌우까지 덮어써
+  // 휴대폰 여백이 꺼지므로 위아래만 따로 적는다.
   tableHead: {
-    display: "grid",
-    gridTemplateColumns: "52px 1fr 64px 1fr 110px",
-    gap: 16,
-    padding: "10px 22px",
+    paddingTop: 10,
+    paddingBottom: 10,
     borderBottom: "1px solid var(--line-soft)",
     fontSize: 11,
     letterSpacing: "0.06em",
@@ -277,11 +268,9 @@ const s = {
     fontWeight: 500,
   },
   tableRow: {
-    display: "grid",
-    gridTemplateColumns: "52px 1fr 64px 1fr 110px",
-    gap: 16,
     alignItems: "center",
-    padding: "14px 22px",
+    paddingTop: 14,
+    paddingBottom: 14,
     borderBottom: "1px solid var(--line-soft)",
   },
   tableRank: {

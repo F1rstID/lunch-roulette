@@ -17,8 +17,8 @@ type Props = {
 export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Props) {
   if (phase === "accepting") {
     return (
-      <div style={s.bar}>
-        <div>
+      <div className="l-stat-bar" style={s.bar}>
+        <div className="l-stat-cell">
           <div className="micro" style={{ color: "var(--ink-soft)" }}>
             오늘의 룰렛
           </div>
@@ -26,18 +26,16 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
             <span className="mono" style={{ fontSize: 28, fontWeight: 600 }}>
               {spinTimeText}
             </span>
-            <span style={{ color: "var(--muted)", fontSize: 14, marginLeft: 8 }}>
-              에 자동 시작
-            </span>
+            <span style={{ ...s.headlineNote, fontSize: 14 }}>에 자동 시작</span>
           </div>
         </div>
-        <div style={{ ...s.metric, borderLeft: "1px solid var(--line)" }}>
+        <div className="l-stat-cell" style={s.metric}>
           <span className="micro">CANDIDATES</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount}
           </div>
         </div>
-        <div style={{ ...s.metric, borderLeft: "1px solid var(--line)" }}>
+        <div className="l-stat-cell" style={s.metric}>
           <span className="micro">PROBABILITY</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount ? `${(100 / candidateCount).toFixed(1)}%` : "—"}
@@ -50,13 +48,14 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
   if (phase === "spinning") {
     return (
       <div
+        className="l-stat-bar"
         style={{
           ...s.bar,
           background: "oklch(0.97 0.04 60)",
           borderColor: "oklch(0.86 0.06 60)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 22px" }}>
+        <div className="l-stat-cell" style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span className="dot spin" />
           <div>
             <div style={s.headline}>
@@ -67,7 +66,7 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
             </div>
           </div>
         </div>
-        <div style={{ ...s.metric, borderLeft: "1px solid oklch(0.86 0.06 60)" }}>
+        <div className="l-stat-cell" style={{ ...s.metric, borderColor: "oklch(0.86 0.06 60)" }}>
           <span className="micro">CANDIDATES</span>
           <div className="mono" style={s.metricNum}>
             {candidateCount}
@@ -124,8 +123,8 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
   // 뒤로는 "결과가 있는데 winner 가 없다" 가 도달 불가라, 같은 문구가 걸릴 자리는 stalled 뿐이다.
   if (phase === "stalled") {
     return (
-      <div style={s.bar}>
-        <div style={{ padding: "16px 22px" }}>
+      <div className="l-stat-bar" style={s.bar}>
+        <div className="l-stat-cell">
           <div className="micro" style={{ color: "var(--ink-soft)" }}>
             오늘
           </div>
@@ -133,7 +132,7 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
             <span style={{ fontWeight: 600, fontSize: 17 }}>아직 결과가 없어요</span>
             {/* 서버가 추첨 시각 이후 매분 폴링하므로 지금 담아도 곧 뽑힌다 — 수동 버튼을 두지 않는
                 이유이고, 사용자가 알아야 하는 것은 그 사실이지 폴링 주기가 아니다(SPIN-03). */}
-            <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 8 }}>
+            <span style={{ ...s.headlineNote, fontSize: 13 }}>
               후보를 담으면 1분 안에 자동으로 뽑아요
             </span>
           </div>
@@ -146,21 +145,22 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
 }
 
 const s = {
+  // 열 구성(한 줄 세 칸 ↔ 두 줄)과 칸 사이 선은 app/globals.css 의 l-stat-bar 가 가진다.
   bar: {
-    display: "grid",
-    gridTemplateColumns: "1fr auto auto",
     alignItems: "center",
-    gap: 0,
-    padding: 0,
     borderTop: "1px solid var(--line)",
     background: "var(--bg-soft)",
   },
-  headline: { display: "flex", alignItems: "baseline", gap: 4 },
+  // 좁은 칸에서는 덧붙는 문구가 통째로 다음 줄로 내려간다. 간격을 margin 이 아니라 columnGap 으로
+  // 주는 이유: margin 은 줄이 바뀐 뒤에도 남아 둘째 줄이 들여쓰기된 것처럼 보인다.
+  headline: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: 12, rowGap: 0 },
+  // 어절 사이에서도 끊기지 않게 한다 — 문구가 둘로 갈라지면 시각 옆에 반쪽만 남는다.
+  headlineNote: { color: "var(--muted)", whiteSpace: "nowrap" },
+  // 칸 여백은 app/globals.css 의 l-stat-cell 이 가진다(휴대폰에서 줄어든다).
   metric: {
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    padding: "16px 22px",
   },
   metricNum: { fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" },
   winnerWrap: {

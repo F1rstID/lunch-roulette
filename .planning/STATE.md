@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete_pending_cutover
-stopped_at: All 8 phases complete - PR #4 open, live cutover is a user-run procedure (README)
-last_updated: 2026-09-29T06:11:44.881Z
-last_activity: 2026-09-29 -- Phase 8 complete: 롤백 SQL·README 컷오버 절차·PR #4 개설(직접 실행 레인 ~55m, 보안감사 5~7 SECURED 8/8, 리뷰 CR1/WR6/IN11 → 18/18, 역검증 4/5 + manual 1, 392 tests). 라이브 컷오버(0005 적용·함수 배포·머지)는 사용자가 README 절차 0~9 로
+status: milestone_complete
+stopped_at: Cutover executed 2026-09-29 - live on new model, PR #4 merged (7c43a81). Remaining: user live check (README 7-8), test restaurant cleanup
+last_updated: 2026-09-30T01:36:00.000Z
+last_activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR 대기(main 미반영). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
 progress:
   total_phases: 8
   completed_phases: 7
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** 컷오버 실행(사용자) — README `## 컷오버 절차` 0~9, 완료 후 성공 기준 5 확인 → 마일스톤 마감
+**Current focus:** 컷오버 후 확인 — README 7(당일)·8(익일 11:55 추첨) → 확인용 매장 삭제 → 마일스톤 마감
 
 ## Current Position
 
 Phase: 8 (complete)
 Plan: 1 of 1 (complete)
-Status: All phases complete — awaiting user-run cutover (README 절차) and PR #4 merge
-Last activity: 2026-09-29 -- Phase 8 complete: 롤백 SQL·README 컷오버 절차·PR #4 개설(직접 실행 레인 ~55m, 보안감사 5~7 SECURED 8/8, 리뷰 CR1/WR6/IN11 → 18/18, 역검증 4/5 + manual 1, 392 tests). 라이브 컷오버(0005 적용·함수 배포·머지)는 사용자가 README 절차 0~9 로
+Status: Cutover executed — live on new model; user live check + 익일 추첨 확인 remaining
+Last activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR 대기(main 미반영). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
 
 Progress: [██████████] 100%
 
@@ -170,6 +170,12 @@ Progress: [██████████] 100%
 - **`spin-roulette`는 사전 검증 불가.** 시각 가드 때문에 컷오버 시 `respin-roulette` 수동 invoke로 새 스키마 경로를 대신 확인해야 한다.
 - **`npm run dev`는 가드런처로만.** 과거 커널 패닉 이력. 재발 시 `rm -rf .next`.
 - **`.serena/project.yml`은 커밋 금지** (serena가 매번 재포맷).
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | 모바일 레이아웃 + 눈에 보이는 결함 3건 | 2026-09-30 | 9bd13c6 | [001-mobile-layout](./quick/001-mobile-layout/) |
 
 ## Deferred Items
 

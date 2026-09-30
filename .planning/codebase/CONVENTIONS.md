@@ -89,7 +89,17 @@
   ```
   레포 전체 14개 블록이 이 형태다. `satisfies`를 쓰는 이유: 객체 리터럴의 키 자동완성을 유지하면서 `CSSProperties` 적합성만 검사받기 위함.
 - **명명 규칙:** 파일에 스타일 블록이 하나면 `s`. 페이지처럼 여러 덩어리가 필요하면 도메인 접두어를 붙인다 — `pageHeadStyles`, `layoutStyles`, `stageStyles`, `respinStyles`, `alertStyles`, `footerStyles` (`app/page.tsx:347-464`), `head` (`app/log/page.tsx:114`, `components/RankingView.tsx:208`).
-- **예외 1건:** `components/Wheel.tsx:308`의 `const outer: CSSProperties = {...}` — 단일 스타일이라 Record 래핑 없이 직접 annotate. 스타일이 하나뿐일 때만 허용되는 형태.
+- **예외 1건:** `components/Wheel.tsx` 하단의 `const outer: CSSProperties = {...}`·`const fluidSvg: CSSProperties = {...}` — 키로 묶을 만큼 많지 않아 Record 래핑 없이 직접 annotate.
+- **반응형 예외 (Quick 001, 2026-09-30):** 화면 폭에 따라 **바뀌는 속성만** `app/globals.css` 의 `l-*` 클래스로 둔다. inline style 은 media query 를 쓸 수 없다.
+  - 폭 분기는 960px(2단 → 1단)·720px(휴대폰) 둘. 720 은 상단 바가 한 줄에 들어가는 최소 폭(약 674px)에서 왔다. `l-tap`(터치 대상 40px)과 `l-input`(입력 칸 16px)은 `pointer: coarse` 로 가른다 — 기기의 동작이라 폭으로 가르면 가로로 든 휴대폰이 빠진다.
+  - `l-*` 클래스가 가진 속성을 그 요소의 inline style 에 다시 두지 않는다. inline 이 이긴다. 위아래만 inline 으로 줄 때는 `paddingTop`·`paddingBottom` 으로 쪼갠다(`components/RankingView.tsx` 의 `tableHead`).
+  - 숨김 유틸 `l-hide-stack`(≤960)·`l-hide-narrow`(≤720)만 `!important`.
+  - 클래스는 `className="…"` 문자열 리터럴로만 붙인다. `components/layoutClasses.test.ts` 가 사용 ⊆ 정의, 정의 ⊆ 사용, 리터럴 밖 `l-*` 금지, media 조건문 3개, `!important` 목록을 고정한다.
+  - 기각한 대안: CSS 변수로 값을 바꾸는 방식. `flexWrap`·`flexDirection` 등은 csstype 이 리터럴 유니온이라 `"var(--x)"` 가 타입 에러다.
+  - 칸 사이 선처럼 폭에 따라 자리가 바뀌는 테두리도 클래스가 가진다(`l-stat-bar`). 색만 다른 경우는 inline `borderColor` 로 덮는다.
+- **좁은 화면에서 숨긴 글자에 기대는 버튼에는 `aria-label` 을 준다.** `display: none` 은 접근성 트리에서도 빠진다(`components/CalendarLog.tsx` 의 달력 칸).
+- **목록에 높이 상한을 두지 않는다.** 안쪽 스크롤은 휴대폰에서 페이지 스크롤을 가둔다. 길어지면 페이지가 길어진다(`components/CandidateList.tsx`·`components/RestaurantList.tsx`).
+- **한글 줄바꿈은 어절 단위다.** 본문에 `word-break: keep-all` + `overflow-wrap: break-word`. 이름·서버 문구가 들어가는 flex·grid 칸에는 `minWidth: 0` 또는 `minmax(0, 1fr)` 을 준다 — 없으면 띄어쓰기 없는 긴 이름이 칸을 밀어 넘친다.
 - **동적 스타일은 spread로 합성한다.** 조건부 값은 호출부에서 덮어쓴다:
   ```tsx
   style={{ ...s.input, background: readOnly ? "var(--bg-soft)" : "white" }}
@@ -97,7 +107,7 @@
   (`components/CandidateList.tsx:206-213`, `components/TopBar.tsx:76-80`, `components/PhaseTimeline.tsx:37-46`)
 - **색·폰트·반경·그림자는 `app/globals.css`의 CSS 변수 토큰만 쓴다:** `--bg`, `--bg-soft`, `--panel`, `--ink`, `--ink-soft`, `--muted`, `--line`, `--line-soft`, `--accent`, `--accent-ink`, `--accent-soft`, `--green`, `--red`, `--radius`, `--radius-lg`, `--shadow-sm`, `--shadow-md`, `--font-sans`, `--font-mono`. 토큰 정의는 `app/globals.css:13-30`.
 - 토큰으로 표현 못 하는 일회성 색은 `oklch(...)` 리터럴을 직접 쓴다(`components/Wheel.tsx`의 SVG 스트로크들). 프로젝트 전체가 hex가 아니라 **oklch 색 공간**을 쓴다.
-- 전역 클래스는 `app/globals.css`에 정의된 소수만 쓴다: `.wrap`(앱 셸), `.card`, `.mono`, `.micro`, `.divider`, `.dot`(+ `.live`/`.spin`/`.done`). `className={`dot ${phaseInfo.dot}`}` 형태로 조합(`components/TopBar.tsx:49`).
+- 전역 클래스는 `app/globals.css`에 정의된 소수만 쓴다: `.wrap`(앱 셸), `.card`, `.mono`, `.micro`, `.divider`, `.dot`(+ `.live`/`.spin`/`.done`), 그리고 위 반응형 `l-*`. `className={`dot ${phaseInfo.dot}`}` 형태로 조합(`components/TopBar.tsx:49`).
 - 애니메이션은 `app/globals.css`의 `@keyframes`(`fade-up`, `pop-in`, `pulse`, `wheel-spin-final`, `wheel-idle-drift`)를 inline `animation` 속성에서 참조: `animation: "fade-up .2s ease-out both"` (`components/CandidateList.tsx:287`).
 - Tailwind 유틸리티는 `app/layout.tsx:13`의 `className="min-h-screen flex flex-col"` 한 줄에서만 쓴다. 새 코드는 inline style을 따른다.
 

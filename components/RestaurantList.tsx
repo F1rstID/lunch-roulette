@@ -155,7 +155,9 @@ export function RestaurantList({
       </ul>
 
       <footer style={s.footer}>
-        <span className="micro">규칙</span>
+        <span className="micro" style={s.footerLabel}>
+          규칙
+        </span>
         <span style={s.footerText}>
           📌 고정한 매장은 매일 자정 오늘 후보에 자동으로 담겨요 · 오늘 후보 담기는 오늘 탭에서
         </span>
@@ -245,6 +247,7 @@ function RestaurantForm({
           placeholder="매장 이름 (필수)"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className="l-input"
           style={{ ...s.input, flex: "1 1 160px" }}
         />
         <input
@@ -253,6 +256,7 @@ function RestaurantForm({
           placeholder="메뉴 (선택) 예) 김치찌개, 제육"
           value={menusText}
           onChange={(e) => setMenusText(e.target.value)}
+          className="l-input"
           style={{ ...s.input, flex: "2 1 220px" }}
         />
         <input
@@ -261,6 +265,7 @@ function RestaurantForm({
           placeholder="위치 (선택) 주소 또는 링크"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          className="l-input"
           style={{ ...s.input, flex: "2 1 200px" }}
         />
         <div style={s.formButtons}>
@@ -316,10 +321,10 @@ function RestaurantRowView({
         )}
       </div>
       <PinButton pinned={row.pinned} busy={pinBusy} onToggle={onTogglePin} />
-      <button type="button" aria-label="수정" title="수정" onClick={onEdit} style={s.editBtn}>
+      <button type="button" aria-label="수정" title="수정" onClick={onEdit} className="l-tap" style={s.editBtn}>
         수정
       </button>
-      <button type="button" aria-label="삭제" title="삭제" onClick={onAskRemove} style={s.del}>
+      <button type="button" aria-label="삭제" title="삭제" onClick={onAskRemove} className="l-tap" style={s.del}>
         ✕
       </button>
     </div>
@@ -337,6 +342,7 @@ function PinButton({ pinned, busy, onToggle }: { pinned: boolean; busy: boolean;
       disabled={busy}
       title={pinned ? "고정 해제" : "고정 — 매일 자정 자동으로 오늘 후보에 담겨요"}
       onClick={onToggle}
+      className="l-tap"
       style={{
         ...s.pin,
         opacity: pinned ? 1 : 0.32,
@@ -407,7 +413,7 @@ const s = {
     padding: "0 12px",
     border: "1px solid var(--line)",
     borderRadius: 9,
-    fontSize: 14,
+    // 글자 크기는 app/globals.css 의 l-input 이 가진다(휴대폰에서 16px).
     outline: "none",
     background: "var(--panel)",
     color: "var(--ink)",
@@ -454,12 +460,12 @@ const s = {
     fontSize: 12.5,
     color: "var(--red)",
   },
+  // 높이 상한을 두지 않는다 — 이유는 오늘 후보 목록(CandidateList)과 같다. 카탈로그는 이 페이지의
+  // 유일한 내용이라 안쪽 스크롤로 가둘 까닭이 더 없다.
   list: {
     listStyle: "none",
     margin: 0,
     padding: 0,
-    maxHeight: 520,
-    overflowY: "auto",
   },
   empty: {
     padding: "32px 20px",
@@ -539,8 +545,10 @@ const s = {
     background: "var(--bg-soft)",
     borderTop: "1px solid var(--line-soft)",
     display: "flex",
-    alignItems: "center",
+    alignItems: "baseline",
     gap: 10,
   },
+  // 라벨이 줄어들지 않게 막는다 — 막지 않으면 옆 문장이 길 때 "규/칙" 으로 꺾인다.
+  footerLabel: { flexShrink: 0 },
   footerText: { color: "var(--ink-soft)", fontSize: 12.5 },
 } satisfies Record<string, CSSProperties>;

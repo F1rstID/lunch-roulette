@@ -41,7 +41,7 @@
 - ✓ 화면의 `11:55` 리터럴 0곳: `formatSpinTime(settings.spinTime)` 을 `Wheel`·`ResultBlock`·`PhaseTimeline`(결과 단계 = 추첨 시각 + 5분, 24h 순환)·`CandidateList`·헤드라인 문구에 prop 으로, `app/layout.tsx` description 은 시각 제거. `displayPhase(phase, settings.loaded)` 로 설정 로드 전 `stalled` 라벨 깜빡임 제거(4 페이지, todo in-02) — Phase 6 (SPIN-06)
 - ✓ 목록 리듀서 일반화 `lib/rowset.ts`(`createRowSetReducer(keyOf)`, pending 버퍼·UPDATE upsert·`fetched` error 우선) 를 `restaurants`·`candidates` 가 공유, `settings`·훅 3개의 조회 판정도 리듀서로(todo in-03), `parseMenuInput`·`truncateToCodePoints` → `lib/menus.ts`(단방향 예외 해소). 리뷰 CR-01: results 토픽을 구독 effect 안에서 매겨 자정 `todayKey` 재구독이 죽지 않게. 페이즈 마감 시 361 tests / 13 files — Phase 6
 - ✓ 기록·랭킹이 `settings.history_since` 이후(당일 포함) 결과만 매장 기준으로: `lib/history.ts`(`filterSince` · `buildRanking` 키 `restaurant_id ?? menu`, 이름은 최근 스냅샷 · `buildMonthGrid`) spec 22건(리뷰 WR-03 경계 2건 포함), `RankingView`·`CalendarLog` 는 호출만. 랭킹 조회는 설정 로드 뒤 `.gte("date", min(history_since, 오늘))` + 컬럼 4개, 기록은 월 창 + 필터. 토픽 `results-log/rank-<n>`. `formatHhMm` 삭제, todo in-05 는 컷오버 절차 8번(`history_since + 1`)으로. 페이즈 마감 시 380 tests / 14 files — Phase 7 (HIST-01·02).
-- ✓ 컷오버 준비: `supabase/rollback/0005_restaurants_settings.rollback.sql`(0005 역순, 데이터 파기 없음, spec 10건) · README 전면 개정(4테이블·RLS·cron 3종·함수 2종·검증 명령 5종·컷오버 절차 0~9·롤백 기준/순서) · CLAUDE.md 컷오버 문장 · 보안감사 5~7 SECURED 8/8 · PR #4(https://github.com/F1rstID/lunch-roulette/pull/4, 게이트 5종 green, 392 tests, AI 표기 0) — Phase 8 (SHIP-02·03·04, QUAL-05). **라이브 컷오버는 사용자가 README 절차로 실행** — 성공 기준 5(라이브 확인)는 그 뒤 컷오버 전 라이브에선 기록은 전체 기간 표시(현행과 동일), 랭킹은 `results.restaurant_id` 부재로 42703 배너(0005 적용 뒤 동작)
+- ✓ 컷오버 준비: `supabase/rollback/0005_restaurants_settings.rollback.sql`(0005 역순, 데이터 파기 없음, spec 10건) · README 전면 개정(4테이블·RLS·cron 3종·함수 2종·검증 명령 5종·컷오버 절차 0~9·롤백 기준/순서) · CLAUDE.md 컷오버 문장 · 보안감사 5~7 SECURED 8/8 · PR #4(https://github.com/F1rstID/lunch-roulette/pull/4, 게이트 5종 green, 392 tests, AI 표기 0) — Phase 8 (SHIP-02·03·04, QUAL-05). **라이브 컷오버 실행 완료(2026-09-29 17:3x KST)**: 0005 적용(사용자) → 함수 2종 배포 → respin `ok` + 매장명 + uuid → PR #4 merge commit `7c43a81` → Vercel 배포. results 61 → 62(오늘 확인용 행). 성공 기준 5 의 실사용 확인(매장 등록 → 다시 돌리기)과 익일 11:55 자동 추첨 확인은 사용자 컷오버 전 라이브에선 기록은 전체 기간 표시(현행과 동일), 랭킹은 `results.restaurant_id` 부재로 42703 배너(0005 적용 뒤 동작)
 
 ### Active
 
@@ -167,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-29 after Phase 8 (컷오버 준비) completion — 라이브 컷오버는 사용자 절차*
+*Last updated: 2026-09-29 after live cutover (PR #4 merged 7c43a81)*
