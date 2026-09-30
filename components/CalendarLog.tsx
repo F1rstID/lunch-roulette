@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ResultRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
 // 격자 산술과 "이번 달 최다 매장" 집계는 lib/history.ts 가 정한다 — 랭킹 페이지와 같은 키 규칙을 쓰기 위해서다.
@@ -26,7 +26,17 @@ type Props = {
 
 export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const detailRef = useRef<HTMLElement>(null);
   const cells = buildMonthGrid(year, month);
+
+  // 좁은 화면에서는 상세가 달력 아래로 내려가 누른 결과가 화면 밖에 생긴다. 칸의 매장명도 그 폭에서는
+  // 숨기므로, 누른 결과가 보이는 것이 그 배치의 전제다. nearest 라서 상세가 이미 보이는 2단 배치에서는
+  // 아무것도 움직이지 않는다.
+  useEffect(() => {
+    if (selected === null) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    detailRef.current?.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+  }, [selected]);
 
   const monthPrefix = `${year}-${pad2(month)}`;
   const entriesThisMonth = Object.values(logMap).filter((e) => e.date.startsWith(monthPrefix));
@@ -109,6 +119,11 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
               <button
                 key={i}
                 className="l-cal-cell"
+                // 좁은 화면에서는 매장명과 TODAY 가 display: none 이라 접근성 트리에서도 빠진다.
+                // 보이는 글자에 기대지 않고 이름을 직접 준다.
+                aria-label={entry ? `${c.m}월 ${c.d}일 ${entry.menu}` : undefined}
+                aria-current={isToday ? "date" : undefined}
+                aria-pressed={entry ? isSelected : undefined}
                 style={{
                   ...s.cell,
                   background: isSelected ? "oklch(0.95 0.04 60)" : "white",
@@ -166,7 +181,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
         </div>
       </div>
 
-      <aside className="card" style={s.detail}>
+      <aside ref={detailRef} className="card" style={s.detail}>
         {!sel && (
           <div style={s.detailEmpty}>
             <div style={s.detailEmptyIcon}>

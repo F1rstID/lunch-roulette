@@ -17,7 +17,7 @@ export function ErrorBanner({ message, onCloseAction }: Props) {
   return (
     <div role="alert" style={s.wrap}>
       <span style={s.message}>{message}</span>
-      <button type="button" onClick={onCloseAction} style={s.close} aria-label="닫기">
+      <button type="button" onClick={onCloseAction} className="l-tap" style={s.close} aria-label="닫기">
         ×
       </button>
     </div>
