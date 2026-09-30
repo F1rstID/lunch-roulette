@@ -5,7 +5,7 @@ milestone_name: milestone
 status: milestone_complete
 stopped_at: Cutover executed 2026-09-29 - live on new model, PR #4 merged (7c43a81). Remaining: user live check (README 7-8), test restaurant cleanup
 last_updated: 2026-09-30T01:36:00.000Z
-last_activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR 대기(main 미반영). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
+last_activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR #5 merge commit 96e51e1 로 라이브(2026-09-30 11:2x KST, 390px 넘침 0 실측). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
 progress:
   total_phases: 8
   completed_phases: 7
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-18)
 Phase: 8 (complete)
 Plan: 1 of 1 (complete)
 Status: Cutover executed — live on new model; user live check + 익일 추첨 확인 remaining
-Last activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR 대기(main 미반영). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
+Last activity: 2026-09-30 -- Quick 001 완료: 모바일 레이아웃(320px 부터 가로 넘침 0) + 눈에 보이는 결함 3건. 브랜치 feat/mobile-layout, 리뷰 1회 반영, PR #5 merge commit 96e51e1 로 라이브(2026-09-30 11:2x KST, 390px 넘침 0 실측). 컷오버 후 확인(익일 11:55 추첨)은 별개로 남아 있음
 
 Progress: [██████████] 100%
 

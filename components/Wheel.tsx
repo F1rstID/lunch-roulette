@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { CSSProperties } from "react";
 import { SLICE_COLORS } from "@/lib/colors";
+import { WHEEL_WINNER_LABEL_MAX_CODE_POINTS, fitWheelLabel, isLabelFlipped } from "@/lib/wheelLabel";
 
 export type WheelPhase = "idle" | "spinning" | "decided";
 
@@ -76,7 +77,14 @@ export function Wheel({
   const cy = size / 2;
   const R = size / 2 - 30;
   const Rinner = 56;
+  // 당첨 배지의 중심 반지름. 배지는 방사형이 아니라 가로다 — 확정 상태에서 당첨 칸은 12시에 오므로
+  // 방사형이면 세로 글자가 된다. 배지가 옆 칸을 덮는 것은 강조라 허용한다.
   const labelR = R * 0.62;
+  // 나머지 라벨이 눕는 방사형 띠. 허브 테두리(Rinner + 10) 바깥에서 시작해 칸 끝 눈금(R - 10) 앞에서 끝난다.
+  // 띠 길이는 칸 수와 무관하므로 후보가 늘어도 라벨끼리 겹치지 않는다. 이름 상한(lib/wheelLabel.ts)은 이 길이에서 왔다.
+  const labelBandStart = Rinner + 18;
+  const labelBandEnd = R - 8;
+  const labelBandMid = (labelBandStart + labelBandEnd) / 2;
   const showLabels = phase !== "spinning" && items.length > 0;
   const isDecided = phase === "decided";
 
@@ -92,8 +100,8 @@ export function Wheel({
           <text x={cx} y={cy - 2} textAnchor="middle" fontFamily="var(--font-sans)" fontSize="13" fontWeight="600" fill="var(--muted)">
             담긴 매장 없음
           </text>
-          <text x={cx} y={cy + 14} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="var(--muted)" letterSpacing="0.06em">
-            ADD A RESTAURANT
+          <text x={cx} y={cy + 14} textAnchor="middle" fontFamily="var(--font-sans)" fontSize="10.5" fill="var(--muted)">
+            목록에서 담아 주세요
           </text>
         </svg>
       </div>
@@ -167,45 +175,85 @@ export function Wheel({
           {items.map((item, i) => {
             const localMid = i * sliceDeg + sliceDeg / 2;
             const screenMid = localMid + rotation;
-            const [lx, ly] = polar(cx, cy, labelR, screenMid);
-            const isWinner = isDecided && i === winnerIndex;
-            return (
-              <g key={"l" + item.id} transform={`translate(${lx} ${ly})`}>
-                {isWinner && (
+            const number = String(i + 1).padStart(2, "0");
+            if (isDecided && i === winnerIndex) {
+              const [lx, ly] = polar(cx, cy, labelR, screenMid);
+              const winnerLabel = fitWheelLabel(item.name, WHEEL_WINNER_LABEL_MAX_CODE_POINTS);
+              // 배지 폭은 글자 수 어림(한 글자 약 18)이다. 코드포인트로 세야 이모지 이름이 두 배로 넓어지지 않는다.
+              const winnerLen = Array.from(winnerLabel).length;
+              return (
+                <g key={"l" + item.id} transform={`translate(${lx} ${ly})`}>
                   <rect
-                    x={-Math.max(34, item.name.length * 9 + 8)}
+                    x={-Math.max(34, winnerLen * 9 + 8)}
                     y={-16}
-                    width={Math.max(68, item.name.length * 18 + 16)}
+                    width={Math.max(68, winnerLen * 18 + 16)}
                     height={34}
                     rx={8}
                     fill="white"
                     stroke="var(--ink)"
                     strokeWidth="1.5"
                   />
-                )}
+                  <text
+                    x="0"
+                    y="-4"
+                    textAnchor="middle"
+                    fontFamily="var(--font-mono)"
+                    fontSize="9"
+                    fontWeight="500"
+                    fill="var(--accent-ink)"
+                    letterSpacing="0.12em"
+                  >
+                    {number}
+                  </text>
+                  <text
+                    x="0"
+                    y="12"
+                    textAnchor="middle"
+                    fontFamily="var(--font-sans)"
+                    fontSize="15"
+                    fontWeight={700}
+                    fill="oklch(0.20 0.02 70)"
+                    style={{ letterSpacing: "-0.01em" }}
+                  >
+                    {winnerLabel}
+                  </text>
+                </g>
+              );
+            }
+            // 칸 중앙 각도로 돌린 좌표계: +x 가 허브에서 테두리로 향한다. 왼쪽 반원은 띠 중앙을 축으로
+            // 한 번 더 돌려 화면에서 왼→오로 읽히게 한다. 번호가 항상 허브 쪽에 오도록 그때는 순서를 바꾼다.
+            const flipped = isLabelFlipped(screenMid);
+            const numberSpan = (
+              <tspan fontFamily="var(--font-mono)" fontSize="9" fontWeight="500" fill="oklch(0.30 0.02 70 / 0.55)" letterSpacing="0.12em">
+                {number}
+              </tspan>
+            );
+            const nameSpan = <tspan dx={5}>{fitWheelLabel(item.name)}</tspan>;
+            return (
+              <g key={"l" + item.id} transform={`translate(${cx} ${cy}) rotate(${screenMid - 90})`}>
                 <text
-                  x="0"
-                  y="-4"
+                  x={labelBandMid}
+                  y="0"
                   textAnchor="middle"
-                  fontFamily="var(--font-mono)"
-                  fontSize="9"
-                  fontWeight="500"
-                  fill={isWinner ? "var(--accent-ink)" : "oklch(0.30 0.02 70 / 0.55)"}
-                  letterSpacing="0.12em"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </text>
-                <text
-                  x="0"
-                  y="12"
-                  textAnchor="middle"
+                  dominantBaseline="central"
+                  transform={flipped ? `rotate(180 ${labelBandMid} 0)` : undefined}
                   fontFamily="var(--font-sans)"
-                  fontSize={isWinner ? "15" : "14"}
-                  fontWeight={isWinner ? 700 : 600}
+                  fontSize="13"
+                  fontWeight={600}
                   fill="oklch(0.20 0.02 70)"
                   style={{ letterSpacing: "-0.01em" }}
                 >
-                  {item.name}
+                  {flipped ? (
+                    <>
+                      <tspan>{fitWheelLabel(item.name)}</tspan>
+                      <tspan dx={5}>{number}</tspan>
+                    </>
+                  ) : (
+                    <>
+                      {numberSpan}
+                      {nameSpan}
+                    </>
+                  )}
                 </text>
               </g>
             );
@@ -242,12 +290,12 @@ export function Wheel({
           x={cx}
           y={cy - 6}
           textAnchor="middle"
-          fontFamily="var(--font-mono)"
-          fontSize="9"
+          fontFamily="var(--font-sans)"
+          fontSize="9.5"
           fill="oklch(1 0 0 / 0.55)"
-          letterSpacing="0.16em"
+          letterSpacing="0.08em"
         >
-          SPIN AT
+          추첨 시각
         </text>
         <text
           x={cx}

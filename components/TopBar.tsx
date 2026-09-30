@@ -68,7 +68,7 @@ export function TopBar({ active, candidateCount = 0, phase, clockTime }: Props) 
             {phaseInfo.label}
           </span>
           <span className="l-hide-narrow" style={s.clockReadout}>
-            <span style={{ fontSize: 11.5, color: "var(--muted)" }}>NOW</span>
+            <span style={{ fontSize: 11.5, color: "var(--muted)" }}>지금</span>
             <span className="mono" style={{ fontSize: 12.5, color: "var(--ink)" }}>
               {clockTime}
             </span>

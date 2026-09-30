@@ -294,7 +294,7 @@ export default function TodayPage() {
         <div className="l-cols-today" style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
             <div className="card" style={layoutStyles.stage}>
-              <StageHeader phase={phase} clockTime={clockTime} />
+              <StageHeader phase={phase} />
               <div className="l-wheel-holder" style={layoutStyles.wheelHolder}>
                 <Wheel
                   items={todayCandidates}
@@ -340,12 +340,13 @@ export default function TodayPage() {
         </div>
       </main>
 
-      <Footer clockTime={clockTime} />
+      <Footer />
     </>
   );
 }
 
-function StageHeader({ phase, clockTime }: { phase: Phase; clockTime: string }) {
+// 시계를 두지 않는다 — 상단 바가 이미 보여 주고, 같은 값이 세 곳에 있으면 눈이 셋을 다 읽는다.
+function StageHeader({ phase }: { phase: Phase }) {
   const { label, dot } = ((): { label: string; dot: string } => {
     switch (phase) {
       case "accepting":
@@ -365,26 +366,17 @@ function StageHeader({ phase, clockTime }: { phase: Phase; clockTime: string }) 
   })();
   return (
     <div style={stageStyles.header}>
-      <div style={stageStyles.headerLeft}>
-        <span className="micro">STAGE</span>
-        <span style={{ color: "var(--ink)", fontWeight: 600, fontSize: 13 }}>{label}</span>
-      </div>
-      <div style={stageStyles.headerRight}>
-        <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
-          {clockTime}
-        </span>
-        <span className={`dot ${dot}`} />
-      </div>
+      <span style={{ color: "var(--ink)", fontWeight: 600, fontSize: 13 }}>{label}</span>
+      <span className={`dot ${dot}`} />
     </div>
   );
 }
 
-function Footer({ clockTime }: { clockTime: string }) {
+function Footer() {
   return (
     <footer style={footerStyles.wrap}>
       <div className="wrap" style={footerStyles.inner}>
         <span>점심 룰렛 · v0.1 · 결과는 매일 자정에 초기화돼요</span>
-        <span className="mono">{clockTime} KST</span>
       </div>
     </footer>
   );
@@ -455,8 +447,6 @@ const stageStyles = {
     borderBottom: "1px solid var(--line)",
     background: "white",
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: 12 },
-  headerRight: { display: "flex", alignItems: "center", gap: 8 },
 } satisfies Record<string, CSSProperties>;
 
 const respinStyles = {
@@ -490,11 +480,6 @@ const footerStyles = {
     background: "var(--bg)",
   },
   inner: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "4px 16px",
     color: "var(--muted)",
     fontSize: 12,
   },

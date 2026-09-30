@@ -91,7 +91,7 @@ function PodiumCard({ entry, rank }: { entry: RankEntry; rank: number }) {
     2: "oklch(0.80 0.015 70)",
     3: "oklch(0.72 0.10 50)",
   };
-  const labels: Record<number, string> = { 1: "1ST", 2: "2ND", 3: "3RD" };
+  const labels: Record<number, string> = { 1: "1위", 2: "2위", 3: "3위" };
 
   // 순위별 높이는 app/globals.css 의 l-podium-card[data-rank] 가 가진다 — 세로로 쌓일 때 0 으로 되돌려야 해서다.
   return (
@@ -104,11 +104,10 @@ function PodiumCard({ entry, rank }: { entry: RankEntry; rank: number }) {
         }}
       >
         <span
-          className="mono"
           style={{
             fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
+            fontWeight: 700,
+            letterSpacing: "0.02em",
             color: "oklch(0.30 0.04 70)",
           }}
         >
