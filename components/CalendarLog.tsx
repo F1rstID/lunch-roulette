@@ -6,6 +6,7 @@ import type { ResultRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
 // 격자 산술과 "이번 달 최다 매장" 집계는 lib/history.ts 가 정한다 — 랭킹 페이지와 같은 키 규칙을 쓰기 위해서다.
 import { buildMonthGrid, buildRanking } from "@/lib/history";
+import { backupRanks } from "@/lib/ranking";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -40,7 +41,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
 
   const monthPrefix = `${year}-${pad2(month)}`;
   const entriesThisMonth = Object.values(logMap).filter((e) => e.date.startsWith(monthPrefix));
-  // 이름이 아니라 매장 키로 센다 — 개명한 매장이 두 줄로 갈라지면 "가장 많이 간 매장" 이 틀린다.
+  // 이름이 아니라 매장 키로 센다 — 개명한 매장이 두 줄로 갈라지면 "가장 많이 당첨된 매장" 이 틀린다.
   const topRestaurant = buildRanking(entriesThisMonth).list[0] ?? null;
 
   const sel = selected ? logMap[selected] : null;
@@ -56,7 +57,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             <div style={s.gridSub}>
               {entriesThisMonth.length}일 점심 ·{" "}
               {topRestaurant
-                ? `가장 많이 간 매장 "${topRestaurant.name}" (${topRestaurant.wins}회)`
+                ? `가장 많이 당첨된 매장 "${topRestaurant.name}" (${topRestaurant.wins}회)`
                 : "기록 없음"}
             </div>
           </div>
@@ -197,7 +198,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.6 }}>
               점심 기록이 있는 날을 누르면<br />
-              그날 어디서 먹었는지 볼 수 있어요.
+              그날 추첨 결과를 볼 수 있어요.
             </div>
           </div>
         )}
@@ -211,6 +212,7 @@ function DetailView({ entry }: { entry: ResultRow }) {
   const [y, m, d] = entry.date.split("-").map(Number);
   const wd = WEEKDAYS[new Date(y, m - 1, d).getDay()];
   const winnerOf = entry.candidates?.length ?? 0;
+  const backups = backupRanks(entry.ranking);
 
   return (
     <div style={s.detailBody}>
@@ -225,6 +227,17 @@ function DetailView({ entry }: { entry: ResultRow }) {
         </span>
         <h2 style={s.detailMenu}>{entry.menu}</h2>
       </div>
+      {/* 그날의 2·3순위. 0006 이전 행은 비어 있어 줄 자체가 없다. 기록이 증명하는 것은 추첨 결과이지 실제 방문이 아니다. */}
+      {backups.length > 0 && (
+        <div style={s.detailBackups}>
+          {backups.map((backup, i) => (
+            <span key={backup.rank}>
+              {i > 0 && <span style={{ color: "var(--line)" }}> · </span>}
+              <span style={{ color: "var(--muted)" }}>{backup.rank}순위</span> {backup.name}
+            </span>
+          ))}
+        </div>
+      )}
 
       <dl style={s.detailList}>
         <DetailRow label="후보 수">
@@ -376,6 +389,7 @@ const s = {
     letterSpacing: "-0.025em",
     color: "var(--ink)",
   },
+  detailBackups: { fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.6 },
   detailList: { margin: 0, padding: 0 },
   detailRow: {
     display: "grid",
