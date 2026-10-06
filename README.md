@@ -70,7 +70,7 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
   | `restaurants` | 영구 매장 카탈로그 (name unique 1~24자, menus text[] ≤30×24자, location ≤200자, pinned) | select·insert·update·delete 전면 개방 |
   | `candidates` | 오늘 후보 (PK `restaurant_id` → cascade) | 전면 개방 |
   | `settings` | 단일행 id=1: `spin_time`(기본 11:55) · `cooldown_days`(기본 0) · `history_since`(기본 적용일) | **select 만** — 편집은 대시보드 SQL Editor(service_role) |
-  | `results` | 확정 결과 영구 보존. `menu` = 매장명 스냅샷, `restaurant_id`(set null), `candidates` jsonb | select 만 — 쓰기는 Edge Function(service_role) |
+  | `results` | 확정 결과 영구 보존. `menu` = 매장명 스냅샷, `restaurant_id`(set null), `candidates` jsonb, `ranking` jsonb(0006 — 추첨이 정한 순서, 1번째가 당첨, 구 행은 null) | select 만 — 쓰기는 Edge Function(service_role) |
 - pg_cron 잡 3개 (전부 0005 가 등록, 재실행 안전형):
   - `spin-lunch-roulette` `* * * * *` — **매분** `spin-roulette` 를 pg_net 으로 호출. 시각 판정·멱등은 함수가 한다
   - `reset-candidates` `0 15 * * *` (KST 00:00) — `candidates` 비우고 📌 매장 재시드
@@ -138,6 +138,17 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
    ```
 3. 앱 롤백 — 머지 전이면 아무것도 안 해도 된다. 머지 뒤면 Vercel 대시보드에서 이전 배포 "Promote to Production"(가장 빠르다) 또는 revert PR: merge commit 으로 머지했으면 `git revert -m 1 <머지 커밋>`, squash/rebase 였으면 `git revert <해당 커밋>`.
 4. 확인 — 오늘 탭이 메뉴 입력 폼으로 돌아오고 `menus` 에 insert 가 되는지, 다음 11:55 에 `results` 행이 생기는지.
+
+## 0006 적용 (결과 순위, 1회)
+
+`supabase/migrations/0006_results_ranking.sql` 은 `results.ranking jsonb` 컬럼을 **추가만** 한다. nullable 이라 적용 순간 구 함수·구 행·구 UI 가 그대로 동작한다. 그래서 컷오버와 달리 시각 제약이 없고, 순서만 지키면 된다.
+
+1. **SQL 적용(사용자, 대시보드 SQL Editor)** — 0006 전문 실행. 재실행 안전형. 확인: `select column_name from information_schema.columns where table_name = 'results' and column_name = 'ranking';` 가 1행.
+2. **Edge Function 2종 배포** — `npx supabase@2.117.0 functions deploy spin-roulette --project-ref swxiqytyxjlcgubqlozk --no-verify-jwt`, `respin-roulette` 도 같게. **1번보다 먼저 배포하면 안 된다** — 새 함수는 `ranking` 을 쓰므로 컬럼이 없으면 PGRST204 로 그날 추첨을 잃는다.
+3. **PR 머지** — UI 는 `select("*")` 라 컬럼이 없어도 빈 예비 목록으로 동작하지만, 2번 뒤에 하는 것이 가장 단순하다.
+4. **확인** — 오늘 탭 "다시 돌리기" 뒤 `select date, menu, ranking from public.results order by date desc limit 1;` 에서 `ranking` 이 배열이고 1번째의 `name` 이 `menu` 와 같다. 결과 카드에 `2순위`·`3순위` 두 행(후보 2개면 한 행). 이튿날 11:55 자동 추첨 행에도 `ranking` 이 있다.
+
+**롤백** — 적용의 역순. PR 되돌림(`git revert -m 1`) → 구 함수 재배포(`git checkout <0006 이전 main> -- supabase/functions` 후 deploy) → 필요하면 `supabase/rollback/0006_results_ranking.rollback.sql`(순위 데이터가 사라진다). 컬럼을 그대로 둬도 구 코드에는 영향이 없으므로 SQL 롤백은 선택이다.
 
 ## 메모리 사용 주의
 

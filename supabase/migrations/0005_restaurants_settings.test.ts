@@ -81,7 +81,8 @@ const clientSrc = readOrEmpty(new URL("../../lib/supabase/client.ts", import.met
 const RESTAURANT_COLUMNS = ["id", "name", "menus", "location", "pinned", "created_at"];
 const CANDIDATE_COLUMNS = ["restaurant_id", "created_at"];
 const SETTINGS_COLUMNS = ["id", "spin_time", "cooldown_days", "history_since"];
-const RESULT_ROW_FIELDS = ["id", "date", "menu", "candidates", "spun_at", "restaurant_id"];
+// 0006 이 ranking 을 끝에 더했다(supabase/migrations/0006_results_ranking.sql). 이 목록은 TS 가 SQL 과 따로 움직이는 것을 잡는다.
+const RESULT_ROW_FIELDS = ["id", "date", "menu", "candidates", "spun_at", "restaurant_id", "ranking"];
 
 describe("SQL/SHIP-01 — 모든 문이 재실행 안전형이다", () => {
   it("마이그레이션 파일이 존재한다 (#1)", () => {
@@ -362,7 +363,7 @@ describe("TS/D-13 — 행 타입이 SQL 컬럼 목록과 일치한다", () => {
     expect(typeFields(clientSrc, "SettingsRow")).toEqual(SETTINGS_COLUMNS);
   });
 
-  it("ResultRow 에 restaurant_id 가 마지막 필드로 붙어 있다 (#41)", () => {
+  it("ResultRow 의 필드가 SQL 컬럼과 같은 순서로 끝난다 — restaurant_id(0005) 뒤에 ranking(0006) (#41)", () => {
     expect(typeFields(clientSrc, "ResultRow")).toEqual(RESULT_ROW_FIELDS);
   });
 

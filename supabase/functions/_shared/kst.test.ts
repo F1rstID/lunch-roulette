@@ -1,12 +1,12 @@
 // supabase/functions/_shared/kst.ts 의 KST 분해 계약을 고정한다. Phase 4 가 두 Edge Function 의 본문을
 // settings·쿨다운 위에서 다시 쓰므로, 그 전에 본문이 딛고 설 "시각 분해"의 경계를 실행 가능한 형태로 남긴다.
 // 고정 시각은 전부 UTC 문자열로 만든다 (KST = UTC+9) — 로컬 타임존 메서드를 쓰면 실행 환경에 따라 결과가 흔들린다.
-// pickRandom 의 분포는 일부러 검사하지 않는다: 난수 품질은 crypto.getRandomValues 의 계약이고, 분포 단언은
+// 난수 분포는 일부러 검사하지 않는다: 난수 품질은 crypto.getRandomValues 의 계약이고, 분포 단언은
 // 확률적으로 깜빡여 게이트를 무력화한다. 여기서 고정하는 것은 "입력 배열의 원소만 돌려준다" 는 멤버십뿐이다.
 // lib/time.test.ts 와 같은 시각 리터럴을 쓰는 것은 중복이 아니다 — 저쪽은 포맷터 계약을, 이 spec 은 분해 계약을 지킨다.
 
 import { describe, it, expect } from "vitest";
-import { kstNow, kstParts, pickRandom } from "./kst";
+import { kstNow, kstParts } from "./kst";
 
 describe("KST/QUAL-02 — kstParts 가 KST 벽시계로 분해한다", () => {
   it("KST 자정 1초 전(UTC 14:59:59)은 아직 당일이다 (#1)", () => {
@@ -60,14 +60,4 @@ describe("KST/QUAL-02 — kstNow 는 kstParts(new Date()) 다", () => {
   });
 });
 
-describe("KST/QUAL-02 — pickRandom 은 배열 원소만 돌려준다", () => {
-  it("단일 원소 배열은 그 원소를 돌려준다 (#8)", () => {
-    expect(pickRandom(["김치찌개"])).toBe("김치찌개");
-  });
-
-  it("100 회 뽑아도 전부 입력 배열의 원소다 (#9)", () => {
-    const pool = ["김치찌개", "마라탕", "샐러드"];
-    const picks = Array.from({ length: 100 }, () => pickRandom(pool));
-    expect(picks.every((pick) => pool.includes(pick))).toBe(true);
-  });
-});
+// #8·#9(pickRandom)는 0006 에서 함수와 함께 사라졌다 — 순서 결정은 ./ranking.test.ts 가 검사한다.

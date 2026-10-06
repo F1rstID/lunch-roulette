@@ -167,6 +167,7 @@ const RESULT_GIM = {
   candidates: [],
   spun_at: "2026-09-29T02:55:00+09:00",
   restaurant_id: "r1",
+  ranking: null,
 };
 // 매장이 지워져 on delete set null 이 지나간 결과 행. 이름 스냅샷만 남는다.
 const RESULT_ORPHAN = { ...RESULT_GIM, restaurant_id: null };

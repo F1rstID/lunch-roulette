@@ -42,6 +42,7 @@ function count(haystack: string, pattern: RegExp): number {
 const rawKst = readOrEmpty(new URL("./kst.ts", import.meta.url));
 const rawSpinTime = readOrEmpty(new URL("./spinTime.ts", import.meta.url));
 const rawCooldown = readOrEmpty(new URL("./cooldown.ts", import.meta.url));
+const rawRanking = readOrEmpty(new URL("./ranking.ts", import.meta.url));
 const rawSpin = readOrEmpty(new URL("../spin-roulette/index.ts", import.meta.url));
 const rawRespin = readOrEmpty(new URL("../respin-roulette/index.ts", import.meta.url));
 // 함수가 아닌 파일을 하나 더 읽는다. 후보 없음 코드값은 Deno 와 Next 경계를 맨 리터럴로 건너가
@@ -51,6 +52,7 @@ const rawPage = readOrEmpty(new URL("../../../app/page.tsx", import.meta.url));
 const kst = stripComments(rawKst, "//");
 const spinTime = stripComments(rawSpinTime, "//");
 const cooldown = stripComments(rawCooldown, "//");
+const ranking = stripComments(rawRanking, "//");
 const spin = stripComments(rawSpin, "//");
 const respin = stripComments(rawRespin, "//");
 const page = stripComments(rawPage, "//");
@@ -58,7 +60,7 @@ const page = stripComments(rawPage, "//");
 // ^ 만 쓰면 들여쓴 import 를 놓친다(0005 spec:118 의 교훈). \s* 를 넣어 줄 맨 앞 공백을 흡수한다.
 const IMPORT_LINE = /^\s*import\s/gm;
 
-describe("SHARED/QUAL-02 — _shared 3파일은 import 문이 0개다", () => {
+describe("SHARED/QUAL-02 — _shared 4파일은 import 문이 0개다 (ranking.ts 는 #59)", () => {
   it("kst.ts 가 존재한다 (#1)", () => {
     expect(rawKst.length).toBeGreaterThan(0);
   });
@@ -414,5 +416,43 @@ describe("EDGE/QUAL — 두 파일의 대칭·설정 파일의 위치·클라이
       existsSync(new URL("../respin-roulette/import_map.json", import.meta.url)),
       existsSync(new URL("../deno.json", import.meta.url)),
     ]).toEqual([false, false, false, false, false, false, true]);
+  });
+});
+
+describe("RANK — 순위는 _shared/ranking.ts 가 정하고 두 함수가 결과 행에 쓴다 (Quick 003)", () => {
+  // 존재를 먼저 못 박는다 — readOrEmpty 가 읽기 실패를 "" 로 흡수하므로(#1~#3 과 같은 이유).
+  it("ranking.ts 가 존재하고 import 문이 0건이다 — _shared 계약은 이제 4파일이다 (#59)", () => {
+    expect([rawRanking.length > 0, count(ranking, IMPORT_LINE)]).toEqual([true, 0]);
+  });
+
+  it("두 함수가 _shared/ranking.ts 를 확장자와 함께 import 하고 rankCandidates 를 정확히 한 번 부른다 (#60)", () => {
+    expect([
+      count(spin, /from "\.\.\/_shared\/ranking\.ts"/g),
+      count(respin, /from "\.\.\/_shared\/ranking\.ts"/g),
+      count(spin, /rankCandidates\(/g),
+      count(respin, /rankCandidates\(/g),
+    ]).toEqual([1, 1, 1, 1]);
+  });
+
+  it("당첨은 순위의 1번째다 — pickRandom 은 더 이상 쓰지 않는다 (#61)", () => {
+    // 순위와 당첨이 따로 뽑히면 1순위 ≠ 당첨이 되어 화면이 두 개의 진실을 보인다.
+    expect([
+      count(spin, /const winner = ranking\[0\]/g),
+      count(respin, /const winner = ranking\[0\]/g),
+      count(spin, /pickRandom/g),
+      count(respin, /pickRandom/g),
+    ]).toEqual([1, 1, 0, 0]);
+  });
+
+  it("결과 행 쓰기에 ranking 을 싣는다 — insert(spin)·upsert(respin) 블록 안에서 각 1회 (#62)", () => {
+    // 파일 전체가 아니라 쓰기 객체 리터럴 안에서 센다 — 응답 객체로 옮겨 가도 초록이 되면 계약이 아니다.
+    const spinInsert = spin.match(/\.insert\(\{[\s\S]*?\}\)/)?.[0] ?? "";
+    const respinUpsert = respin.match(/\.upsert\(\s*\{[\s\S]*?\}/)?.[0] ?? "";
+    expect([
+      spinInsert.length > 0,
+      respinUpsert.length > 0,
+      count(spinInsert, /^\s*ranking,\s*$/gm),
+      count(respinUpsert, /^\s*ranking,\s*$/gm),
+    ]).toEqual([true, true, 1, 1]);
   });
 });

@@ -4,17 +4,20 @@ import type { CSSProperties } from "react";
 import type { Phase } from "@/lib/phase";
 import { MenuChips } from "@/components/MenuChips";
 import { LocationLink } from "@/components/LocationLink";
+import type { BackupRank } from "@/lib/ranking";
 
 type Props = {
   phase: Phase;
   candidateCount: number;
   // 이름은 결과 행의 스냅샷, 메뉴·위치는 페이지가 현재 카탈로그에서 찾아 채운 참고 정보다.
   winner: { name: string; menus: string[]; location: string | null } | null;
+  // 2·3순위 이름 스냅샷. 빈 배열이면(후보 1개·0006 이전 행) 아래 영역을 통째로 그리지 않는다 — 구 행의 카드는 전과 같다.
+  backups: BackupRank[];
   // 설정에서 온 추첨 시각 문구. 기본값을 두지 않는다 — 두면 시각이 다시 이 파일에 숨는다(SPIN-06).
   spinTimeText: string;
 };
 
-export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Props) {
+export function ResultBlock({ phase, candidateCount, winner, backups, spinTimeText }: Props) {
   if (phase === "accepting") {
     return (
       <div className="l-stat-bar" style={s.bar}>
@@ -115,6 +118,19 @@ export function ResultBlock({ phase, candidateCount, winner, spinTimeText }: Pro
             </>
           )}
         </div>
+        {/* 당첨 매장에 웨이팅이 걸렸을 때 갈 곳. 추첨 시각에 함께 정해진 순서라 "다음 후보" 가 아니라 "순위" 다.
+            설명 문장을 두지 않는다 — 위계(36px 대 16px)와 라벨만으로 읽혀야 한다. 당첨과 동시에 보이고 항상 보인다:
+            식당 앞에서 휴대폰을 보는 사람에게 펼치기 한 번이 더 비싸다(Codex 상담 2026-10-06). */}
+        {backups.length > 0 && (
+          <div style={s.backupList}>
+            {backups.map((backup) => (
+              <div key={backup.rank} style={s.backupRow}>
+                <span style={s.backupRank}>{backup.rank}순위</span>
+                <span style={s.backupName}>{backup.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -179,6 +195,7 @@ const s = {
     fontSize: 36,
     fontWeight: 700,
     letterSpacing: "-0.03em",
+    lineHeight: 1.2,
     color: "var(--ink)",
     margin: "2px 0 8px",
   },
@@ -199,4 +216,20 @@ const s = {
     alignItems: "center",
     flexWrap: "wrap",
   },
+  backupList: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTop: "1px solid var(--line-soft)",
+    display: "grid",
+    rowGap: 8,
+  },
+  // 이름 칸이 줄어들 수 있어야 띄어쓰기 없는 긴 이름이 본문의 break-word 로 꺾인다(keep-all 아래에서는 한 단어다).
+  backupRow: {
+    display: "grid",
+    gridTemplateColumns: "48px minmax(0, 1fr)",
+    columnGap: 12,
+    alignItems: "baseline",
+  },
+  backupRank: { fontSize: 12, fontWeight: 500, color: "var(--muted)" },
+  backupName: { fontSize: 16, fontWeight: 600, lineHeight: 1.5, color: "var(--ink-soft)", minWidth: 0 },
 } satisfies Record<string, CSSProperties>;

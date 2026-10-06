@@ -12,6 +12,7 @@ import {
   joinLoadErrors,
 } from "@/lib/errors";
 import { findWinnerIndex, isNewSpin, joinCandidates } from "@/lib/candidates";
+import { backupRanks } from "@/lib/ranking";
 import { sortRestaurants } from "@/lib/restaurants";
 import { useCandidates } from "@/lib/useCandidates";
 import { useRestaurants } from "@/lib/useRestaurants";
@@ -70,6 +71,10 @@ export default function TodayPage() {
   // 설정 조회가 끝나기 전에는 기본 시각으로 계산한 "추첨 대기" 를 가린다 — 대시보드가 시각을 늦춰 둔 날
   // 첫 페인트에서만 그 라벨이 스쳤다가 바뀐다(D-23).
   const phase = displayPhase(currentPhase(now, settings.spinTime, todayResult !== null), settingsLoaded);
+  // 화면이 보는 페이즈. 다시 돌리기로 결과 행이 먼저 바뀌어도 휠이 도는 5초 동안은 새 당첨을 숨긴다 —
+  // 그러지 않으면 카드·머리글·상단 상태가 휠보다 먼저 답을 말해 회전이 연출이 아니라 지연이 된다.
+  // 후보 목록 잠금과 다시 돌리기 버튼의 표시 조건은 실제 페이즈(phase)를 그대로 본다.
+  const shownPhase: Phase = forceSpin ? "spinning" : phase;
   const spinTimeText = formatSpinTime(settings.spinTime);
 
   // 아래 넷은 매초 리렌더되는 페이지가 쓰는 파생값이라 전부 메모한다.
@@ -91,6 +96,8 @@ export default function TodayPage() {
     const store = restaurantRows.find((row) => row.id === todayResult.restaurant_id);
     return { name: todayResult.menu, menus: store?.menus ?? [], location: store?.location ?? null };
   }, [todayResult, restaurantRows]);
+  // 2·3순위. 모양 검사와 상한은 순수 함수가 맡는다 — 0006 이전 행(null)이면 빈 배열이다.
+  const backups = useMemo(() => backupRanks(todayResult?.ranking), [todayResult]);
 
   // 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가 구분되지 않는다. 두 훅이 들고 있는
   // loaded·error 를 여기서 세 상태로 좁혀 넘긴다 — 실패 화면에 등록 권유 문구가 뜨지 않게 하는 최소 경로다.
@@ -252,8 +259,8 @@ export default function TodayPage() {
   }
 
   const clockTime = formatHhMmSs(now);
-  const headline = phaseHeadline(phase, todayResult?.menu);
-  const subhead = phaseSubhead(phase, todayCandidates.length, spinTimeText, todayResult?.menu);
+  const headline = phaseHeadline(shownPhase, todayResult?.menu);
+  const subhead = phaseSubhead(shownPhase, todayCandidates.length, spinTimeText, todayResult?.menu);
 
   // 페이지 쿼리 하나(loadError)에 훅 셋의 실패·경고를 렌더 시점에 합친다. 훅 쪽은 각자가 소유하므로
   // 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버(Phase 8) 전 라이브에는 매장·후보·설정
@@ -272,7 +279,7 @@ export default function TodayPage() {
       <TopBar
         active="today"
         candidateCount={todayCandidates.length}
-        phase={phase}
+        phase={shownPhase}
         clockTime={clockTime}
       />
 
@@ -285,7 +292,7 @@ export default function TodayPage() {
             <h1 style={pageHeadStyles.h1}>{headline}</h1>
             <div style={pageHeadStyles.sub}>{subhead}</div>
           </div>
-          <PhaseTimeline current={phase} spinTime={settings.spinTime} />
+          <PhaseTimeline current={shownPhase} spinTime={settings.spinTime} />
         </div>
 
         <ErrorBanner message={loadBanner} onCloseAction={() => setLoadError(null)} />
@@ -294,7 +301,7 @@ export default function TodayPage() {
         <div className="l-cols-today" style={layoutStyles.cols}>
           <div style={layoutStyles.left}>
             <div className="card" style={layoutStyles.stage}>
-              <StageHeader phase={phase} />
+              <StageHeader phase={shownPhase} />
               <div className="l-wheel-holder" style={layoutStyles.wheelHolder}>
                 <Wheel
                   items={todayCandidates}
@@ -305,9 +312,10 @@ export default function TodayPage() {
                 />
               </div>
               <ResultBlock
-                phase={phase}
+                phase={shownPhase}
                 candidateCount={todayCandidates.length}
                 winner={winner}
+                backups={backups}
                 spinTimeText={spinTimeText}
               />
               {phase === "decided" && todayResult && (
@@ -320,7 +328,7 @@ export default function TodayPage() {
                   >
                     {respinning || forceSpin ? "다시 돌리는 중…" : "🎲 다시 돌리기"}
                   </button>
-                  <span style={respinStyles.hint}>결과를 새로 뽑아 모두에게 반영돼요</span>
+                  <span style={respinStyles.hint}>전체 순위를 새로 뽑아 모두에게 반영돼요</span>
                 </div>
               )}
             </div>
@@ -398,9 +406,10 @@ function phaseHeadline(phase: Phase, winnerName?: string) {
 function phaseSubhead(phase: Phase, count: number, spinTimeText: string, winnerName?: string) {
   if (phase === "accepting")
     return `현재 ${count}개 매장이 룰렛에 올라가 있어요. ${spinTimeText}에 자동으로 결정돼요.`;
-  if (phase === "spinning") return `룰렛은 ${spinTimeText}에 시작되어 약 5초간 돌아갑니다.`;
-  if (phase === "decided" && winnerName)
-    return `"${winnerName}" · 더는 변경할 수 없어요. 결과는 자정에 초기화됩니다.`;
+  // 다시 돌리기의 회전에도 같은 문장이 걸리므로 시작 시각을 말하지 않는다 — 13시의 재추첨에 "11:55에 시작되어" 는 거짓이다.
+  if (phase === "spinning") return "약 5초 뒤에 결과가 나와요.";
+  // "더는 변경할 수 없어요" 를 지웠다 — 다시 돌리기가 있는 한 거짓이다.
+  if (phase === "decided" && winnerName) return `"${winnerName}" · 결과는 자정에 초기화됩니다.`;
   if (phase === "stalled")
     return `추첨 시각이 지났지만 결과가 없어요. 현재 ${count}개 매장이 올라가 있어요.`;
   return "";

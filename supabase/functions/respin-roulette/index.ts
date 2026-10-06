@@ -9,6 +9,8 @@
 // - 설정 행에서 쿨다운 일수를 읽어 최근 당첨 매장을 후보에서 뺀다. 설정·쿨다운 조회가 실패해도
 //   멈추지 않고 기본값으로 진행하며, 그 사실을 서버 로그 1건과 응답의 폴백 플래그로 드러낸다
 // - 결과 행에는 당첨 매장의 이름 스냅샷과 매장 id 를 함께 쓴다 (매장이 지워져도 기록은 남는다)
+// - 후보 전체의 순서(ranking)도 새로 정해 함께 덮어쓴다. 1번째가 당첨이다. 2순위만 다시 뽑는 길은 두지 않는다 —
+//   두면 마음에 들 때까지 돌린다(0006)
 // DB 접근은 SUPABASE_SERVICE_ROLE_KEY로 service_role 권한 사용.
 //
 // 브라우저 호출이라 CORS 필수:
@@ -24,10 +26,11 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.117.2";
-// KST 변환·난수 선택·쿨다운은 _shared/ 한 곳으로 합쳤다 (spin-roulette 와의 복붙 제거).
+// KST 변환·순서 결정·쿨다운은 _shared/ 한 곳으로 합쳤다 (spin-roulette 와의 복붙 제거).
 // 시간 가드가 없는 함수라 추첨 시각 모듈은 끌어오지 않는다 — 파서를 쓸 자리가 없다.
-import { kstNow, pickRandom } from "../_shared/kst.ts";
+import { kstNow } from "../_shared/kst.ts";
 import { applyCooldown, cooldownWindowStart } from "../_shared/cooldown.ts";
+import { rankCandidates } from "../_shared/ranking.ts";
 
 // lib/supabase/client.ts 의 행 타입을 그대로 쓸 수 없어(Deno 는 경로 별칭·확장자 규칙이 달라
 // lib/ 를 import 하지 못한다) 필요한 최소 구조만 여기 다시 선언한다. 한쪽이 늘면 양쪽을 함께 고친다.
@@ -188,7 +191,10 @@ Deno.serve(async (req) => {
 
     // pool 이 비어 있지 않다는 전제는 코드 배치가 보장한다: 후보 0개 검사가 위에 있고, 쿨다운 조회
     // 실패 경로는 후보 전체를 그대로 쓰며, 쿨다운 모듈은 전멸 시 전체를 되돌린다. 순서를 바꾸면 깨진다.
-    const winner = pickRandom(pool);
+    // 순위는 pool 의 순열이다. 보통은 쿨다운을 거친 후보라 쿨다운에 걸린 매장은 예비에도 없지만, 쿨다운으로
+    // 후보가 전멸한 날은 쿨다운 모듈이 전체 후보로 되돌리므로 그날의 2·3순위에는 최근 당첨 매장이 들어온다.
+    const ranking = rankCandidates(pool);
+    const winner = ranking[0];
     // 스냅샷은 쿨다운 적용 전 후보 전체를 담은 순서 그대로 남긴다.
     const snapshot = candidates.map((c) => ({ name: c.name, restaurant_id: c.restaurant_id }));
 
@@ -200,6 +206,7 @@ Deno.serve(async (req) => {
         menu: winner.name,
         restaurant_id: winner.restaurant_id,
         candidates: snapshot,
+        ranking,
         spun_at: new Date().toISOString(),
       },
       { onConflict: "date" },

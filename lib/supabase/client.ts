@@ -16,6 +16,10 @@ export type ResultRow = {
   candidates: { name: string; restaurant_id?: string }[]; // Phase 4 부터 restaurant_id 를 함께 싣는다. 전환 이전 행에는 그 키가 아예 없어서 optional 이다
   spun_at: string;
   restaurant_id: string | null; // 매장 삭제 시 set null (supabase/migrations/0005_restaurants_settings.sql)
+  // 추첨이 정한 후보 순서. 1번째가 당첨(menu·restaurant_id 와 같다), 2·3번째가 화면의 예비 순위다.
+  // 0006 이전 행과 구 함수가 쓴 행은 null. 안의 restaurant_id 는 외래키가 아니라 매장을 지워도 그대로 남는다 —
+  // 화면은 이름만 읽는다(lib/ranking.ts). 모양이 깨진 값도 거기서 흡수하므로 여기 타입은 "정상 행의 모양" 이다.
+  ranking: { restaurant_id: string; name: string }[] | null;
 };
 
 // 매장 카탈로그. 자정에 지워지지 않는 영구 테이블 (supabase/migrations/0005_restaurants_settings.sql).
