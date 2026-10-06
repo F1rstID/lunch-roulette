@@ -60,7 +60,7 @@ const page = stripComments(rawPage, "//");
 // ^ 만 쓰면 들여쓴 import 를 놓친다(0005 spec:118 의 교훈). \s* 를 넣어 줄 맨 앞 공백을 흡수한다.
 const IMPORT_LINE = /^\s*import\s/gm;
 
-describe("SHARED/QUAL-02 — _shared 3파일은 import 문이 0개다", () => {
+describe("SHARED/QUAL-02 — _shared 4파일은 import 문이 0개다 (ranking.ts 는 #59)", () => {
   it("kst.ts 가 존재한다 (#1)", () => {
     expect(rawKst.length).toBeGreaterThan(0);
   });
@@ -444,7 +444,15 @@ describe("RANK — 순위는 _shared/ranking.ts 가 정하고 두 함수가 결�
     ]).toEqual([1, 1, 0, 0]);
   });
 
-  it("결과 행 쓰기에 ranking 을 싣는다 — insert(spin)·upsert(respin) 각 1회 (#62)", () => {
-    expect([count(spin, /^\s*ranking,\s*$/gm), count(respin, /^\s*ranking,\s*$/gm)]).toEqual([1, 1]);
+  it("결과 행 쓰기에 ranking 을 싣는다 — insert(spin)·upsert(respin) 블록 안에서 각 1회 (#62)", () => {
+    // 파일 전체가 아니라 쓰기 객체 리터럴 안에서 센다 — 응답 객체로 옮겨 가도 초록이 되면 계약이 아니다.
+    const spinInsert = spin.match(/\.insert\(\{[\s\S]*?\}\)/)?.[0] ?? "";
+    const respinUpsert = respin.match(/\.upsert\(\s*\{[\s\S]*?\}/)?.[0] ?? "";
+    expect([
+      spinInsert.length > 0,
+      respinUpsert.length > 0,
+      count(spinInsert, /^\s*ranking,\s*$/gm),
+      count(respinUpsert, /^\s*ranking,\s*$/gm),
+    ]).toEqual([true, true, 1, 1]);
   });
 });

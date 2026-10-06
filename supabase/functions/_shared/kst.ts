@@ -64,12 +64,4 @@ export function kstNow(): KstParts {
   return kstParts(new Date());
 }
 
-/** 배열에서 한 원소를 균등하게 뽑는다 */
-// 전제조건: arr.length > 0. 빈 배열이면 undefined 를 돌려주면서 타입은 T 라고 주장한다 —
-// 호출자가 먼저 길이를 검사하는 계약이고, 현행 두 Edge Function 이 실제로 그렇게 하고 있다.
-// 동작 변경 금지 원칙상 이 페이즈에서 예외를 던지는 형태로 바꾸지 않는다.
-export function pickRandom<T>(arr: T[]): T {
-  const u = new Uint32Array(1);
-  crypto.getRandomValues(u); // Deno · Node≥19 전역이라 import 하지 않는다
-  return arr[u[0] % arr.length];
-}
+// 당첨 하나를 뽑던 pickRandom 은 0006(결과 순위)에서 사라졌다 — 당첨은 _shared/ranking.ts 가 정한 순서의 1번째다.

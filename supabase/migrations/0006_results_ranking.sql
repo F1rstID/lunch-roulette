@@ -26,4 +26,5 @@ end $$;
 
 comment on column public.results.ranking is
   '추첨이 정한 후보 순서. [{"restaurant_id": uuid, "name": 매장명 스냅샷}, …]. 1번째가 당첨이며 menu·restaurant_id 와 같다. '
-  '쿨다운을 거친 후보만 들어간다. 0006 이전 행과 구 함수가 쓴 행은 null. 안의 restaurant_id 는 외래키가 아니라 매장을 지워도 그대로 남는다.';
+  '쿨다운을 거친 후보가 들어간다(쿨다운으로 후보가 전멸한 날은 전체 후보로 되돌아가 최근 당첨 매장도 들어간다). '
+  '0006 이전 행과 구 함수가 쓴 행은 null. 안의 restaurant_id 는 외래키가 아니라 매장을 지워도 그대로 남는다.';

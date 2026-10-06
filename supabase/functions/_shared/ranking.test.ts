@@ -31,10 +31,9 @@ describe("rankCandidates", () => {
     expect(rankCandidates(pool, () => 0).map((e) => e.restaurant_id)).toEqual(["b", "c", "d", "a"]);
   });
 
-  it("주입한 수열대로 결정적이다", () => {
-    const first = rankCandidates(pool, sequence([0.1, 0.7, 0.3]));
-    const second = rankCandidates(pool, sequence([0.1, 0.7, 0.3]));
-    expect(first).toEqual(second);
+  it("주입한 수열대로 결정적이다 — 수열 [0.1, 0.7, 0.3] 의 결과를 고정한다", () => {
+    // i=3: j=floor(0.1*4)=0 → d b c a / i=2: j=floor(0.7*3)=2 → 그대로 / i=1: j=floor(0.3*2)=0 → b d c a
+    expect(rankCandidates(pool, sequence([0.1, 0.7, 0.3])).map((e) => e.restaurant_id)).toEqual(["b", "d", "c", "a"]);
   });
 
   it("원소를 잃거나 만들지 않는다 — 같은 집합의 순열이다", () => {
@@ -49,7 +48,7 @@ describe("rankCandidates", () => {
     expect(pool).toEqual(copy);
   });
 
-  it("기본 난수(Math.random)로도 같은 집합의 순열을 돌려준다", () => {
+  it("기본 난수(crypto)로도 같은 집합의 순열을 돌려준다", () => {
     const ranked = rankCandidates(pool);
     expect(new Set(ranked.map((e) => e.restaurant_id))).toEqual(new Set(["a", "b", "c", "d"]));
   });
