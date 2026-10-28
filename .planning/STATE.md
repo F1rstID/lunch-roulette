@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Cutover executed 2026-09-29 - live on new model, PR #4 merged (7c43a81). Remaining: user live check (README 7-8), test restaurant cleanup
-last_updated: 2026-10-06T01:25:00.000Z
-last_activity: 2026-10-06 -- Quick 003 완료(PR 대기): 결과 순위(1순위 + 2·3순위) 저장·표시, Codex 상담안 채택, 리뷰 1회 반영. 적용 순서 SQL(0006) → 함수 2종 배포 → 머지. Quick 001·002 는 2026-09-30 라이브
+status: v1.0 live (Phase 1~8 + Quick 001~003). Phase 9 added, not planned yet
+stopped_at: Phase 9 미계획 — /gsd-plan-phase 9 가 다음
+last_updated: "2026-10-28T04:30:00.000Z"
+last_activity: "2026-10-28 -- /gsd-explore: Phase 9(주간 점심 기록) 추가. 설계 정본 notes/weekly-exclusion-visit-record.md, 씨앗 seeds/thumbs-vote.md. Quick 003 는 2026-10-06 라이브(PR #7 621f4a9 + 함수 2종 배포)"
 progress:
-  total_phases: 8
-  completed_phases: 7
+  total_phases: 9
+  completed_phases: 8
   total_plans: 20
   completed_plans: 20
-  percent: 88
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** 컷오버 후 확인 — README 7(당일)·8(익일 11:55 추첨) → 확인용 매장 삭제 → 마일스톤 마감
+**Current focus:** Phase 9 계획(`/gsd-plan-phase 9`) — 설계 정본 `notes/weekly-exclusion-visit-record.md`. v1.0 마일스톤 마감(`/gsd-complete-milestone`)은 아직 안 함
 
 ## Current Position
 
-Phase: 8 (complete)
-Plan: 1 of 1 (complete)
-Status: Cutover executed — live on new model; user live check + 익일 추첨 확인 remaining
-Last activity: 2026-10-06 -- Quick 003 완료(PR 대기): 결과 순위(1순위 + 2·3순위) 저장·표시, Codex 상담안 채택, 리뷰 1회 반영. 적용 순서 SQL(0006) → 함수 2종 배포 → 머지. Quick 001·002 는 2026-09-30 라이브
+Phase: 9 (not planned yet) — Phase 1~8 complete
+Plan: —
+Status: v1.0 live. Phase 9 added 2026-10-28 via /gsd-explore
+Last activity: 2026-10-28 -- /gsd-explore: Phase 9(주간 점심 기록) 추가. Quick 003 는 2026-10-06 라이브(PR #7 621f4a9 + 함수 2종 배포)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 8/9 phases (plans 20/20)
 
 ## Performance Metrics
 
@@ -152,6 +152,11 @@ Progress: [██████████] 100%
 - [Phase 6]: 06-02 — applyResult 가 todayResultRef(상태 거울)를 읽고 나서 쓰고 isNewSpin 으로 판정해 추첨 시각이 같은 결과 UPDATE 를 걸러 낸다: 매장 삭제가 내보내는 on delete set null 갱신으로 열린 모든 탭의 휠이 5초씩 돌던 경로가 닫혔다(todo in-06). INSERT → UPDATE 순서와 initialLoadedRef 의 의미는 그대로다
 - [Phase 6]: 06-02 — 화면 추첨 시각 문구를 전부 기본값 없는 필수 prop 으로 내렸다(Wheel·ResultBlock·CandidateList·PhaseTimeline·phaseSubhead): 기본값이 있으면 배선을 잊은 호출부가 조용히 옛 값을 그린다. ResultBlock 의 spinTime = "11:55" 기본값이 정확히 그 함정이었고, 화면에 보이는 리터럴이 0곳이 됐다(SPIN-06)
 - [Phase 6]: 06-02 — 수명이 끝난 임시 계약 spec 은 삭제가 아니라 반대 기대로 뒤집는다: 마이그레이션 계약 #42("MenuRow·PinnedMenuRow 가 아직 남아 있다", 주석에 "제거는 Phase 6")를 [0,0] 기대로 바꿔 테스트 건수 354 를 유지하면서 구 타입이 되돌아오면 걸리는 가드로 만들었다
+- [Explore 2026-10-28]: 매장 제외는 주간 단위 — 이번 주 제외 목록 = 월~어제의 목적지(기본 1순위, "다음 식당" 으로 변경 가능) ∪ "이번 주 쉬기". 월요일 00:00 KST 전부 해제. `settings.cooldown_days` 폐기. Codex 제안 4(쉬기)·6(방문 cooldown)은 트리거만 다른 같은 메커니즘이라 하나로 합쳤다. 방문 확인은 선택이고 미확인은 "확인 안 됨" 으로 구분하되 제외 판정은 목적지를 쓴다 — 0클릭이어도 제외가 돌아가야 기록 미참여 때 기능이 조용히 죽지 않는다 (gstack decision 74caa587)
+
+### Roadmap Evolution
+
+- Phase 9 added (2026-10-28): 주간 점심 기록 — 실제 방문·다음 식당·이번 주 제외(월요일 리셋). v1 범위 밖 후속. 출처: /gsd-explore ← Codex 2026-10-06 기능 상담(`.context/codex-features-2026-10-06.md`, untracked). 설계 정본 `.planning/notes/weekly-exclusion-visit-record.md`. 👍👎 투표는 `.planning/seeds/thumbs-vote.md` 로 심어 둠
 
 ### Pending Todos
 
@@ -189,6 +194,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29T03:57:33.131Z
-Stopped at: Phase 6 review fixes applied - ready for phase.complete
+Last session: 2026-10-28 (/gsd-explore → Phase 9 추가)
+Stopped at: Phase 9 미계획. 브랜치 `feat/weekly-lunch-record` 에 탐색 산출물 커밋. 다음은 `/gsd-plan-phase 9`
 Resume file: None
