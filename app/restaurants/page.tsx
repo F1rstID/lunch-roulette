@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { formatHhMmSs, formatKstLongDay, todayKstDate } from "@/lib/time";
+import { formatHhMmSs, formatKstLongDay, kstParts, todayKstDate } from "@/lib/time";
 import { currentPhase, displayPhase } from "@/lib/phase";
 import { formatLoadError, formatRestaurantWriteError, joinLoadErrors } from "@/lib/errors";
 import { sortRestaurants, type RestaurantInput } from "@/lib/restaurants";
 import { useRestaurants } from "@/lib/useRestaurants";
 import { useSettings } from "@/lib/useSettings";
+import { weekStartOf } from "@/supabase/functions/_shared/cooldown";
 import { TopBar } from "@/components/TopBar";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { RestaurantList, type RestaurantListStatus } from "@/components/RestaurantList";
@@ -20,6 +21,9 @@ export default function RestaurantsPage() {
   }, []);
 
   const todayKey = todayKstDate(now);
+  // 이번 주 월요일 — 쉬기의 저장값이자 활성 판정 기준. 오늘 탭·Edge 와 같은 함수라 세 곳이 같은 주를 본다.
+  const weekday = kstParts(now).weekday;
+  const weekStart = useMemo(() => weekStartOf(todayKey, weekday) ?? todayKey, [todayKey, weekday]);
 
   const { rows, loaded: catalogLoaded, error: catalogError } = useRestaurants();
 
@@ -164,6 +168,26 @@ export default function RestaurantsPage() {
     }
   }
 
+  async function toggleRestaurantPause(id: string, name: string, currentlyPaused: boolean): Promise<boolean> {
+    const action = currentlyPaused ? "쉬기 해제" : "쉬기";
+    try {
+      // 그 주 월요일 날짜를 쓴다 — 활성 판정이 "이번 주 월요일과 같은가" 라 다음 주가 되면 값이 남아 있어도 저절로 풀린다.
+      const { error } = await supabase
+        .from("restaurants")
+        .update({ paused_week: currentlyPaused ? null : weekStart })
+        .eq("id", id);
+      if (error) {
+        setActionError(formatRestaurantWriteError(action, name, error));
+        return false;
+      }
+      setActionError(null);
+      return true;
+    } catch (e) {
+      setActionError(formatRestaurantWriteError(action, name, { message: thrownMessage(e) }));
+      return false;
+    }
+  }
+
   // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 매장 목록 실패도
   // 같다 — 컷오버(Phase 8) 전에는 라이브에 매장 테이블이 없어 이 배너 + 빈 목록이 정상 상태다.
   // 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않는다.
@@ -200,6 +224,8 @@ export default function RestaurantsPage() {
           onUpdateAction={updateRestaurant}
           onRemoveAction={removeRestaurant}
           onTogglePinAction={toggleRestaurantPin}
+          weekStart={weekStart}
+          onTogglePauseAction={toggleRestaurantPause}
         />
       </main>
     </>

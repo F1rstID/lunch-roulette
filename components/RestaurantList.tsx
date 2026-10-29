@@ -1,6 +1,8 @@
 "use client";
 
-// 매장 카탈로그 카드 — 등록 폼 · 행 목록 · 인라인 편집 · 핀 토글 · 2단계 삭제 확인 · 빈 상태 · 푸터.
+// 매장 카탈로그 카드 — 등록 폼 · 행 목록 · 인라인 편집 · 핀 토글 · 이번 주 쉬기 토글 · 2단계 삭제 확인 · 빈 상태 · 푸터.
+// 쉬기 토글이 여기 한 곳에만 있는 이유는 핀과 같다(한 상태를 두 화면에서 바꾸지 않는다). 활성 판정(paused_week === 이번 주
+// 월요일)은 Edge·오늘 탭과 같은 비교라 월요일이 되면 저절로 풀린다 — 해제 cron 도 effect 도 없다(0007).
 // 이 컴포넌트는 데이터 클라이언트를 한 번도 부르지 않는다: 목록은 props 로 받고 쓰기는 ~Action 콜백으로
 // 페이지에 올린다(레포 전역 규칙). 그 덕에 화면 갱신 경로가 Realtime 하나로 유지된다.
 // 수정을 행 인라인으로 고른 이유: 상단 폼을 편집 모드로 재사용하면 등록하려고 치던 입력을 잃고, 모달은
@@ -36,6 +38,10 @@ type Props = {
   onRemoveAction: (id: string, name: string) => Promise<boolean>;
   // currentlyPinned = 클릭 시점의 상태. 핸들러가 이걸 뒤집어 한 번만 쓴다.
   onTogglePinAction: (id: string, name: string, currentlyPinned: boolean) => Promise<boolean>;
+  // 이번 주 월요일("yyyy-mm-dd"). 쉬기 활성 = row.paused_week 가 이 값과 같다. 페이지가 KST 요일로 계산해 넘긴다.
+  weekStart: string;
+  // currentlyPaused = 클릭 시점의 활성 여부. 핸들러가 paused_week 를 weekStart 또는 null 로 쓴다.
+  onTogglePauseAction: (id: string, name: string, currentlyPaused: boolean) => Promise<boolean>;
 };
 
 export function RestaurantList({
@@ -45,6 +51,8 @@ export function RestaurantList({
   onUpdateAction,
   onRemoveAction,
   onTogglePinAction,
+  weekStart,
+  onTogglePauseAction,
 }: Props) {
   // 한 번에 한 행만 편집한다. 다른 행의 수정을 누르면 대상이 바뀌고 이전 초안은 버린다 — 여러 행을 동시에
   // 열어 두면 어느 폼이 저장됐는지 화면만 보고는 알 수 없다.
@@ -53,6 +61,8 @@ export function RestaurantList({
   // 핀 토글이 도는 동안 재클릭을 무시할 행. 낙관적 업데이트가 없어 두 번째 클릭도 화면에 남아 있는
   // 같은 pinned 를 읽으므로, 막지 않으면 두 요청이 같은 값을 쓰고 "두 번 눌러 원복" 이 되지 않는다.
   const [pinBusyId, setPinBusyId] = useState<string | null>(null);
+  // 쉬기 토글도 같은 이유로 행 단위 잠금이다.
+  const [pauseBusyId, setPauseBusyId] = useState<string | null>(null);
 
   // 편집·삭제 확인 중인 행이 원격에서 지워지면 목록에서 빠지고 두 id 는 없는 행을 가리킨 채 남는다.
   // effect 로 되돌리지 않고 렌더 시점에 목록 멤버십으로 거른다: effect 안의 setState 는
@@ -62,13 +72,16 @@ export function RestaurantList({
   const confirming = confirmingId !== null && items.some((r) => r.id === confirmingId) ? confirmingId : null;
 
   const pinnedCount = items.filter((r) => r.pinned).length;
+  const pausedCount = items.filter((r) => r.paused_week === weekStart).length;
 
   return (
     <div className="card" style={s.card}>
       <header style={s.header}>
         <div>
           <div style={s.title}>매장 카탈로그</div>
-          <div style={s.subtle}>{`${items.length}개 매장 · 핀 ${pinnedCount}개`}</div>
+          <div style={s.subtle}>
+            {`${items.length}개 매장 · 핀 ${pinnedCount}개${pausedCount > 0 ? ` · 쉬는 중 ${pausedCount}개` : ""}`}
+          </div>
         </div>
         <div className="mono" style={s.counter}>
           {String(items.length).padStart(2, "0")}
@@ -148,6 +161,17 @@ export function RestaurantList({
                     setPinBusyId(null);
                   }
                 }}
+                paused={r.paused_week === weekStart}
+                pauseBusy={pauseBusyId === r.id}
+                onTogglePause={async () => {
+                  if (pauseBusyId === r.id) return;
+                  setPauseBusyId(r.id);
+                  try {
+                    await onTogglePauseAction(r.id, r.name, r.paused_week === weekStart);
+                  } finally {
+                    setPauseBusyId(null);
+                  }
+                }}
               />
             )}
           </li>
@@ -159,7 +183,7 @@ export function RestaurantList({
           규칙
         </span>
         <span style={s.footerText}>
-          📌 고정한 매장은 매일 자정 오늘 후보에 자동으로 담겨요 · 오늘 후보 담기는 오늘 탭에서
+          📌 고정한 매장은 매일 자정 오늘 후보에 자동으로 담겨요 · 이번 주 쉬기는 월요일에 저절로 풀려요 · 오늘 후보 담기는 오늘 탭에서
         </span>
       </footer>
     </div>
@@ -299,20 +323,29 @@ function RestaurantForm({
 function RestaurantRowView({
   row,
   pinBusy,
+  paused,
+  pauseBusy,
   onEdit,
   onAskRemove,
   onTogglePin,
+  onTogglePause,
 }: {
   row: RestaurantRow;
   pinBusy: boolean;
+  paused: boolean;
+  pauseBusy: boolean;
   onEdit: () => void;
   onAskRemove: () => void;
   onTogglePin: () => void;
+  onTogglePause: () => void;
 }) {
   return (
     <div style={s.rowInner}>
       <div style={s.rowMain}>
-        <div style={s.name}>{row.name}</div>
+        <div style={s.nameLine}>
+          <span style={s.name}>{row.name}</span>
+          {paused && <span style={s.pausedTag}>이번 주 쉬기</span>}
+        </div>
         <MenuChips menus={row.menus} />
         {row.location && (
           <div style={s.meta}>
@@ -320,6 +353,7 @@ function RestaurantRowView({
           </div>
         )}
       </div>
+      <PauseButton paused={paused} busy={pauseBusy} onToggle={onTogglePause} />
       <PinButton pinned={row.pinned} busy={pinBusy} onToggle={onTogglePin} />
       <button type="button" aria-label="수정" title="수정" onClick={onEdit} className="l-tap" style={s.editBtn}>
         수정
@@ -351,6 +385,28 @@ function PinButton({ pinned, busy, onToggle }: { pinned: boolean; busy: boolean;
       }}
     >
       📌
+    </button>
+  );
+}
+
+// 핀과 달리 글자 버튼이다 — 아이콘 하나로는 "이번 주만" 이라는 기간이 전달되지 않는다. 활성이면 해제 동작을 글자로 말한다.
+function PauseButton({ paused, busy, onToggle }: { paused: boolean; busy: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={paused}
+      disabled={busy}
+      title={paused ? "월요일에 저절로 풀려요 — 지금 해제" : "이번 주 추첨·휠에서 뺀다 — 월요일에 저절로 풀려요"}
+      onClick={onToggle}
+      className="l-tap"
+      style={{
+        ...s.pauseBtn,
+        background: paused ? "var(--accent-soft)" : "var(--panel)",
+        color: paused ? "var(--accent-ink)" : "var(--ink-soft)",
+        cursor: busy ? "progress" : "pointer",
+      }}
+    >
+      {paused ? "쉬는 중 · 해제" : "이번 주 쉬기"}
     </button>
   );
 }
@@ -483,11 +539,26 @@ const s = {
     gap: 10,
   },
   rowMain: { flex: 1, minWidth: 0 },
+  // 이름 옆 라벨이 줄바꿈될 수 있어야 좁은 폭에서 이름을 밀어내지 않는다.
+  nameLine: { display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: "0 8px" },
   name: {
     fontSize: 14.5,
     fontWeight: 600,
     color: "var(--ink)",
     letterSpacing: "-0.01em",
+  },
+  pausedTag: { fontSize: 11, fontWeight: 600, color: "var(--accent-ink)" },
+  pauseBtn: {
+    appearance: "none",
+    border: "1px solid var(--line)",
+    height: 26,
+    padding: "0 9px",
+    borderRadius: 6,
+    fontSize: 11.5,
+    fontWeight: 600,
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+    transition: "background .12s, color .12s",
   },
   meta: {
     fontSize: 12,

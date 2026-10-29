@@ -62,7 +62,7 @@ export function formatRespinError(fallbackMessage: string, body: unknown): strin
 }
 
 // 호출부가 오타로 아무 문자열이나 넘기지 못하게 리터럴 유니온으로 묶는다 — 배너 문장의 동사 자리다.
-export type RestaurantWriteAction = "등록" | "수정" | "삭제" | "고정" | "고정 해제";
+export type RestaurantWriteAction = "등록" | "수정" | "삭제" | "고정" | "고정 해제" | "쉬기" | "쉬기 해제";
 
 // 매장 쓰기 실패는 익명 사용자가 그대로 읽는다. 사용자가 손쓸 수 있는 두 경우(이름 중복·입력 규칙 위반)만
 // 한국어로 갈아끼우는 이유: PostgREST 원문은 제약 이름과 SQL 조각을 실어 와 읽을 수도, 고칠 수도 없다.
