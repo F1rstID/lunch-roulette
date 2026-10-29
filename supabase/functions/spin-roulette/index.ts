@@ -6,25 +6,35 @@
 // - 안전장치 1: KST 시각이 설정된 추첨 시각 이전이면 거부 (조기 트리거 방지)
 // - 안전장치 2: 같은 날짜의 결과 행이 이미 있으면 즉시 종료 (멱등성)
 // - 후보는 오늘 후보 테이블과 매장 테이블의 조인에서 읽는다 (추첨 단위가 메뉴가 아니라 매장이다)
-// - 설정·쿨다운·멱등 조회가 실패해도 멈추지 않고 기본값으로 진행한다. 대신 서버 로그 1건과
+// - 설정·주간 창·멱등 조회가 실패해도 멈추지 않고 기본값으로 진행한다. 대신 서버 로그 1건과
 //   응답의 폴백 플래그로 드러낸다 — 하루 한 번뿐인 추첨을 잃지 않는 쪽이 설정을 정확히 존중하는
 //   쪽보다 우선이다. 이 논증이 없으면 다음 사람이 "왜 여기서 안 멈추지" 로 되돌린다
 // - 결과 행에는 당첨 매장의 이름 스냅샷과 매장 id 를 함께 쓴다 (매장이 지워져도 기록은 남는다)
 // - 당첨 하나가 아니라 후보 전체의 순서(ranking)를 정해 함께 쓴다. 1번째가 당첨이다. 당첨 매장에 웨이팅이
 //   걸렸을 때 갈 곳이 추첨 시각에 이미 정해져 있어야 "마음에 들 때까지 다시 뽑기" 가 되지 않는다(0006)
 // - DB 접근은 SUPABASE_SERVICE_ROLE_KEY로 service_role 권한 사용
-// - KST 변환·시각 판정·순서 결정·쿨다운은 _shared/ 한 곳으로 합쳤다 (respin-roulette 와의 복붙 제거)
+// - 이번 주(월~어제) 간 매장과 "이번 주 쉬기" 매장은 pool 에서 뺀다(0007). 쉬기로 후보가 전멸하면 결과 행을 만들지
+//   않는다 — 쉬기를 몰래 되살리면 거짓이 되고, 행이 없으면 다음 분 cron 이 다시 시도한다. 방문 매장으로만 전멸하면
+//   쉬기만 뺀 후보로 되돌린다(이번 주 다 가 봤으면 다시 가는 게 맞다). 월요일 00:00 KST 에 창이 없어져 전부 해제된다
+// - KST 변환·시각 판정·순서 결정·주간 제외는 _shared/ 한 곳으로 합쳤다 (respin-roulette 와의 복붙 제거)
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.117.2";
 import { kstNow } from "../_shared/kst.ts";
 import { DEFAULT_SPIN_TIME, isAfterSpinTime, parseSpinTime } from "../_shared/spinTime.ts";
-import { applyCooldown, cooldownWindowStart } from "../_shared/cooldown.ts";
+import {
+  applyWeeklyExclusions,
+  dayExclusionId,
+  type DayVisitRef,
+  weekStartOf,
+  weeklyWindowStart,
+} from "../_shared/cooldown.ts";
 import { rankCandidates } from "../_shared/ranking.ts";
 
 // lib/supabase/client.ts 의 행 타입을 그대로 쓸 수 없어(Deno 는 경로 별칭·확장자 규칙이 달라
 // lib/ 를 import 하지 못한다) 필요한 최소 구조만 여기 다시 선언한다. 한쪽이 늘면 양쪽을 함께 고친다.
-type Candidate = { restaurant_id: string; name: string };
+// paused_week 는 "이번 주 쉬기" 의 월요일 날짜다 — 활성 판정(이번 주 월요일과 같은가)은 아래 본문이 한다.
+type Candidate = { restaurant_id: string; name: string; paused_week: string | null };
 
 // 설정은 단일행이다 — 이 값을 정한 것은 0005 마이그레이션의 check (id = 1) 이고, 코드 쪽에는
 // 출처 없는 맨 숫자만 남아 있었다. 이름을 붙여 둬야 "왜 하필 1인가" 를 다시 묻지 않는다.
@@ -63,7 +73,13 @@ function normalizeCandidates(
     const one: unknown = Array.isArray(embed) ? embed[0] : embed;
     if (typeof one !== "object" || one === null || !("name" in one)) { excludedIds.push(label); continue; }
     if (typeof row.restaurant_id !== "string" || typeof one.name !== "string") { excludedIds.push(label); continue; }
-    picked.push({ restaurant_id: row.restaurant_id, name: one.name }); // 담은 순서를 유지한다
+    // paused_week 는 제외 판정이 아니라 형태 방어다 — 문자열이 아니면 "쉬지 않음" 으로 읽는다(컬럼 부재는 임베드 조회가 먼저 거부한다).
+    const pausedWeek: unknown = "paused_week" in one ? one.paused_week : null;
+    picked.push({
+      restaurant_id: row.restaurant_id,
+      name: one.name,
+      paused_week: typeof pausedWeek === "string" ? pausedWeek : null,
+    }); // 담은 순서를 유지한다
   }
   return { picked, excluded: excludedIds.length, excludedIds };
 }
@@ -85,14 +101,14 @@ Deno.serve(async () => {
     );
 
     let spinTime = DEFAULT_SPIN_TIME;
-    let cooldownDays = 0;
     let settingsFallback = false; // 설정을 못 읽거나 못 읽힌 값이어서 기본값으로 갔다
-    let cooldownSkipped = false; // 쿨다운 창 조회가 실패해 필터를 건너뛰었다
-    let cooldownFallback = false; // 필터 결과가 0개라 전체 후보로 되돌렸다
+    let weeklySkipped = false; // 주간 창 조회가 실패해 방문 제외를 건너뛰었다(쉬기 제외는 후보 행에 실려 와 그대로 적용된다)
+    let weeklyFallback = false; // 방문 제외 결과가 0개라 쉬기만 뺀 후보로 되돌렸다
 
+    // 쿨다운 일수는 더 읽지 않는다(0007) — 주간 제외가 대체했고 컬럼은 다음 마이그레이션이 지운다.
     const { data: settingsRow, error: settingsErr } = await supabase
       .from("settings")
-      .select("spin_time, cooldown_days")
+      .select("spin_time")
       .eq("id", SETTINGS_ROW_ID)
       .maybeSingle();
 
@@ -114,8 +130,6 @@ Deno.serve(async () => {
         );
         settingsFallback = true;
       }
-      // 정수·양수 좁히기는 쿨다운 모듈이 흡수한다. 여기서 한 번 더 좁히면 판정처가 둘이 된다.
-      cooldownDays = Number(settingsRow.cooldown_days);
     }
 
     if (!isAfterSpinTime(now, spinTime)) {
@@ -146,7 +160,7 @@ Deno.serve(async () => {
     // 오늘 후보 조회. 정렬 옵션을 주지 않으면 부모(후보 행) 정렬이다 — 임베드 정렬이 아니다.
     const { data: rows, error: candErr } = await supabase
       .from("candidates")
-      .select("restaurant_id, created_at, restaurants ( id, name )")
+      .select("restaurant_id, created_at, restaurants ( id, name, paused_week )")
       .order("created_at", { ascending: true });
 
     if (candErr) {
@@ -160,46 +174,93 @@ Deno.serve(async () => {
       console.error(`후보 ${excluded}건을 매장 조인 형태 불일치로 제외했다: ${excludedIds.join(", ")}`);
     }
 
-    // 후보가 없으면 결과 행을 만들지 않는다. 이 검사가 쿨다운보다 앞이라야 아래의 난수 선택이
-    // 빈 배열을 받는 경로가 구조적으로 생기지 않는다.
+    // 후보가 없으면 결과 행을 만들지 않는다. 이 검사가 주간 제외보다 앞이라야 "후보 없음" 과 "전부 쉬기" 가
+    // 응답에서 갈린다 — 둘은 사람이 할 일이 다르다(후보 담기 / 쉬기 해제).
     // 제외 건수를 함께 싣는다 — 이게 없으면 "후보 테이블이 비었다" 와 "조인이 깨져 전부 떨어졌다" 가
     // 응답에서 바이트 단위로 같아져, 로그를 열기 전까지 구분할 수 없다.
     if (candidates.length === 0) {
       return json({ skipped: "no_candidates", date: now.date, excluded_count: excluded });
     }
 
-    let pool = candidates;
-    const windowStart = cooldownWindowStart(now.date, cooldownDays);
-    // 창이 없으면(쿨다운 0 = 기본 설정) 조회 자체를 하지 않는다 — 전환 전과 같은 쿼리 수를 유지한다.
+    // 이번 주 제외. 쉬기는 매장 행의 paused_week 가 이번 주 월요일과 같을 때만 활성이고 월요일에도 적용된다 —
+    // 그날 쉬기를 누르면 그날부터 빠져야 한다. 방문 제외의 창 [weekStart, today) 는 월요일에 없다(null) — 그것이
+    // "매주 월요일 00:00 KST 해제" 의 구현이고 해제 cron 은 없다. 오늘은 창에 안 들어간다(다시 돌리기가 오늘 목적지를
+    // 다시 뽑을 수 있어야 한다).
+    const weekStart = weekStartOf(now.date, now.weekday);
+    const windowStart = weeklyWindowStart(now.date, now.weekday);
+    const pausedIds = candidates.filter((c) => c.paused_week === weekStart).map((c) => c.restaurant_id);
+    const visitedIds: (string | null)[] = [];
     if (windowStart !== null) {
-      const { data: recent, error: recentErr } = await supabase
-        .from("results")
-        .select("restaurant_id")
-        .gte("date", windowStart)
-        .lt("date", now.date);
+      // 창 조회 둘 — 그 주의 결과 행(당첨·추첨 시각)과 점심 기록(목적지·방문). 날짜로 조인해 하루의 제외 id 를 정한다.
+      // 어느 하나라도 실패하면 방문 제외만 건너뛴다(쉬기는 후보 행에 실려 와 이미 손에 있다) — 하루 한 번뿐인
+      // 추첨을 잃지 않는 쪽이 제외를 정확히 지키는 쪽보다 우선이다.
+      const [{ data: winners, error: winnersErr }, { data: days, error: daysErr }] = await Promise.all([
+        supabase
+          .from("results")
+          .select("date, restaurant_id, spun_at")
+          .gte("date", windowStart)
+          .lt("date", now.date),
+        supabase
+          .from("lunch_days")
+          .select("date, destination_id, destination_set_at, visit_status, visited_id")
+          .gte("date", windowStart)
+          .lt("date", now.date),
+      ]);
 
-      if (recentErr) {
-        console.error(`쿨다운 창 조회 실패(미적용 진행): ${recentErr.message}`);
-        cooldownSkipped = true;
+      if (winnersErr) console.error(`주간 결과 창 조회 실패(방문 제외 미적용 진행): ${winnersErr.message}`);
+      if (daysErr) console.error(`주간 기록 창 조회 실패(방문 제외 미적용 진행): ${daysErr.message}`);
+      if (winnersErr || daysErr) {
+        weeklySkipped = true;
       } else {
-        // 빈 값을 미리 거르지 않는다 — 전환 이전 레거시 행을 무시하는 분기가 쿨다운 모듈 안에 있고,
-        // 여기서 걸러 버리면 그 분기가 영원히 죽어 계약이 한쪽에서만 유지된다.
-        const ids: (string | null)[] = (recent ?? []).map((r) =>
-          typeof r.restaurant_id === "string" ? r.restaurant_id : null
-        );
-        const filtered = applyCooldown(candidates, ids);
-        pool = filtered.picked;
-        cooldownFallback = filtered.fellBack;
+        // 행의 필드는 타입 검사를 받지 않고 들어온다(스키마 제네릭 없는 클라이언트). 좁히기는 규율이 한다.
+        // 빈 restaurant_id 를 미리 거르지 않는다 — 지워진 매장의 set-null 을 무시하는 분기가 제외 모듈 안에 있다.
+        const dayByDate = new Map<string, DayVisitRef>();
+        for (const d of days ?? []) {
+          if (typeof d.date !== "string") continue;
+          dayByDate.set(d.date, {
+            destination_id: typeof d.destination_id === "string" ? d.destination_id : null,
+            destination_set_at: typeof d.destination_set_at === "string" ? d.destination_set_at : null,
+            visit_status: d.visit_status === "visited" || d.visit_status === "skipped" ? d.visit_status : "unknown",
+            visited_id: typeof d.visited_id === "string" ? d.visited_id : null,
+          });
+        }
+        for (const w of winners ?? []) {
+          if (typeof w.date !== "string") continue;
+          visitedIds.push(
+            dayExclusionId(
+              {
+                restaurant_id: typeof w.restaurant_id === "string" ? w.restaurant_id : null,
+                spun_at: typeof w.spun_at === "string" ? w.spun_at : "",
+              },
+              dayByDate.get(w.date) ?? null,
+            ),
+          );
+        }
       }
     }
 
-    // pool 이 비어 있지 않다는 전제는 코드 배치가 보장한다: 후보 0개 검사가 위에 있고, 쿨다운 조회
-    // 실패 경로는 후보 전체를 그대로 쓰며, 쿨다운 모듈은 전멸 시 전체를 되돌린다. 순서를 바꾸면 깨진다.
-    // 순위는 pool 의 순열이다. 보통은 쿨다운을 거친 후보라 쿨다운에 걸린 매장은 예비에도 없지만, 쿨다운으로
-    // 후보가 전멸한 날은 쿨다운 모듈이 전체 후보로 되돌리므로 그날의 2·3순위에는 최근 당첨 매장이 들어온다.
+    const exclusion = applyWeeklyExclusions(candidates, { pausedIds, visitedIds });
+    if (exclusion.allPaused) {
+      // 쉬기 매장을 몰래 되살리지 않는다. 결과 행을 만들지 않으면 오늘 탭은 stalled 로 떨어져 후보 목록이 잠기지 않고,
+      // 누가 쉬기를 풀거나 후보를 더하면 다음 분 cron 이 다시 시도한다. 후보 수를 함께 싣는 이유는 "후보 없음" 과
+      // 구분하기 위해서다 — 후보는 있는데 전부 쉬는 날이다.
+      return json({
+        skipped: "all_paused",
+        date: now.date,
+        candidate_count: candidates.length,
+        excluded_count: excluded,
+      });
+    }
+    const pool = exclusion.picked;
+    weeklyFallback = exclusion.fellBack;
+
+    // pool 이 비어 있지 않다는 전제는 코드 배치가 보장한다: 후보 0개 검사가 위에 있고, 전부 쉬기는 바로 위에서
+    // 반환했으며, 제외 모듈은 방문으로 전멸하면 쉬기만 뺀 후보로 되돌린다. 순서를 바꾸면 깨진다.
+    // 순위는 pool 의 순열이다. 보통은 제외를 거친 후보라 이번 주 간 매장은 예비에도 없지만, 방문으로 전멸한 날은
+    // 쉬기만 뺀 후보로 되돌리므로 그날의 2·3순위에는 이번 주 간 매장이 들어온다.
     const ranking = rankCandidates(pool);
     const winner = ranking[0];
-    // 스냅샷은 쿨다운 적용 전 후보 전체를 담은 순서 그대로 남긴다.
+    // 스냅샷은 제외 적용 전 후보 전체를 담은 순서 그대로 남긴다 — 기록 상세의 "후보 목록" 은 그날 담긴 것의 사실이다.
     const snapshot = candidates.map((c) => ({ name: c.name, restaurant_id: c.restaurant_id }));
 
     const { error: insErr } = await supabase.from("results").insert({
@@ -224,11 +285,11 @@ Deno.serve(async () => {
       date: now.date,
       menu: winner.name,
       restaurant_id: winner.restaurant_id,
-      candidate_count: candidates.length, // 쿨다운 적용 전
-      picked_count: pool.length, // 쿨다운 적용 후
+      candidate_count: candidates.length, // 주간 제외 적용 전
+      picked_count: pool.length, // 주간 제외 적용 후
       excluded_count: excluded, // 조인 형태 불일치로 버린 행. 폴백 플래그와 같은 독법 — 0 이 정상
-      cooldown_fallback: cooldownFallback,
-      cooldown_skipped: cooldownSkipped,
+      weekly_fallback: weeklyFallback,
+      weekly_skipped: weeklySkipped,
       settings_fallback: settingsFallback,
     });
   } catch (e) {
