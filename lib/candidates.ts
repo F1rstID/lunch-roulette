@@ -12,6 +12,7 @@
 // 값이 아니라 타입만 쓴다. `import type` 문장은 트랜스파일에서 통째로 지워져 데이터 클라이언트가 로드되지
 // 않는다 — 이 모듈을 환경변수 없이 테스트할 수 있는 근거다.
 import type { CandidateRow, ResultRow, RestaurantRow } from "@/lib/supabase/client";
+import type { ExclusionReason } from "@/lib/lunchDay";
 import { createRowSetReducer, initialRowSetState, type RowSetAction, type RowSetState } from "@/lib/rowset";
 
 // 휠과 목록이 그대로 쓰는 모양. addedAt 은 후보 행의 등록 시각이다.
@@ -24,8 +25,13 @@ export type TodayCandidate = {
   addedAt: string;
 };
 
-// slice 가 null 이면 아직 담기지 않은 매장이다. 숫자면 그 값이 곧 휠 조각 번호다.
-export type TodayRow = { restaurant: RestaurantRow; slice: number | null };
+// slice 가 null 이면 휠에 없는 매장이다 — 아직 담기지 않았거나, 담겼지만 이번 주 제외(excludedReason)다. 숫자면 그 값이
+// 곧 휠 조각 번호(휠 items 인덱스)다. 제외된 담긴 행은 excludedReason 만으로 "담김" 을 구분한다(토글은 빼기다).
+export type TodayRow = {
+  restaurant: RestaurantRow;
+  slice: number | null;
+  excludedReason: ExclusionReason | null;
+};
 
 // 시각 두 개를 "같은 순간인가" 로 비교한다. 문자열 비교를 쓰지 않는 이유: 목록은 정상 상태에서 초기
 // 조회(PostgREST)와 이후 이벤트(Realtime)가 만든 행이 **섞인** 배열이고, 두 경로의 직렬화가 같다는 것은
@@ -86,21 +92,31 @@ export function filterRestaurantsByName(rows: RestaurantRow[], query: string): R
   return rows.filter((row) => row.name.normalize("NFC").toLowerCase().includes(needle));
 }
 
-export function listTodayRows(candidates: TodayCandidate[], catalog: RestaurantRow[], query: string): TodayRow[] {
+// excluded 는 이번 주 제외 맵(lib/lunchDay.ts weeklyExclusionMap)이다. 제외된 담긴 매장은 휠에 없으므로 slice 가 null 이고,
+// 그 뒤 매장의 번호는 제외 행을 건너뛴다 — 휠 items(= 후보 − 제외)의 인덱스와 같아야 배지 색과 조각 색이 같은 매장을 가리킨다.
+// 안 담긴 매장에도 사유를 붙인다(쉬기): 담아도 뽑히지 않는다는 사실을 담기 전에 보여 주는 쪽이 맞다.
+export function listTodayRows(
+  candidates: TodayCandidate[],
+  catalog: RestaurantRow[],
+  query: string,
+  excluded: ReadonlyMap<string, ExclusionReason>,
+): TodayRow[] {
   const byId = new Map(catalog.map((row) => [row.id, row]));
   const taken = new Set(candidates.map((candidate) => candidate.id));
   const added: TodayRow[] = [];
-  candidates.forEach((candidate, index) => {
+  let wheelIndex = 0;
+  for (const candidate of candidates) {
     const store = byId.get(candidate.id);
-    if (!store) return;
-    // 번호는 candidates 안의 인덱스이고 필터와 무관하다. 배지 색과 휠 조각 색이 같은 매핑을 쓰므로, 필터로
+    if (!store) continue;
+    const excludedReason = excluded.get(candidate.id) ?? null;
+    // 번호는 휠 items 안의 인덱스이고 필터와 무관하다. 배지 색과 휠 조각 색이 같은 매핑을 쓰므로, 필터로
     // 앞 행이 빠졌다고 다시 매기면 목록의 배지와 휠의 조각이 서로 다른 매장을 가리킨다.
-    added.push({ restaurant: store, slice: index });
-  });
+    added.push({ restaurant: store, slice: excludedReason ? null : wheelIndex++, excludedReason });
+  }
   // 안 담긴 구간은 넘겨받은 카탈로그 순서를 그대로 유지한다 — 정렬은 호출부가 이미 끝낸 상태다.
   const rest: TodayRow[] = catalog
     .filter((row) => !taken.has(row.id))
-    .map((row) => ({ restaurant: row, slice: null }));
+    .map((row) => ({ restaurant: row, slice: null, excludedReason: excluded.get(row.id) ?? null }));
   // 필터는 두 구간 모두에 적용한다 — 한쪽만 좁히면 "찾기" 가 목록의 절반에만 듣는다.
   const keep = new Set(filterRestaurantsByName(catalog, query).map((row) => row.id));
   return [...added, ...rest].filter((row) => keep.has(row.restaurant.id));
