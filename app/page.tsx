@@ -3,25 +3,30 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase, type ResultRow } from "@/lib/supabase/client";
-import { todayKstDate, formatKstLongDay, formatHhMmSs, formatSpinTime } from "@/lib/time";
+import { todayKstDate, formatKstLongDay, formatHhMmSs, formatSpinTime, kstParts } from "@/lib/time";
 import { currentPhase, displayPhase, type Phase } from "@/lib/phase";
 import {
   formatCandidateWriteError,
   formatLoadError,
+  formatLunchDayWriteError,
   formatRespinError,
   joinLoadErrors,
 } from "@/lib/errors";
 import { findWinnerIndex, isNewSpin, joinCandidates } from "@/lib/candidates";
+import { destinationOf, mapHref, nextDestination, visitSummary, weeklyExclusionMap } from "@/lib/lunchDay";
 import { backupRanks } from "@/lib/ranking";
 import { sortRestaurants } from "@/lib/restaurants";
 import { useCandidates } from "@/lib/useCandidates";
+import { useLunchWeek } from "@/lib/useLunchWeek";
 import { useRestaurants } from "@/lib/useRestaurants";
 import { useSettings } from "@/lib/useSettings";
+import { weekStartOf } from "@/supabase/functions/_shared/cooldown";
 import { TopBar } from "@/components/TopBar";
 import { PhaseTimeline } from "@/components/PhaseTimeline";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Wheel, type WheelPhase } from "@/components/Wheel";
 import { CandidateList } from "@/components/CandidateList";
+import { DestinationCard, type VisitInput } from "@/components/DestinationCard";
 import { ResultBlock } from "@/components/ResultBlock";
 
 // respin-roulette Edge Function 응답 (supabase/functions/respin-roulette/index.ts 와 맞춘다).
@@ -42,10 +47,16 @@ export default function TodayPage() {
   }, []);
 
   const todayKey = todayKstDate(now);
+  // 주 시작(월요일). 요일은 KST 분해에서 온다 — 로컬 Date 요일 메서드를 쓰지 않는다. 자정에 todayKey 와 함께 바뀐다.
+  // weekStartOf 가 null 을 주는 것은 오염 입력일 때뿐이고 todayKey 는 늘 날짜꼴이라 폴백은 형식상이다.
+  const weekday = kstParts(now).weekday;
+  const weekStart = useMemo(() => weekStartOf(todayKey, weekday) ?? todayKey, [todayKey, weekday]);
 
   const [todayResult, setTodayResult] = useState<ResultRow | null>(null);
   const [forceSpin, setForceSpin] = useState(false);
   const [respinning, setRespinning] = useState(false);
+  // 목적지·방문 쓰기가 도는 동안 카드의 버튼을 잠근다 — 하루 한 행이라 두 쓰기가 겹치면 뒤가 앞을 덮는다.
+  const [dayBusy, setDayBusy] = useState(false);
   // 마지막 쓰기(후보 담기·빼기·다시 돌리기) 실패 메시지. 성공하면 지운다.
   const [actionError, setActionError] = useState<string | null>(null);
   // 초기 로드(SELECT) 실패 메시지. actionError 와 한 state 로 합치지 않는다 — 쓰기가 성공할 때마다
@@ -66,6 +77,8 @@ export default function TodayPage() {
     error: settingsError,
     warning: settingsWarning,
   } = useSettings();
+  // 이번 주 점심 기록(월~오늘)과 당첨(월~어제). 재연결·탭 복귀마다 다시 읽는다 — 이 훅만의 규칙(lib/useLunchWeek.ts 머리 주석).
+  const week = useLunchWeek(weekStart, todayKey);
 
   // todayResult 가 선언된 뒤라야 계산할 수 있다 — decided 를 결정하는 것은 시각이 아니라 결과 행의 존재다.
   // 설정 조회가 끝나기 전에는 기본 시각으로 계산한 "추첨 대기" 를 가린다 — 대시보드가 시각을 늦춰 둔 날
@@ -85,10 +98,16 @@ export default function TodayPage() {
   );
   // 안 담긴 구간의 순서(핀 먼저 · 이름순)는 여기서 한 번만 정해 목록에 넘긴다.
   const catalog = useMemo(() => sortRestaurants(restaurantRows), [restaurantRows]);
-  const winnerIndex = useMemo(
-    () => findWinnerIndex(todayCandidates, todayResult),
-    [todayCandidates, todayResult],
+  // 이번 주 제외 — 휠에서 빠지고 목록에 사유 배지로 남는 매장. 서버(Edge)와 같은 함수(_shared/cooldown.ts)로 판정한다.
+  // 카탈로그 전체를 넘긴다: 안 담긴 쉬기 매장도 배지를 받아 "담아도 안 뽑힌다" 가 담기 전에 보인다.
+  const excluded = useMemo(
+    () => weeklyExclusionMap(weekStart, todayKey, week.winners, week.days, restaurantRows),
+    [weekStart, todayKey, week.winners, week.days, restaurantRows],
   );
+  // 휠에 실제로 올라가는 후보. 당첨 인덱스도 이 배열 기준이다 — 제외된 매장은 칸이 없으니 당첨일 수도 없다
+  // (서버가 같은 규칙으로 pool 을 만들었다면. 방문 전멸 폴백의 날은 예외라 -1 이 될 수 있고 그때 하이라이트만 빠진다).
+  const wheelItems = useMemo(() => todayCandidates.filter((c) => !excluded.has(c.id)), [todayCandidates, excluded]);
+  const winnerIndex = useMemo(() => findWinnerIndex(wheelItems, todayResult), [wheelItems, todayResult]);
   // 이름은 결과 행의 스냅샷이고 메뉴·위치는 지금 카탈로그에 있는 값이다. 두 출처가 다른 것이 의도다 —
   // 매장을 지워도 결과의 이름은 남아야 기록·랭킹이 성립하고(CATL-03), 상세만 비는 것이 맞는 화면이다.
   const winner = useMemo(() => {
@@ -96,8 +115,30 @@ export default function TodayPage() {
     const store = restaurantRows.find((row) => row.id === todayResult.restaurant_id);
     return { name: todayResult.menu, menus: store?.menus ?? [], location: store?.location ?? null };
   }, [todayResult, restaurantRows]);
-  // 2·3순위. 모양 검사와 상한은 순수 함수가 맡는다 — 0006 이전 행(null)이면 빈 배열이다.
-  const backups = useMemo(() => backupRanks(todayResult?.ranking), [todayResult]);
+  // id → 위치. 목적지 카드와 2·3순위의 지도 링크가 쓴다(위치가 링크면 그 링크, 아니면 이름 검색).
+  const locations = useMemo(
+    () => new Map(restaurantRows.map((row) => [row.id, row.location] as const)),
+    [restaurantRows],
+  );
+  // 2·3순위 + 지도. 모양 검사와 상한은 순수 함수가 맡는다 — 0006 이전 행(null)이면 빈 배열이다.
+  // rank 는 자리 순위라 ranking[rank - 1] 이 그 항목이다(lib/ranking.ts 가 자리를 보존한다).
+  const backups = useMemo(
+    () =>
+      backupRanks(todayResult?.ranking).map((backup) => {
+        const id = todayResult?.ranking?.[backup.rank - 1]?.restaurant_id;
+        return { ...backup, href: mapHref(backup.name, (id ? locations.get(id) : null) ?? null) };
+      }),
+    [todayResult, locations],
+  );
+  // 오늘 갈 곳. 오늘 행이 없으면 1순위, 있으면 lunch_days 와 결과 행의 시각 비교로 정한다(규칙은 _shared/cooldown.ts).
+  const todayDay = useMemo(() => week.days.find((day) => day.date === todayKey) ?? null, [week.days, todayKey]);
+  const destination = useMemo(() => destinationOf(todayResult, todayDay), [todayResult, todayDay]);
+  const next = destination === null ? null : nextDestination(todayResult?.ranking ?? null, destination.id);
+  const isDefault = destination === null || destination.id === todayResult?.restaurant_id;
+  const visit = visitSummary(todayDay);
+  // 뽑는(뽑은) 후보 수. decided 는 결과 행이 말하는 pool(ranking), 그 전은 지금 휠에 있는 수다.
+  const poolCount = todayResult?.ranking?.length ?? wheelItems.length;
+  const allExcluded = todayCandidates.length > 0 && wheelItems.length === 0;
 
   // 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가 구분되지 않는다. 두 훅이 들고 있는
   // loaded·error 를 여기서 세 상태로 좁혀 넘긴다 — 실패 화면에 등록 권유 문구가 뜨지 않게 하는 최소 경로다.
@@ -227,6 +268,60 @@ export default function TodayPage() {
     }
   }
 
+  // 목적지·방문 쓰기(D-14). upsert 에 바꿀 컬럼만 보낸다 — PostgREST 는 보낸 컬럼만 갱신하므로 목적지 쓰기가 방문을,
+  // 방문 쓰기가 목적지를 건드리지 않는다. 시각 컬럼의 값은 DB 트리거가 now() 로 바꾼다(0007) — 여기 값은 "건드렸다" 는
+  // 신호다. 낙관적 업데이트 없음: 화면은 lunch_days Realtime 으로만 바뀐다(모든 탭이 같은 순간에 같은 목적지를 본다).
+  async function setDestination(id: string | null, name: string | null) {
+    const target = name ?? "1순위";
+    setDayBusy(true);
+    try {
+      const { error } = await supabase.from("lunch_days").upsert(
+        {
+          date: todayKey,
+          destination_id: id,
+          destination_name: name,
+          destination_set_at: new Date().toISOString(),
+        },
+        { onConflict: "date" },
+      );
+      if (error) {
+        setActionError(formatLunchDayWriteError("목적지 변경", target, error));
+        return;
+      }
+      setActionError(null);
+    } catch (e) {
+      setActionError(formatLunchDayWriteError("목적지 변경", target, { message: thrownMessage(e) }));
+    } finally {
+      setDayBusy(false);
+    }
+  }
+
+  async function setVisit(input: VisitInput) {
+    const target = input.status === "skipped" ? "단체 점심 안 함" : (input.name ?? "매장");
+    setDayBusy(true);
+    try {
+      const { error } = await supabase.from("lunch_days").upsert(
+        {
+          date: todayKey,
+          visit_status: input.status,
+          visited_id: input.id,
+          visited_name: input.name,
+          visited_at: new Date().toISOString(),
+        },
+        { onConflict: "date" },
+      );
+      if (error) {
+        setActionError(formatLunchDayWriteError("방문 기록", target, error));
+        return;
+      }
+      setActionError(null);
+    } catch (e) {
+      setActionError(formatLunchDayWriteError("방문 기록", target, { message: thrownMessage(e) }));
+    } finally {
+      setDayBusy(false);
+    }
+  }
+
   async function respin() {
     setRespinning(true);
     try {
@@ -242,7 +337,13 @@ export default function TodayPage() {
         return;
       }
       if (data?.skipped) {
-        const reason = data.skipped === "no_candidates" ? "후보가 없어요" : data.skipped;
+        // 두 코드값은 함수가 보낸 그대로다(supabase/functions/_shared/edgeImports.test.ts 가 양쪽을 고정한다).
+        const reason =
+          data.skipped === "no_candidates"
+            ? "후보가 없어요"
+            : data.skipped === "all_paused"
+              ? "후보가 전부 이번 주 쉬기 중이에요"
+              : data.skipped;
         setActionError(`다시 돌리기 건너뜀: ${reason}`);
         return;
       }
@@ -260,7 +361,14 @@ export default function TodayPage() {
 
   const clockTime = formatHhMmSs(now);
   const headline = phaseHeadline(shownPhase, todayResult?.menu);
-  const subhead = phaseSubhead(shownPhase, todayCandidates.length, spinTimeText, todayResult?.menu);
+  const subhead = phaseSubhead(
+    shownPhase,
+    todayCandidates.length,
+    spinTimeText,
+    todayResult?.menu,
+    // 목적지가 1순위와 다른 날만 넘긴다 — 같은 날은 당첨 이름이 곧 갈 곳이다.
+    destination !== null && !isDefault ? destination.name : undefined,
+  );
 
   // 페이지 쿼리 하나(loadError)에 훅 셋의 실패·경고를 렌더 시점에 합친다. 훅 쪽은 각자가 소유하므로
   // 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버(Phase 8) 전 라이브에는 매장·후보·설정
@@ -271,6 +379,7 @@ export default function TodayPage() {
     formatLoadError("매장 카탈로그", restaurantsError ? { message: restaurantsError } : null),
     formatLoadError("오늘 후보", candidatesError ? { message: candidatesError } : null),
     formatLoadError("설정", settingsError ? { message: settingsError } : null),
+    formatLoadError("이번 주 기록", week.error ? { message: week.error } : null),
     settingsWarning,
   ]);
 
@@ -304,7 +413,7 @@ export default function TodayPage() {
               <StageHeader phase={shownPhase} />
               <div className="l-wheel-holder" style={layoutStyles.wheelHolder}>
                 <Wheel
-                  items={todayCandidates}
+                  items={wheelItems}
                   phase={wheelPhase}
                   winnerIndex={winnerIndex}
                   size={460}
@@ -313,11 +422,25 @@ export default function TodayPage() {
               </div>
               <ResultBlock
                 phase={shownPhase}
-                candidateCount={todayCandidates.length}
+                poolCount={poolCount}
                 winner={winner}
                 backups={backups}
                 spinTimeText={spinTimeText}
               />
+              {/* 결과 카드와 같은 가림(shownPhase) — 다시 돌리기의 5초 동안 새 목적지를 먼저 말하지 않는다. */}
+              {shownPhase === "decided" && todayResult && destination !== null && (
+                <DestinationCard
+                  destination={destination}
+                  next={next}
+                  isDefault={isDefault}
+                  ranking={todayResult.ranking ?? []}
+                  locations={locations}
+                  visit={visit}
+                  busy={dayBusy}
+                  onSetDestinationAction={setDestination}
+                  onSetVisitAction={setVisit}
+                />
+              )}
               {phase === "decided" && todayResult && (
                 <div style={respinStyles.wrap}>
                   <button
@@ -338,6 +461,9 @@ export default function TodayPage() {
             <CandidateList
               candidates={todayCandidates}
               catalog={catalog}
+              excluded={excluded}
+              wheelCount={wheelItems.length}
+              allExcluded={allExcluded}
               status={listStatus}
               phase={phase}
               spinTimeText={spinTimeText}
@@ -403,11 +529,19 @@ function phaseHeadline(phase: Phase, winnerName?: string) {
 }
 
 // 시각을 인자로 받는다. 기본값을 두면 설정을 넘기지 않은 호출부가 조용히 옛 시각을 그리게 된다(SPIN-06).
-function phaseSubhead(phase: Phase, count: number, spinTimeText: string, winnerName?: string) {
+function phaseSubhead(
+  phase: Phase,
+  count: number,
+  spinTimeText: string,
+  winnerName?: string,
+  destinationName?: string,
+) {
   if (phase === "accepting")
     return `현재 ${count}개 매장이 룰렛에 올라가 있어요. ${spinTimeText}에 자동으로 결정돼요.`;
   // 다시 돌리기의 회전에도 같은 문장이 걸리므로 시작 시각을 말하지 않는다 — 13시의 재추첨에 "11:55에 시작되어" 는 거짓이다.
   if (phase === "spinning") return "약 5초 뒤에 결과가 나와요.";
+  // 목적지가 바뀐 날은 당첨 대신 갈 곳을 말한다 — 머리글이 당첨만 말하면 카드와 머리글이 다른 매장을 가리킨다.
+  if (phase === "decided" && destinationName) return `"오늘 갈 곳: ${destinationName}" · 결과는 자정에 초기화됩니다.`;
   // "더는 변경할 수 없어요" 를 지웠다 — 다시 돌리기가 있는 한 거짓이다.
   if (phase === "decided" && winnerName) return `"${winnerName}" · 결과는 자정에 초기화됩니다.`;
   if (phase === "stalled")

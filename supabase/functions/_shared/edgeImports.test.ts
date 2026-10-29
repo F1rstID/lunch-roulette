@@ -415,6 +415,11 @@ describe("EDGE/QUAL — 두 파일의 대칭·설정 파일의 위치·클라이
     expect([rawPage.length > 0, count(page, /"no_candidates"/g)]).toEqual([true, 1]);
   });
 
+  it("전부 쉬기 코드값도 함수와 페이지 양쪽에 하나씩 있다 (#65)", () => {
+    // #56 과 같은 성격. 페이지가 "후보가 전부 이번 주 쉬기 중이에요" 로 번역한다 — 한쪽 오타는 코드값을 배너에 띄운다.
+    expect(count(page, /"all_paused"/g)).toBe(1);
+  });
+
   it("후보 정규화 헬퍼 이름이 두 파일에서 같다 (#47)", () => {
     // 이름이 같아야 Phase 8 낭독에서 두 파일을 diff 로 나란히 비교할 수 있다.
     expect([
