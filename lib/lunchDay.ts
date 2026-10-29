@@ -66,6 +66,16 @@ export function visitSummary(day: LunchDayRow | null): VisitSummary {
 
 export type ExclusionReason = { reason: "visited"; date: string } | { reason: "paused" };
 
+/** "yyyy-mm-dd" 의 요일 라벨("월"…). UTC 자정 산술이라 실행 환경 타임존과 무관하다(_shared/cooldown.ts weekStartOf 와 같은 예외) */
+export function weekdayLabel(date: string): string {
+  return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+}
+
+/** 목록 배지 문구 — "화 방문" / "이번 주 쉬기". 배지 자리가 좁아 요일은 한 글자다 */
+export function exclusionBadge(reason: ExclusionReason): string {
+  return reason.reason === "paused" ? "이번 주 쉬기" : `${weekdayLabel(reason.date)} 방문`;
+}
+
 /** 이번 주 휠·추첨에서 빠지는 매장 → 사유. 목록 배지와 휠 제외의 정의처다 */
 // 방문 제외의 창은 [weekStart, today) 라 오늘은 안 들어간다(다시 돌리기가 오늘 목적지를 다시 뽑을 수 있어야 한다).
 // 월요일은 weekStart === today 로 창이 비어 방문 제외가 0 이고 쉬기만 적용된다 — Edge Function 의 weeklyWindowStart 와 같은 결과다.

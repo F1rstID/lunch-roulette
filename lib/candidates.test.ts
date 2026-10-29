@@ -323,10 +323,10 @@ describe("listTodayRows — 이번 주 제외 행은 담긴 구간에 남고 sli
 
   it("제외된 담긴 매장은 slice null + 사유를 갖고 담긴 구간(위)에 남는다", () => {
     const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_MARA], "", new Map([["r3", VISITED]]));
-    expect(rows.map((row) => [row.restaurant.id, row.slice, row.excludedReason])).toEqual([
-      ["r3", null, VISITED],
-      ["r1", 0, null],
-      ["r2", null, null],
+    expect(rows.map((row) => [row.restaurant.id, row.slice, row.excludedReason, row.picked])).toEqual([
+      ["r3", null, VISITED, true],
+      ["r1", 0, null, true],
+      ["r2", null, null, false],
     ]);
   });
 
@@ -340,9 +340,9 @@ describe("listTodayRows — 이번 주 제외 행은 담긴 구간에 남고 sli
 
   it("안 담긴 매장도 쉬기 사유가 있으면 배지로 보인다 — 담아도 뽑히지 않는다는 뜻이다", () => {
     const rows = listTodayRows([T_GIM], [S_GIM, S_MARA], "", new Map([["r2", PAUSED]]));
-    expect(rows.map((row) => [row.restaurant.id, row.slice, row.excludedReason])).toEqual([
-      ["r1", 0, null],
-      ["r2", null, PAUSED],
+    expect(rows.map((row) => [row.restaurant.id, row.slice, row.excludedReason, row.picked])).toEqual([
+      ["r1", 0, null, true],
+      ["r2", null, PAUSED, false],
     ]);
   });
 

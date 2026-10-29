@@ -8,16 +8,19 @@ import type { BackupRank } from "@/lib/ranking";
 
 type Props = {
   phase: Phase;
-  candidateCount: number;
+  // 실제로 뽑는(뽑은) 후보 수 — 담긴 전체가 아니라 이번 주 제외를 뺀 pool 이다(decided 는 ranking 길이, 그 전은 휠 items 수).
+  // 확률 문구는 지웠다(0007): 제외된 매장이 휠 칸을 차지하지 않게 되면서 "1/n" 이 pool 기준으로만 참이라, 숫자 하나로 충분하다.
+  poolCount: number;
   // 이름은 결과 행의 스냅샷, 메뉴·위치는 페이지가 현재 카탈로그에서 찾아 채운 참고 정보다.
   winner: { name: string; menus: string[]; location: string | null } | null;
-  // 2·3순위 이름 스냅샷. 빈 배열이면(후보 1개·0006 이전 행) 아래 영역을 통째로 그리지 않는다 — 구 행의 카드는 전과 같다.
-  backups: BackupRank[];
+  // 2·3순위 이름 스냅샷 + 지도 링크(페이지가 lib/lunchDay.ts mapHref 로 채운다). 빈 배열이면(후보 1개·0006 이전 행)
+  // 아래 영역을 통째로 그리지 않는다 — 구 행의 카드는 전과 같다.
+  backups: (BackupRank & { href: string })[];
   // 설정에서 온 추첨 시각 문구. 기본값을 두지 않는다 — 두면 시각이 다시 이 파일에 숨는다(SPIN-06).
   spinTimeText: string;
 };
 
-export function ResultBlock({ phase, candidateCount, winner, backups, spinTimeText }: Props) {
+export function ResultBlock({ phase, poolCount, winner, backups, spinTimeText }: Props) {
   if (phase === "accepting") {
     return (
       <div className="l-stat-bar" style={s.bar}>
@@ -33,15 +36,9 @@ export function ResultBlock({ phase, candidateCount, winner, backups, spinTimeTe
           </div>
         </div>
         <div className="l-stat-cell" style={s.metric}>
-          <span className="micro">후보</span>
+          <span className="micro">뽑는 후보</span>
           <div className="mono" style={s.metricNum}>
-            {candidateCount}
-          </div>
-        </div>
-        <div className="l-stat-cell" style={s.metric}>
-          <span className="micro">확률</span>
-          <div className="mono" style={s.metricNum}>
-            {candidateCount ? `${(100 / candidateCount).toFixed(1)}%` : "—"}
+            {poolCount}
           </div>
         </div>
       </div>
@@ -70,9 +67,9 @@ export function ResultBlock({ phase, candidateCount, winner, backups, spinTimeTe
           </div>
         </div>
         <div className="l-stat-cell" style={{ ...s.metric, borderColor: "oklch(0.86 0.06 60)" }}>
-          <span className="micro">후보</span>
+          <span className="micro">뽑는 후보</span>
           <div className="mono" style={s.metricNum}>
-            {candidateCount}
+            {poolCount}
           </div>
         </div>
       </div>
@@ -107,16 +104,8 @@ export function ResultBlock({ phase, candidateCount, winner, backups, spinTimeTe
         )}
         <div style={s.winnerMeta}>
           <span>
-            <span className="mono">{candidateCount}</span>개 후보 중 당첨
+            <span className="mono">{poolCount}</span>개 후보 중 당첨
           </span>
-          {candidateCount > 0 && (
-            <>
-              <span style={{ color: "var(--line)" }}>·</span>
-              <span>
-                확률 <span className="mono">{(100 / candidateCount).toFixed(1)}%</span>
-              </span>
-            </>
-          )}
         </div>
         {/* 당첨 매장에 웨이팅이 걸렸을 때 갈 곳. 추첨 시각에 함께 정해진 순서라 "다음 후보" 가 아니라 "순위" 다.
             설명 문장을 두지 않는다 — 위계(36px 대 16px)와 라벨만으로 읽혀야 한다. 당첨과 동시에 보이고 항상 보인다:
@@ -127,6 +116,10 @@ export function ResultBlock({ phase, candidateCount, winner, backups, spinTimeTe
               <div key={backup.rank} style={s.backupRow}>
                 <span style={s.backupRank}>{backup.rank}순위</span>
                 <span style={s.backupName}>{backup.name}</span>
+                {/* 새 탭 + opener 차단을 함께 단다 — 위치 문자열은 다른 사용자가 넣은 값이다(LocationLink 와 같은 이유). */}
+                <a href={backup.href} target="_blank" rel="noopener noreferrer" className="l-tap" style={s.backupMap}>
+                  지도
+                </a>
               </div>
             ))}
           </div>
@@ -226,10 +219,11 @@ const s = {
   // 이름 칸이 줄어들 수 있어야 띄어쓰기 없는 긴 이름이 본문의 break-word 로 꺾인다(keep-all 아래에서는 한 단어다).
   backupRow: {
     display: "grid",
-    gridTemplateColumns: "48px minmax(0, 1fr)",
+    gridTemplateColumns: "48px minmax(0, 1fr) auto",
     columnGap: 12,
     alignItems: "baseline",
   },
   backupRank: { fontSize: 12, fontWeight: 500, color: "var(--muted)" },
   backupName: { fontSize: 16, fontWeight: 600, lineHeight: 1.5, color: "var(--ink-soft)", minWidth: 0 },
+  backupMap: { fontSize: 12.5, fontWeight: 600, color: "var(--accent-ink)" },
 } satisfies Record<string, CSSProperties>;

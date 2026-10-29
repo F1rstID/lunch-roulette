@@ -31,6 +31,7 @@ export type TodayRow = {
   restaurant: RestaurantRow;
   slice: number | null;
   excludedReason: ExclusionReason | null;
+  picked: boolean; // 오늘 담긴 매장인가. slice 만으로는 "제외된 담긴 행" 과 "안 담긴 쉬기 행" 이 갈리지 않는다
 };
 
 // 시각 두 개를 "같은 순간인가" 로 비교한다. 문자열 비교를 쓰지 않는 이유: 목록은 정상 상태에서 초기
@@ -111,12 +112,12 @@ export function listTodayRows(
     const excludedReason = excluded.get(candidate.id) ?? null;
     // 번호는 휠 items 안의 인덱스이고 필터와 무관하다. 배지 색과 휠 조각 색이 같은 매핑을 쓰므로, 필터로
     // 앞 행이 빠졌다고 다시 매기면 목록의 배지와 휠의 조각이 서로 다른 매장을 가리킨다.
-    added.push({ restaurant: store, slice: excludedReason ? null : wheelIndex++, excludedReason });
+    added.push({ restaurant: store, slice: excludedReason ? null : wheelIndex++, excludedReason, picked: true });
   }
   // 안 담긴 구간은 넘겨받은 카탈로그 순서를 그대로 유지한다 — 정렬은 호출부가 이미 끝낸 상태다.
   const rest: TodayRow[] = catalog
     .filter((row) => !taken.has(row.id))
-    .map((row) => ({ restaurant: row, slice: null, excludedReason: excluded.get(row.id) ?? null }));
+    .map((row) => ({ restaurant: row, slice: null, excludedReason: excluded.get(row.id) ?? null, picked: false }));
   // 필터는 두 구간 모두에 적용한다 — 한쪽만 좁히면 "찾기" 가 목록의 절반에만 듣는다.
   const keep = new Set(filterRestaurantsByName(catalog, query).map((row) => row.id));
   return [...added, ...rest].filter((row) => keep.has(row.restaurant.id));

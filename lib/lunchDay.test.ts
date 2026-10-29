@@ -9,6 +9,8 @@ import {
   INITIAL_LUNCH_WEEK_STATE,
   WEEKDAYS,
   destinationOf,
+  exclusionBadge,
+  weekdayLabel,
   lunchWeekReducer,
   mapHref,
   nextDestination,
@@ -361,5 +363,14 @@ describe("VISIT-01 — parseOtherVisitName: 카탈로그 밖 매장 이름은 �
 describe("WEEKDAYS — 요일 라벨은 kstParts().weekday(0=일…6=토)와 같은 자리다", () => {
   it("일·월·화·수·목·금·토 7개다 (#49)", () => {
     expect([...WEEKDAYS]).toEqual(["일", "월", "화", "수", "목", "금", "토"]);
+  });
+
+  it("weekdayLabel 은 날짜 키의 요일을 타임존과 무관하게 돌려준다 (#50)", () => {
+    expect(["2026-10-26", "2026-10-27", "2026-11-01", "2026-01-01"].map(weekdayLabel)).toEqual(["월", "화", "일", "목"]);
+  });
+
+  it("exclusionBadge 는 방문이면 '화 방문', 쉬기면 '이번 주 쉬기' 다 (#51)", () => {
+    expect(exclusionBadge({ reason: "visited", date: "2026-10-27" })).toBe("화 방문");
+    expect(exclusionBadge({ reason: "paused" })).toBe("이번 주 쉬기");
   });
 });

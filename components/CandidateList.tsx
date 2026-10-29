@@ -14,6 +14,7 @@
 import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { listTodayRows, type TodayCandidate, type TodayRow } from "@/lib/candidates";
+import { exclusionBadge, type ExclusionReason } from "@/lib/lunchDay";
 import { SLICE_COLORS } from "@/lib/colors";
 import { isCandidateListLocked, type Phase } from "@/lib/phase";
 // 값이 아니라 타입만 쓴다. `import type` 문장은 트랜스파일에서 통째로 지워져 데이터 클라이언트가
@@ -34,6 +35,12 @@ type Props = {
   candidates: TodayCandidate[];
   // 이미 정렬된 카탈로그 전체. 정렬 규칙은 페이지가 한 번만 적용한다.
   catalog: RestaurantRow[];
+  // 이번 주 제외(월~어제 간 곳·이번 주 쉬기) → 사유. 판정은 lib/lunchDay.ts 가 끝냈고 여기서는 배지로 그린다.
+  excluded: ReadonlyMap<string, ExclusionReason>;
+  // 휠에 실제로 올라간 수(= 담긴 후보 − 제외). 헤더가 "담긴 n · 뽑는 m" 으로 둘을 나란히 보인다.
+  wheelCount: number;
+  // 담긴 후보가 전부 제외라 휠이 비었다 — 서버는 이날 결과 행을 만들지 않으므로(all_paused) 안내가 필요하다.
+  allExcluded: boolean;
   status: ListStatus;
   phase: Phase;
   // 설정에서 온 추첨 시각 문구. 기본값을 두지 않는다 — 두면 시각이 다시 이 파일에 숨는다.
@@ -46,6 +53,9 @@ type Props = {
 export function CandidateList({
   candidates,
   catalog,
+  excluded,
+  wheelCount,
+  allExcluded,
   status,
   phase,
   spinTimeText,
@@ -66,7 +76,7 @@ export function CandidateList({
   // [candidates, catalog, query] 로 감싸면 매초 tick 렌더(부모의 ~Action 이 매 렌더 새 함수라 이 컴포넌트는
   // 매초 다시 그려진다)에서 재계산이 실제로 준다. 카탈로그가 수백 행이 되면 그때 감싼다.
   // 판단은 순수 함수가 끝냈고 여기서는 부르기만 한다.
-  const rows = listTodayRows(candidates, catalog, query);
+  const rows = listTodayRows(candidates, catalog, query, excluded);
 
   return (
     <div className="card" style={s.card}>
@@ -74,9 +84,7 @@ export function CandidateList({
         <div>
           <div style={s.title}>오늘의 후보</div>
           <div style={s.subtle}>
-            {readOnly
-              ? `${candidates.length}개 매장 · 마감됨`
-              : `${candidates.length}개 매장 · ${spinTimeText}까지 담기`}
+            {`담긴 ${candidates.length} · 뽑는 ${wheelCount} · ${readOnly ? "마감됨" : `${spinTimeText}까지 담기`}`}
           </div>
         </div>
         <div className="mono" style={s.counter}>
@@ -98,6 +106,14 @@ export function CandidateList({
           style={s.input}
         />
       </div>
+
+      {/* 전원 제외인 날은 서버가 결과 행을 만들지 않고 다음 분에 다시 시도한다(all_paused). 사람이 할 일이 둘 중 하나라
+          그 둘을 말한다 — 결과 카드는 "아직 결과가 없어요" 만 보여 이유를 모른다. */}
+      {allExcluded && (
+        <div role="status" style={s.notice}>
+          담긴 후보가 전부 이번 주 제외예요 — 쉬기를 풀거나 매장을 더 담아 주세요
+        </div>
+      )}
 
       {/* 실패에는 아무것도 그리지 않는다 — 이유는 페이지 배너가 이미 말했고, 여기서 무언가를 권하면
           다시 실패할 시도로 사용자를 떠민다(05 WR-03). */}
@@ -150,7 +166,7 @@ export function CandidateList({
                   setBusyIds((prev) => new Set(prev).add(id));
                   try {
                     // 성공·실패 어느 쪽에서도 목록을 직접 건드리지 않는다. 갱신은 구독이 한다.
-                    await (row.slice !== null ? onRemoveAction(id, name) : onAddAction(id, name));
+                    await (row.picked ? onRemoveAction(id, name) : onAddAction(id, name));
                   } finally {
                     // 자기 행만 뺀다. 함수형 갱신이라 그 사이 다른 행이 들어와도 함께 지워지지 않는다.
                     setBusyIds((prev) => {
@@ -170,7 +186,7 @@ export function CandidateList({
           규칙
         </span>
         <span style={s.footerText}>
-          {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · `}
+          {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · 이번 주 간 곳·쉬는 곳은 자동으로 빠져요 · `}
           <Link href="/restaurants" style={s.footerLink}>
             매장 등록·수정은 매장 탭에서
           </Link>
@@ -194,7 +210,7 @@ function CandidateRowView({
 }) {
   // 지역 변수로 받아야 아래 렌더에서 숫자로 좁혀진다.
   const slice = row.slice;
-  const picked = slice !== null;
+  const picked = row.picked;
   const shown = row.restaurant.menus.slice(0, ROW_MENU_PREVIEW);
   const hidden = row.restaurant.menus.length - shown.length;
   const menuSummary =
@@ -202,8 +218,10 @@ function CandidateRowView({
   const disabled = readOnly || busy;
 
   return (
-    <li style={{ ...s.row, opacity: picked ? 1 : 0.62 }}>
-      {/* 배지 색은 휠 조각과 같은 매핑을 쓴다 — 목록의 번호와 휠의 조각이 같은 매장을 가리켜야 한다. */}
+    // 휠에 없는 행은 흐리다 — 안 담긴 매장도, 담겼지만 이번 주 제외인 매장도. 후자는 토글이 "빼기" 라 담김은 유지된다.
+    <li style={{ ...s.row, opacity: slice !== null ? 1 : 0.62 }}>
+      {/* 배지 색은 휠 조각과 같은 매핑을 쓴다 — 목록의 번호와 휠의 조각이 같은 매장을 가리켜야 한다.
+          제외된 행은 번호 대신 사유("화 방문" / "이번 주 쉬기")가 그 자리에 온다. */}
       {slice !== null ? (
         <span
           className="mono"
@@ -211,6 +229,8 @@ function CandidateRowView({
         >
           {String(slice + 1).padStart(2, "0")}
         </span>
+      ) : row.excludedReason !== null ? (
+        <span style={s.badgeText}>{exclusionBadge(row.excludedReason)}</span>
       ) : (
         <span style={s.idxBlank} />
       )}
@@ -327,6 +347,26 @@ const s = {
     flexShrink: 0,
   },
   idxBlank: { width: 28, height: 28, flexShrink: 0 },
+  // 번호 배지와 같은 폭을 차지하게 둬야 이름 칸의 시작선이 행마다 흔들리지 않는다. 글자가 길어 두 줄이 되는 쪽을 택한다.
+  badgeText: {
+    width: 28,
+    flexShrink: 0,
+    fontSize: 10.5,
+    lineHeight: 1.15,
+    fontWeight: 600,
+    color: "var(--muted)",
+    textAlign: "center",
+    wordBreak: "keep-all",
+  },
+  notice: {
+    margin: "12px 20px 0",
+    padding: "10px 12px",
+    borderRadius: 9,
+    background: "var(--accent-soft)",
+    color: "var(--accent-ink)",
+    fontSize: 12.5,
+    lineHeight: 1.45,
+  },
   main: { flex: 1, minWidth: 0 },
   name: {
     fontSize: 14.5,
