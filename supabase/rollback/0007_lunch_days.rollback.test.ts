@@ -34,6 +34,11 @@ describe("0007 롤백 스크립트 계약", () => {
     expect(count(/drop column/g)).toBe(1);
   });
 
+  it("트리거 함수를 따로 지운다 — 표와 함께 떨어지는 것은 트리거뿐이고 함수는 남는다", () => {
+    expect(count(/drop function if exists public\.lunch_days_stamp\(\)/g)).toBe(1);
+    expect(count(/drop function/g)).toBe(1);
+  });
+
   it("cooldown_days 의 comment 를 0005 문구로 되돌린다 — 컬럼은 애초에 건드리지 않았다", () => {
     expect(raw).toMatch(/comment on column public\.settings\.cooldown_days/);
     expect(raw).toMatch(/최근 N일/);

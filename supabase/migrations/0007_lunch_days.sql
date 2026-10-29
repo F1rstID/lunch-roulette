@@ -29,7 +29,7 @@ comment on table public.lunch_days is
   '날짜당 한 행의 점심 기록. destination_id 가 비면 그날 추첨 1순위(results.ranking[0])가 목적지다. '
   'visit_status 가 unknown 이면 확인 안 됨 — 기록·랭킹·주간 제외는 목적지에 간 것으로 친다. skipped 는 단체 점심을 안 한 날.';
 comment on column public.lunch_days.destination_set_at is
-  '목적지를 고른 시각. results.spun_at 보다 앞이면 다시 돌리기 전의 선택이라 코드가 무시한다(쓰기 없이 stale 처리).';
+  '목적지를 고른 시각(DB 시각 — 아래 트리거가 찍는다). results.spun_at 보다 앞이면 다시 돌리기 전의 선택이라 코드가 무시한다(쓰기 없이 stale 처리).';
 comment on column public.lunch_days.visited_id is
   '실제로 간 매장. visited 인데 null 이면 카탈로그 밖 "다른 매장"(visited_name 만 있다).';
 
@@ -57,7 +57,34 @@ comment on column public.restaurants.paused_week is
 comment on column public.settings.cooldown_days is
   '0007 이후 미사용 — 주간 제외(lunch_days·restaurants.paused_week)로 대체. 제거는 다음 마이그레이션.';
 
--- 5. Realtime publication. 맨 add table 문은 2회차에 "already member" 로 스크립트를 끊으므로 존재 검사로 감싼다(0005 와 같다).
+-- 5. 시각 세 컬럼은 DB 시각으로 찍는다. 클라이언트 시계로 적으면 results.spun_at(서버 시각)과의 비교(stale 판정)가 기기 시계
+-- 오차에 흔들린다 — 시계가 몇 초 늦은 휴대폰이 고른 목적지가 "다시 돌리기 전 선택" 으로 읽혀 조용히 무시된다.
+-- 클라이언트는 그 컬럼에 아무 시각이든 보내 "이번 쓰기가 그 사실을 건드렸다" 고 알리고, 값은 여기서 now() 로 바뀐다.
+-- 같은 목적지를 다시 고른 경우(destination_id 는 그대로, set_at 만 새 값)도 재각인돼 다시 돌리기 뒤의 재선택이 살아난다.
+-- create or replace + drop trigger if exists 라 재실행 안전형이다.
+create or replace function public.lunch_days_stamp()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.destination_set_at is not null
+     and (tg_op = 'INSERT' or new.destination_set_at is distinct from old.destination_set_at) then
+    new.destination_set_at := now();
+  end if;
+  if new.visited_at is not null
+     and (tg_op = 'INSERT' or new.visited_at is distinct from old.visited_at) then
+    new.visited_at := now();
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;
+
+drop trigger if exists lunch_days_stamp on public.lunch_days;
+create trigger lunch_days_stamp
+  before insert or update on public.lunch_days
+  for each row execute function public.lunch_days_stamp();
+
+-- 6. Realtime publication. 맨 add table 문은 2회차에 "already member" 로 스크립트를 끊으므로 존재 검사로 감싼다(0005 와 같다).
 -- format(%I) 에 들어가는 인자는 아래 상수 배열뿐이라 주입 경로가 없다.
 do $$
 declare t text;

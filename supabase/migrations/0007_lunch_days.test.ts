@@ -95,8 +95,19 @@ describe("0007 — 매장 쉬기 컬럼과 쿨다운 폐기", () => {
     expect(raw).toMatch(/확인 안 됨/);
   });
 
-  it("추가만 한다 — drop(정책 교체 제외)·cron·settings 쓰기를 건드리지 않는다", () => {
-    expect(count(/drop (?!policy if exists)/g)).toBe(0);
+  it("시각 세 컬럼은 DB 시각으로 찍는다 — 기기 시계 오차가 stale 판정을 흔들지 않게 트리거가 now() 로 바꾼다", () => {
+    expect(count(/create or replace function public\.lunch_days_stamp\(\)/g)).toBe(1);
+    expect(count(/drop trigger if exists lunch_days_stamp on public\.lunch_days/g)).toBe(1);
+    expect(count(/create trigger lunch_days_stamp\s+before insert or update on public\.lunch_days/g)).toBe(1);
+    expect(count(/new\.destination_set_at := now\(\)/g)).toBe(1);
+    expect(count(/new\.visited_at := now\(\)/g)).toBe(1);
+    expect(count(/new\.updated_at := now\(\)/g)).toBe(1);
+    // 같은 목적지를 다시 골라도(set_at 만 새 값) 재각인돼야 다시 돌리기 뒤의 재선택이 산다 — set_at 변화로 판정한다.
+    expect(count(/new\.destination_set_at is distinct from old\.destination_set_at/g)).toBe(1);
+  });
+
+  it("추가만 한다 — drop(정책·트리거 교체 제외)·cron·settings 쓰기를 건드리지 않는다", () => {
+    expect(count(/drop (?!policy if exists|trigger if exists)/g)).toBe(0);
     expect(count(/drop table/g)).toBe(0);
     expect(count(/cron\./g)).toBe(0);
     expect(count(/alter column/g)).toBe(0);
