@@ -117,13 +117,15 @@ describe("DEST-01 — 오늘 갈 곳은 lunch_days 가 결과 행보다 뒤에 �
     expect(effectiveDestinationId(WINNER, { destination_id: "r2", destination_set_at: null })).toBe("r1");
   });
 
-  // 서버 timestamptz 는 "+00:00", 클라이언트 toISOString 은 "Z" 다. Date.parse 가 둘을 같은 순간으로 본다.
-  it("표기가 달라도 같은 순간으로 비교한다 (#19)", () => {
+  // 서버 timestamptz 는 "+00:00", 클라이언트 toISOString 은 "Z" 다. 문자열로 비교하면 "T11:50+09:00" 이
+  // "T02:55Z" 보다 뒤로 읽히지만 순간으로는 5분 전이다 — 순간 비교여야 stale 판정이 맞는다.
+  it("표기가 달라도 순간으로 비교한다 (#19)", () => {
+    const spun = { restaurant_id: "r1", spun_at: "2026-10-27T02:55:00.000Z" };
     expect(
-      effectiveDestinationId(
-        { restaurant_id: "r1", spun_at: "2026-10-27 02:55:00+00" },
-        { destination_id: "r2", destination_set_at: "2026-10-27T11:56:00.000+09:00" },
-      ),
+      effectiveDestinationId(spun, { destination_id: "r2", destination_set_at: "2026-10-27T11:50:00.000+09:00" }),
+    ).toBe("r1");
+    expect(
+      effectiveDestinationId(spun, { destination_id: "r2", destination_set_at: "2026-10-27T12:00:00.000+09:00" }),
     ).toBe("r2");
   });
 
