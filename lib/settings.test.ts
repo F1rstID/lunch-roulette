@@ -1,5 +1,6 @@
 // lib/settings.ts 의 도메인 변환·병합 계약을 고정한다. settings 는 세 페이지가 전부 의존하는 단일 출처라서
-// 대시보드에서 누가 이상한 값을 넣거나 행을 지워도 앱이 기본값(11:55 · 쿨다운 0)으로 계속 돌아야 한다(SETT-03).
+// 대시보드에서 누가 이상한 값을 넣거나 행을 지워도 앱이 기본값(11:55)으로 계속 돌아야 한다(SETT-03).
+// cooldown_days 는 행에는 남아 있지만(0007 은 컬럼을 지우지 않는다) 도메인(Settings)에는 더 없다 — 주간 제외가 대체했다.
 // 로드 실패(error)와 파싱 경고(warning)를 서로 다른 필드로 가르는 계약도 여기서 못 박는다 —
 // 한 필드에 몰면 로드가 성공한 경우에도 경고가 "설정 불러오기 실패:" 접두를 달고 나와 거짓말이 된다.
 // 기대값은 리터럴로 적는다: 추첨 시각을 { hh: 11, mm: 55 } 로 직접 써서 "11:55 가 기본" 이라는 계약이
@@ -25,18 +26,17 @@ const ROW_DEFAULT = { id: 1 as const, spin_time: "11:55:00", cooldown_days: 0, h
 const ROW_1230 = { id: 1 as const, spin_time: "12:30:00", cooldown_days: 3, history_since: "2026-09-21" };
 // 사람이 대시보드에서 초·콜론을 빠뜨린 형태. 파서가 읽지 못하는 값의 대표다.
 const ROW_BROKEN = { id: 1 as const, spin_time: "1155", cooldown_days: 0, history_since: "2026-09-21" };
-const ROW_NEGATIVE = { id: 1 as const, spin_time: "11:55:00", cooldown_days: -1, history_since: "2026-09-21" };
 // history_since 키가 통째로 빠진 페이로드. 행 타입은 이 형태를 표현하지 못해 타입을 우회해 넣는다 —
 // Realtime payload 는 DB 를 거치지 않은 형태로도 온다고 가정하는 것이 이 모듈의 방어선이다.
 const ROW_NO_HISTORY = { id: 1 as const, spin_time: "11:55:00", cooldown_days: 0 } as unknown as typeof ROW_DEFAULT;
 
-describe("DEFAULT_SETTINGS — 로드 전에도 앱은 11:55 · 쿨다운 0 으로 돈다 (SETT-03)", () => {
+describe("DEFAULT_SETTINGS — 로드 전에도 앱은 11:55 로 돈다 (SETT-03)", () => {
   it("기본 추첨 시각이 11시 55분이다", () => {
     expect(DEFAULT_SETTINGS.spinTime).toEqual({ hh: 11, mm: 55 });
   });
 
-  it("기본 쿨다운이 0 이다 (꺼진 상태)", () => {
-    expect(DEFAULT_SETTINGS.cooldownDays).toBe(0);
+  it("설정 키는 추첨 시각·전환일 둘뿐이다 — 쿨다운 일수는 0007 주간 제외가 대체해 도메인에서 사라졌다", () => {
+    expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual(["historySince", "spinTime"]);
   });
 
   it("기본 전환일이 null 이다 (전환일 미확정 — Phase 7 은 이 상태에서 집계하지 않는다)", () => {
@@ -74,12 +74,8 @@ describe("settingsFromRow — 예외를 던지지 않는 총 함수다 (SETT-03)
     expect(settingsFromRow(ROW_BROKEN).warning).not.toBeNull();
   });
 
-  it("음수 cooldown_days(-1)는 0 으로 좁힌다", () => {
-    expect(settingsFromRow(ROW_NEGATIVE).settings.cooldownDays).toBe(0);
-  });
-
-  it("양수 cooldown_days(3)는 그대로 통과한다", () => {
-    expect(settingsFromRow(ROW_1230).settings.cooldownDays).toBe(3);
+  it("행의 cooldown_days 는 읽지 않는다 — 설정에 그 키가 생기지 않는다", () => {
+    expect("cooldownDays" in settingsFromRow(ROW_1230).settings).toBe(false);
   });
 
   it("history_since 문자열이 그대로 historySince 에 실린다", () => {
@@ -94,7 +90,7 @@ describe("settingsFromRow — 예외를 던지지 않는 총 함수다 (SETT-03)
 describe("settingsReducer — 로드 경로 (SETT-03)", () => {
   it("fetched(row) 는 설정을 갈아끼우고 로드 완료로 표시한다", () => {
     expect(settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_1230, error: null })).toEqual({
-      settings: { spinTime: { hh: 12, mm: 30 }, cooldownDays: 3, historySince: "2026-09-21" },
+      settings: { spinTime: { hh: 12, mm: 30 }, historySince: "2026-09-21" },
       loaded: true,
       error: null,
       warning: null,
@@ -154,11 +150,6 @@ describe("settingsReducer — Realtime 병합 (SETT-02)", () => {
       hh: 12,
       mm: 30,
     });
-  });
-
-  it("같은 UPDATE 가 쿨다운도 갱신한다 (payload.new 가 전체 행이라 통째 교체다)", () => {
-    const loaded = settingsReducer(INITIAL_SETTINGS_STATE, { type: "fetched", row: ROW_DEFAULT, error: null });
-    expect(settingsReducer(loaded, { type: "changed", event: "UPDATE", row: ROW_1230 }).settings.cooldownDays).toBe(3);
   });
 
   it("changed(\"INSERT\") 도 같은 경로로 병합된다", () => {
