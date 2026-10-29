@@ -150,7 +150,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 9: 주간 점심 기록
 **Goal**: 룰렛이 뽑은 순서를 팀이 실제로 어떻게 썼는지 하루 한 행으로 남기고(목적지 기본 1순위, "웨이팅 있어요 → 다음 식당" 으로 변경, 선택적 방문 확인), 이번 주(월~어제) 목적지와 "이번 주 쉬기" 매장을 추첨 pool·휠에서 빼며 월요일 00:00 KST 에 전부 해제한다. `settings.cooldown_days`(최근 N일 당첨 제외)는 이 규칙으로 대체한다.
 **Depends on**: Phase 8 (컷오버 완료, 0006 `results.ranking` 라이브)
-**Requirements**: TBD — v1 범위 밖. `/gsd-plan-phase 9` 에서 `REQUIREMENTS.md` 에 추가
+**Requirements**: DEST-01, VISIT-01, WEEK-01, WEEK-02, HIST-04, SHIP-05 (v1.1 — `REQUIREMENTS.md` "## v1.1 Requirements")
 **설계 정본**: `.planning/notes/weekly-exclusion-visit-record.md` (2026-10-28 /gsd-explore). Codex 2026-10-06 기능 상담의 제안 1·2·3·4·6 을 합친 것이고, 4(매장 쉬기)·6(방문 기준 cooldown)은 "이번 주 제외 목록" 하나로 통합했다.
 **Success Criteria** (what must be TRUE):
   1. 오늘 탭에 "오늘 갈 곳: ○○" 가 보이고, 누구든 "웨이팅 있어요 → 다음 식당" 을 누르면 열린 모든 탭이 같은 목적지로 바뀐다. 되돌릴 수 있다. 아무도 안 누른 날의 목적지는 1순위다.
@@ -195,7 +195,9 @@ v1 요구사항 34개 전부가 정확히 한 페이즈에 매핑됐다. 상세 
 | 8 | SHIP-02, SHIP-03, SHIP-04, QUAL-05 | 4 |
 | | **합계** | **34** |
 
-Phase 9 는 v1 범위 밖의 후속 기능이다. 요구사항 ID 는 `/gsd-plan-phase 9` 에서 `REQUIREMENTS.md` 에 추가한다.
+| 9 (v1.1) | DEST-01, VISIT-01, WEEK-01, WEEK-02, HIST-04, SHIP-05 | 6 |
+
+Phase 9 는 v1 범위 밖의 후속 기능이다(v1.1). 요구사항은 `REQUIREMENTS.md` "## v1.1 Requirements" 에 있다.
 
 ---
 *Roadmap created: 2026-09-18*
