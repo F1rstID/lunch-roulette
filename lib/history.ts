@@ -1,13 +1,61 @@
-// 기록·랭킹의 판단(순수): 전환일 필터 · 매장 기준 집계 · 월 격자.
+// 기록·랭킹의 판단(순수): 전환일 필터 · 목적지 조인 · 매장 기준 집계 · 월 격자.
 // 순수성이 계약이다 — 데이터 클라이언트·React·환경변수를 값으로 끌어오지 않는다(lib/candidates.ts 와 같은 논증).
 // 이 파일이 하나인 이유: "전환일 이후" 의 뜻(당일 포함)과 "매장 기준" 의 뜻(집계 키)이 기록 페이지와 랭킹 페이지에서
 // 따로 조립되면 같은 결과 행이 한 화면에는 있고 다른 화면에는 없는 날이 온다.
+// 0007 부터 기록이 증명하는 것은 추첨이 아니라 목적지다(applyLunchDays) — 방문 확인 > 목적지 변경 > 1순위 순이고,
+// 확인 안 된 날은 1순위에 간 것으로 센다(사용자 결정 2026-10-28). 그 우선순위의 정의처는 _shared/cooldown.ts 다.
 
 // 값이 아니라 타입만 쓴다 — 트랜스파일에서 통째로 지워져 supabase 클라이언트가 로드되지 않는다.
-import type { ResultRow } from "@/lib/supabase/client";
+import type { LunchDayRow, ResultRow } from "@/lib/supabase/client";
+// 값 import 는 _shared 한 곳 — lib/time.ts 가 _shared/kst 를 가져오는 선례와 같다(import 0 모듈이라 환경변수를 읽지 않는다).
+import { dayExclusionId } from "@/supabase/functions/_shared/cooldown";
 
 // 랭킹이 읽는 컬럼만. 랭킹 페이지는 조회 자체를 이 컬럼으로 좁히므로(candidates jsonb 제외) 전체 행을 요구하면 안 된다.
 export type HistoryRow = Pick<ResultRow, "date" | "menu" | "restaurant_id">;
+
+// 목적지 조인의 입력. spun_at 은 "다시 돌리기 전에 고른 목적지" 를 가려내는 데 쓴다(_shared/cooldown.ts effectiveDestinationId).
+export type HistoryInput = HistoryRow & Pick<ResultRow, "spun_at">;
+
+// 목적지 조인의 출력. restaurant_id·menu 는 "간 곳" 으로 바뀌고, 추첨 1순위는 drawn* 에 남는다 — 상세 화면이 둘이 다를 때
+// "추첨 1순위 A" 를 보조행으로 보인다. unconfirmed 는 방문 확인이 없는 날(목적지로 센 날)이다.
+export type HistoryEntry<T extends HistoryInput = HistoryInput> = T & {
+  drawnId: string | null;
+  drawnName: string;
+  unconfirmed: boolean;
+};
+
+/** 결과 행에 점심 기록을 날짜로 조인해 "간 곳" 기준 행으로 바꾼다. 단체 점심을 안 한 날은 뺀다 */
+// 제네릭인 이유: 기록 페이지는 전체 행(candidates·ranking 이 상세에 필요)을, 랭킹 페이지는 좁힌 행을 넘긴다 — 같은 함수가
+// 둘 다 받아야 "간 곳" 의 정의처가 하나로 남는다. 이름은 기록의 스냅샷을 먼저 쓴다: 매장이 지워져도 그날 기록이 남아야 한다.
+export function applyLunchDays<T extends HistoryInput>(
+  rows: readonly T[],
+  days: readonly LunchDayRow[],
+): HistoryEntry<T>[] {
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  const entries: HistoryEntry<T>[] = [];
+  for (const row of rows) {
+    const day = byDate.get(row.date) ?? null;
+    // 점심을 안 먹은 날은 기록도 랭킹도 아니다 — 0 으로 세는 것이 아니라 행 자체가 없다.
+    if (day !== null && day.visit_status === "skipped") continue;
+    const id = dayExclusionId(row, day);
+    const visited = day !== null && day.visit_status === "visited";
+    const pickedFromDay = day !== null && day.destination_id !== null && id === day.destination_id;
+    const menu = visited
+      ? (day.visited_name ?? row.menu)
+      : pickedFromDay
+        ? (day.destination_name ?? row.menu)
+        : row.menu;
+    entries.push({
+      ...row,
+      restaurant_id: id,
+      menu,
+      drawnId: row.restaurant_id,
+      drawnName: row.menu,
+      unconfirmed: !visited,
+    });
+  }
+  return entries;
+}
 
 /** 전환일(settings.history_since) 이후 행만 남긴다. 당일 포함. null 은 "전환일 미확정" 이라 자르지 않는다 */
 // 문자열 비교로 충분한 이유: 양쪽 다 KST "yyyy-mm-dd" 키다(results.date 와 settings.history_since 의 형식 계약).
@@ -67,8 +115,8 @@ export type MonthCell = { y: number; m: number; d: number; dim: boolean };
 const GRID_CELLS = 42; // 6주 × 7일 — 어떤 달도 6주 안에 들어가고, 높이가 달마다 흔들리지 않는다.
 
 /** 달력 6×7 격자. 앞뒤 패딩은 이웃 달의 날짜이고 dim 으로 표시한다 */
-// 로컬 Date 메서드를 쓰는 두 자리 중 하나(lib/time.ts 경유 규칙의 허용 예외 — 나머지는 components/CalendarLog.tsx
-// DetailView 의 요일 계산): "지금" 을 읽는 것이 아니라 주어진
+// 로컬 Date 메서드를 쓰는 자리(lib/time.ts 경유 규칙의 허용 예외 — 상세의 요일은 0007 부터 lib/lunchDay.ts weekdayLabel 의
+// UTC 산술로 옮겨져 이 파일이 마지막이다): "지금" 을 읽는 것이 아니라 주어진
 // 연·월의 요일·일수를 구하는 순수 달력 산술이라 실행 환경의 타임존이 결과를 바꾸지 못한다.
 export function buildMonthGrid(year: number, month: number): MonthCell[] {
   const first = new Date(year, month - 1, 1);
