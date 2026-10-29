@@ -279,7 +279,7 @@ describe("filterRestaurantsByName — 이름만 좁힌다 (CAND-02 · D-07)", ()
 // 번호를 다시 매기면 목록의 배지와 휠의 조각이 서로 다른 색을 가리킨다.
 describe("listTodayRows — 담긴 것이 위, 배지는 휠 인덱스 (D-10 · D-15)", () => {
   it("담긴 매장이 휠 순서로 먼저 오고 slice 가 0부터 매겨진다", () => {
-    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "");
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "", new Map());
     expect(rows.slice(0, 2).map((row) => [row.restaurant.id, row.slice])).toEqual([
       ["r3", 0],
       ["r1", 1],
@@ -287,7 +287,7 @@ describe("listTodayRows — 담긴 것이 위, 배지는 휠 인덱스 (D-10 · 
   });
 
   it("안 담긴 매장은 넘겨받은 카탈로그 순서 그대로 뒤에 오고 slice 가 null 이다", () => {
-    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "");
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "", new Map());
     expect(rows.map((row) => [row.restaurant.id, row.slice])).toEqual([
       ["r3", 0],
       ["r1", 1],
@@ -297,12 +297,12 @@ describe("listTodayRows — 담긴 것이 위, 배지는 휠 인덱스 (D-10 · 
   });
 
   it("필터는 담긴 구간과 안 담긴 구간 둘 다에 적용된다", () => {
-    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "마라");
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "마라", new Map());
     expect(rows.map((row) => [row.restaurant.id, row.slice])).toEqual([["r2", null]]);
   });
 
   it("필터로 앞쪽 담긴 매장이 빠져도 남은 담긴 매장의 slice 는 휠 인덱스를 유지한다", () => {
-    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "김밥");
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_GIMNARA, S_MARA], "김밥", new Map());
     expect(rows.map((row) => [row.restaurant.id, row.slice])).toEqual([
       ["r1", 1],
       ["r7", null],
@@ -310,7 +310,54 @@ describe("listTodayRows — 담긴 것이 위, 배지는 휠 인덱스 (D-10 · 
   });
 
   it("카탈로그가 비면 빈 배열이다", () => {
-    expect(listTodayRows([T_GIM], [], "")).toEqual([]);
+    expect(listTodayRows([T_GIM], [], "", new Map())).toEqual([]);
+  });
+});
+
+// 이번 주 제외(월~어제 간 곳·이번 주 쉬기)는 휠에서 빠지지만 목록에는 담긴 채로 남는다 — 토글(빼기)은 그대로 되고,
+// 배지 자리에 사유가 보인다. slice 는 "휠 items 인덱스" 로 뜻이 바뀐다: 제외 행을 건너뛴 번호여야 목록 배지 색과
+// 휠 조각 색이 같은 매장을 가리킨다(09-02 D-08).
+describe("listTodayRows — 이번 주 제외 행은 담긴 구간에 남고 slice 는 휠 인덱스다 (D-08)", () => {
+  const VISITED = { reason: "visited", date: "2026-10-27" } as const;
+  const PAUSED = { reason: "paused" } as const;
+
+  it("제외된 담긴 매장은 slice null + 사유를 갖고 담긴 구간(위)에 남는다", () => {
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_MARA], "", new Map([["r3", VISITED]]));
+    expect(rows.map((row) => [row.restaurant.id, row.slice, row.excludedReason])).toEqual([
+      ["r3", null, VISITED],
+      ["r1", 0, null],
+      ["r2", null, null],
+    ]);
+  });
+
+  it("제외되지 않은 담긴 매장의 slice 는 제외 행을 건너뛴 휠 인덱스다", () => {
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM], "", new Map([["r3", PAUSED]]));
+    expect(rows.map((row) => [row.restaurant.id, row.slice])).toEqual([
+      ["r3", null],
+      ["r1", 0],
+    ]);
+  });
+
+  it("안 담긴 매장도 쉬기 사유가 있으면 배지로 보인다 — 담아도 뽑히지 않는다는 뜻이다", () => {
+    const rows = listTodayRows([T_GIM], [S_GIM, S_MARA], "", new Map([["r2", PAUSED]]));
+    expect(rows.map((row) => [row.restaurant.id, row.slice, row.excludedReason])).toEqual([
+      ["r1", 0, null],
+      ["r2", null, PAUSED],
+    ]);
+  });
+
+  it("제외가 없으면 모든 행의 excludedReason 이 null 이고 slice 는 전과 같다", () => {
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_MARA], "", new Map());
+    expect(rows.map((row) => [row.slice, row.excludedReason])).toEqual([
+      [0, null],
+      [1, null],
+      [null, null],
+    ]);
+  });
+
+  it("필터는 제외 행에도 적용된다", () => {
+    const rows = listTodayRows([T_SALAD, T_GIM], [S_SALAD, S_GIM, S_MARA], "샐러드", new Map([["r3", VISITED]]));
+    expect(rows.map((row) => [row.restaurant.id, row.excludedReason])).toEqual([["r3", VISITED]]);
   });
 });
 
