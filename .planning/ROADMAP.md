@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: 오늘 탭** - 카탈로그 토글 후보 선택 + 매장 결과 표시 (completed 2026-09-29)
 - [x] **Phase 7: 기록·랭킹** - 전환일 이후 결과만 매장 기준으로 표시·집계 (completed 2026-09-29)
 - [x] **Phase 8: 컷오버** - 문서 현행화 + 마이그레이션·배포·머지·롤백 절차 1회 실행 (completed 2026-09-29)
-- [ ] **Phase 9: 주간 점심 기록** - 실제 방문·다음 식당·이번 주 제외(월요일 리셋). v1 이후 후속 (added 2026-10-28)
+- [x] **Phase 9: 주간 점심 기록** - 실제 방문·다음 식당·이번 주 제외(월요일 리셋). v1 이후 후속 (added 2026-10-28, executed 2026-10-29 — 라이브 적용은 README "0007 적용")
 
 ## Phase Details
 
@@ -159,7 +159,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 2·3순위 옆에 지도 버튼이 있다. 기록 탭·랭킹은 목적지 기준으로 집계한다.
   5. 0007 마이그레이션 + 롤백 SQL + README "0007 적용" 절(SQL → 함수 2종 배포 → 머지)이 있고, `tsc`·`lint`·`test`·`build`·`check:edge` 통과, 커밋·PR 에 AI 표기 없음.
 **로컬 검증**: 직접 실행 레인(결정 d527fe42) — 순수 모듈(주 시작 계산·제외 집합·기록 표시 판단)은 TDD, 리뷰 fable 1회. 라이브 적용은 0005·0006 과 같은 순서로 사용자가 SQL 을 적용한 뒤 함수를 배포하고 머지한다.
-**Plans**: TBD
+**Plans: 09-01 · 09-02 · 09-03 — 전부 완료 2026-10-29
 
 ## Progress
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. 오늘 탭 | 2/2 | Complete    | 2026-09-29 |
 | 7. 기록·랭킹 | 1/1 | Complete    | 2026-09-29 |
 | 8. 컷오버 | 1/1 | Complete    | 2026-09-29 |
-| 9. 주간 점심 기록 | 0/? | Not started | — |
+| 9. 주간 점심 기록 | 3/3 | Complete | 2026-10-29 |
 
 ## Coverage
 

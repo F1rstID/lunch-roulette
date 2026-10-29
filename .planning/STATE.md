@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 9 planned (3 plans) — ready to execute
-stopped_at: Phase 9 계획 완료(09-01~03). 다음은 `/gsd-execute-phase 9`(직접 실행 레인)
-last_updated: "2026-10-29T01:40:34.991Z"
-last_activity: "2026-10-29 -- Phase 9 계획 완료: CONTEXT(D-01~D-18) + PLAN 3개(wave1 순수 규칙·0007 SQL·Edge / wave2 오늘 탭 / wave2 매장 탭·기록·랭킹·문서). 리서처·체커 생략(직접 실행 레인)"
+status: Phase 9 executed (3/3 plans) — review·push pending
+stopped_at: Phase 9 실행 완료(09-01~03, 커밋 17개, 테스트 552). 다음은 리뷰 fable 1회(09-REVIEW.md) → 수정 → 푸시(gh 계정 F1rstID 확인) → PR #8 드래프트 해제. 라이브 적용은 README "0007 적용"(사용자)
+last_updated: "2026-10-29T02:39:39.000Z"
+last_activity: "2026-10-29 -- Phase 9 실행 완료: 09-01(주간 규칙·0007 SQL+트리거·Edge 2종·lunchDay 모듈) · 09-02(useLunchWeek·DestinationCard·오늘 탭) · 09-03(쉬기·applyLunchDays·기록/랭킹·문서). 게이트 5종 exit 0, 390px 4탭 넘침 0"
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 23
-  completed_plans: 20
-  percent: 87
+  completed_plans: 23
+  percent: 100
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Phase 9 계획(`/gsd-plan-phase 9`) — 설계 정본 `notes/weekly-exclusion-visit-record.md`. v1.0 마일스톤 마감(`/gsd-complete-milestone`)은 아직 안 함
+**Current focus:** Phase 9 리뷰·푸시 → PR #8 → 사용자 라이브 적용(README "0007 적용": SQL → 함수 2종 → 머지). v1.0 마일스톤 마감(`/gsd-complete-milestone`)은 아직 안 함 — v1.1 과 함께 판단
 
 ## Current Position
 
-Phase: 9 (planned 3 plans, 0 executed) — Phase 1~8 complete
-Plan: 1 of 3 (next)
-Status: Ready to execute
-Last activity: 2026-10-29 -- Phase 9 계획 완료(CONTEXT + PLAN 3개)
+Phase: 9 (3/3 plans executed) — Phase 1~9 complete
+Plan: — (review pending)
+Status: Executed, review·push pending
+Last activity: 2026-10-29 -- Phase 9 실행 완료(09-01~03), SUMMARY 3개
 
-Progress: [█████████░] 8/9 phases (plans 20/23)
+Progress: [██████████] 9/9 phases (plans 23/23)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 22
+- Total plans completed: 23
 - Average duration: —
 - Total execution time: —
 
@@ -194,6 +194,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-28 (/gsd-explore → Phase 9 추가)
-Stopped at: Phase 9 계획 완료. 브랜치 `feat/weekly-lunch-record`(PR #8 draft). 다음은 `/gsd-execute-phase 9`
+Last session: 2026-10-29 (/gsd-execute-phase 9 직접 실행 레인)
+Stopped at: Phase 9 실행 완료. 브랜치 `feat/weekly-lunch-record`(PR #8 draft, 미푸시 커밋 있음). 다음은 리뷰 fable 1회 → 수정 → 푸시 → PR #8 드래프트 해제. 라이브 적용(0007 SQL → 함수 → 머지)은 사용자 지시 때만
 Resume file: None

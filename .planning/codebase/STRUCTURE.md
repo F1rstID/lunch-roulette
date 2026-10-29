@@ -36,11 +36,13 @@ lunch_roulette/
 │   ├── menus.ts              # 쉼표 파싱·코드포인트 절단 (순수, 정의처)
 │   ├── rowset.ts             # 목록 Realtime 병합 규칙 한 벌 (제네릭, 키만 주입)
 │   ├── settings.ts           # settings 행 → 앱 도메인 + Realtime 리듀서 (순수)
-│   ├── useSettings.ts        # 그 리듀서에 I/O 를 붙인 훅 (추첨 시각·쿨다운 단일 출처)
+│   ├── useSettings.ts        # 그 리듀서에 I/O 를 붙인 훅 (추첨 시각·전환일 단일 출처 — cooldown_days 는 0007 부터 미사용)
 │   ├── restaurants.ts        # 매장 폼 검증·링크 판정·정렬 + rowset 인스턴스 (순수)
 │   ├── useRestaurants.ts     # 매장 목록 SELECT 1회 + 3분기 구독 (읽기 전용 훅)
 │   ├── candidates.ts         # 후보 조인·정렬·필터·당첨 인덱스·재회전 판정 (순수)
 │   ├── useCandidates.ts      # 오늘 후보 SELECT 1회 + 2분기 구독 (읽기 전용 훅)
+│   ├── lunchDay.ts           # 주간 점심 기록의 화면 쪽 판단 (목적지·다음 식당·방문 요약·제외 맵·주간 리듀서, 순수 — Phase 9)
+│   ├── useLunchWeek.ts       # 이번 주 lunch_days·winners 조회 + lunch-days-<n> 구독 + 재조회(visible·SUBSCRIBED) — 훅 분기 예외
 │   └── supabase/client.ts    # supabase 싱글턴 + DB row 타입 정의처
 ├── supabase/                 # 서버 측 (함수 디렉터리 2개만 tsconfig/eslint 제외)
 │   ├── rollback/             # 0005 롤백 SQL + 계약 spec (migrations/ 밖 — db push 가 읽지 않게)
@@ -134,7 +136,9 @@ lunch_roulette/
 - `lib/useCandidates.ts`: 오늘 후보 SELECT 1회 + `candidates-<n>` 토픽 2분기 구독 (판단 0, 읽기 전용)
 - `lib/menus.ts`: `parseMenuInput`·`truncateToCodePoints` (쉼표 다중 입력 파싱·코드포인트 절단, 순수 함수)
 - `lib/wheelLabel.ts`: `normalizeDeg`·`isLabelFlipped`·`fitWheelLabel` (휠 라벨의 각도·절단 판단, 순수 — Quick 002)
-- `lib/history.ts`: `filterSince`·`buildRanking`·`buildMonthGrid` (기록·랭킹의 모든 판단, 순수 — Phase 7 이 두 컴포넌트에서 내렸다)
+- `lib/history.ts`: `filterSince`·`applyLunchDays`·`buildRanking`·`buildMonthGrid` (기록·랭킹의 모든 판단, 순수 — Phase 7 이 두 컴포넌트에서 내렸고 Phase 9 가 목적지 조인을 더했다)
+- `lib/lunchDay.ts`: `destinationOf`·`nextDestination`·`visitSummary`·`weeklyExclusionMap`·`lunchWeekReducer`·`mapHref`·`parseOtherVisitName`·`WEEKDAYS`·`weekdayLabel`·`exclusionBadge` (주간 점심 기록의 화면 쪽 판단, 순수 — 규칙은 `_shared/cooldown.ts` 에서 값 import)
+- `lib/useLunchWeek.ts`: 이번 주 `lunch_days`(오늘 포함)·`results`(오늘 제외) 조회 + `lunch-days-<n>` 2분기 구독 + 재조회 트리거 2개 (훅 분기 0개 규칙의 의도적 예외)
 
 **Styling:**
 - `app/globals.css:12-31`: CSS 변수 토큰(`--bg`, `--ink`, `--accent`, `--line`, `--radius`, `--font-sans` 등)
