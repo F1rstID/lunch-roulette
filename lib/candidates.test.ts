@@ -25,6 +25,7 @@ type Store = {
   location: string | null;
   pinned: boolean;
   created_at: string;
+  paused_week: string | null;
 };
 type Candidate = { restaurant_id: string; created_at: string };
 type Today = {
@@ -46,6 +47,7 @@ const S_GIM: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T02:00:00+09:00",
+  paused_week: null,
 };
 const S_MARA: Store = {
   id: "r2",
@@ -54,6 +56,7 @@ const S_MARA: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T03:00:00+09:00",
+  paused_week: null,
 };
 const S_SALAD: Store = {
   id: "r3",
@@ -62,6 +65,7 @@ const S_SALAD: Store = {
   location: "2층 안쪽",
   pinned: true,
   created_at: "2026-09-29T01:00:00+09:00",
+  paused_week: null,
 };
 const S_ABC: Store = {
   id: "r4",
@@ -70,6 +74,7 @@ const S_ABC: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T04:00:00+09:00",
+  paused_week: null,
 };
 // 이름에는 없고 메뉴에만 있는 낱말을 담은 매장. 필터가 메뉴를 보지 않는다는 것을 보이는 데 쓴다.
 const S_WOORI: Store = {
@@ -79,6 +84,7 @@ const S_WOORI: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T05:00:00+09:00",
+  paused_week: null,
 };
 const S_GIMNARA: Store = {
   id: "r7",
@@ -87,6 +93,7 @@ const S_GIMNARA: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T06:00:00+09:00",
+  paused_week: null,
 };
 // 후보 시각도 매장 시각도 동률이라 마지막 키(매장 id)만 남는 쌍. 입력 순서를 일부러 뒤집어 둔다.
 const S_TIE_LATE: Store = {
@@ -96,6 +103,7 @@ const S_TIE_LATE: Store = {
   location: null,
   pinned: true,
   created_at: RESEED_AT,
+  paused_week: null,
 };
 const S_TIE_EARLY: Store = {
   id: "r8",
@@ -104,6 +112,7 @@ const S_TIE_EARLY: Store = {
   location: null,
   pinned: true,
   created_at: RESEED_AT,
+  paused_week: null,
 };
 
 // 같은 순간을 다른 형식으로 적은 시각 네 벌. 초기 조회 행은 PostgREST 가, 이후 행은 Realtime 페이로드가
@@ -123,6 +132,7 @@ const S_EARLY_REG: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T00:00:00+09:00",
+  paused_week: null,
 };
 const S_LATE_REG: Store = {
   id: "r11",
@@ -131,6 +141,7 @@ const S_LATE_REG: Store = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T08:00:00+09:00",
+  paused_week: null,
 };
 
 const C_GIM: Candidate = { restaurant_id: "r1", created_at: "2026-09-29T03:00:00+09:00" };

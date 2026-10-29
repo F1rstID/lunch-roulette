@@ -19,9 +19,9 @@ import {
   type SpinTime,
 } from "@/supabase/functions/_shared/spinTime";
 
+// cooldown_days 는 행에는 남아 있지만(0007 은 컬럼을 지우지 않는다) 여기 없다 — 주간 제외(lib/lunchDay.ts)가 대체했다.
 export type Settings = {
   spinTime: SpinTime;
-  cooldownDays: number; // 0 = 쿨다운 끔
   // null 은 "전환일 미확정" 이고 로드 전·행 삭제 후에만 나타난다. Phase 7 은 이 상태에서 집계를 자르지 않는다.
   historySince: string | null;
 };
@@ -29,7 +29,6 @@ export type Settings = {
 // spinTime 에 parseSpinTime 을 거친 값 대신 _shared 의 리터럴 상수를 쓴다 — 비-null 단언을 안 쓰기 위해서다.
 export const DEFAULT_SETTINGS: Settings = {
   spinTime: DEFAULT_SPIN_TIME,
-  cooldownDays: 0,
   historySince: null,
 };
 
@@ -58,9 +57,6 @@ export function settingsFromRow(row: SettingsRow): { settings: Settings; warning
   return {
     settings: {
       spinTime: parsed ?? DEFAULT_SETTINGS.spinTime,
-      // 음수·NaN 방어: DB check 가 이미 >= 0 을 보장하지만 Realtime 페이로드는 DB 를 거치지 않은
-      // 형태로 올 수도 있다고 가정하고 읽는 쪽에서 한 번 더 좁힌다.
-      cooldownDays: Number.isFinite(row.cooldown_days) && row.cooldown_days > 0 ? row.cooldown_days : 0,
       // 키가 통째로 빠진 페이로드에서 undefined 가 새어 나가지 않게 null 로 못 박는다. 타입은 이미
       // string | null 이지만 Realtime payload 는 DB 를 거치지 않은 형태로도 오고, Phase 7 이 "전환일
       // 미확정" 을 === null 로 판정하면 undefined 는 그 검사를 통과해 조회 필터로 흘러든다.
