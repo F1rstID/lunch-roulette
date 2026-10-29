@@ -9,7 +9,12 @@
 import type { LunchDayRow, ResultRow, WeekWinnerRow } from "@/lib/supabase/client";
 import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import { parseLocationLink } from "@/lib/restaurants";
-import { dayExclusionId, effectiveDestinationId } from "@/supabase/functions/_shared/cooldown";
+import {
+  applyWeeklyExclusions,
+  dayExclusionId,
+  effectiveDestinationId,
+  isDestinationFresh,
+} from "@/supabase/functions/_shared/cooldown";
 
 // 요일 라벨. 자리는 kst.ts 의 kstParts().weekday(0=일…6=토)와 같다 — 달력 머리글과 목록 배지("화 방문")가 같은 배열을 본다.
 export const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -31,6 +36,11 @@ function rankingName(ranking: RankingList | null, id: string): string | null {
 // — ranking 이 null 인 구 행에서도 그렇다. 이름은 기록의 스냅샷을 먼저 쓴다: 매장이 지워져도 그날 "어디 가기로 했나" 가 남아야 한다.
 export function destinationOf(result: ResultRow | null, day: LunchDayRow | null): Destination | null {
   if (result === null) return null;
+  // 목적지 매장이 지워진 행: id 는 set-null, 이름 스냅샷은 남는다(0007 FK). "되돌리기"(둘 다 null)와 달리 그날 "어디
+  // 가기로 했나" 는 아직 참이라 스냅샷 이름으로 보인다 — 순위는 없고 지도는 이름 검색으로 간다.
+  if (day !== null && day.destination_id === null && day.destination_name !== null && isDestinationFresh(result, day)) {
+    return { id: null, name: day.destination_name, rank: null };
+  }
   const id = effectiveDestinationId(result, day);
   const fromDay = day !== null && day.destination_id !== null && id === day.destination_id;
   if (!fromDay) return { id: result.restaurant_id, name: result.menu, rank: 1 };
@@ -103,6 +113,32 @@ export function weeklyExclusionMap(
   return map;
 }
 
+export type WheelPool<T extends { id: string }> = {
+  items: T[]; // 휠에 올라가는 후보 — 서버가 뽑을 pool 과 같은 규칙
+  allPaused: boolean; // 쉬기로 전멸 — 서버는 결과 행을 만들지 않는다(all_paused)
+  fellBack: boolean; // 방문으로 전멸해 쉬기만 뺀 후보로 되돌렸다 — 서버의 weekly_fallback 과 같은 날
+  offWheel: Map<string, ExclusionReason>; // 실제로 휠에서 빠진 매장만(폴백 날의 방문 매장은 빠지지 않는다) + 안 담긴 쉬기 매장
+};
+
+/** 휠에 올릴 후보와 폴백 사실. 서버의 applyWeeklyExclusions 를 그대로 불러 2단 폴백까지 같은 답을 낸다 */
+// 사유 맵에서 한 단으로 빼면 "이번 주 다 가 본 날" 서버는 쉬기만 뺀 후보로 결과를 만드는데 화면은 빈 휠 + 전부 제외 안내를
+// 보인다 — 그 불일치가 리뷰 CR-01 이다. 그래서 휠·카운터·안내·배지 전부가 이 함수의 출력 위에 선다.
+export function wheelPool<T extends { id: string }>(
+  candidates: readonly T[],
+  excluded: ReadonlyMap<string, ExclusionReason>,
+): WheelPool<T> {
+  const pausedIds: string[] = [];
+  const visitedIds: string[] = [];
+  for (const [id, reason] of excluded) (reason.reason === "paused" ? pausedIds : visitedIds).push(id);
+  const wrapped = candidates.map((candidate) => ({ restaurant_id: candidate.id, candidate }));
+  const result = applyWeeklyExclusions(wrapped, { pausedIds, visitedIds });
+  const items = result.picked.map((entry) => entry.candidate);
+  const onWheel = new Set(items.map((candidate) => candidate.id));
+  const offWheel = new Map<string, ExclusionReason>();
+  for (const [id, reason] of excluded) if (!onWheel.has(id)) offWheel.set(id, reason);
+  return { items, allPaused: result.allPaused, fellBack: result.fellBack, offWheel };
+}
+
 // 주간 상태. lib/rowset.ts 와 달리 loaded 뒤의 조회 응답도 받는다 — 이 훅의 목적이 재연결·탭 복귀 때의 재조회 복구이기 때문이다
 // (Codex 평가 C1: 구독이 끊긴 사이의 변경은 이벤트로 오지 않는다). stale 응답은 세대 번호로 거른다: refresh 가 세대를 올리고,
 // 훅은 조회를 보낼 때의 세대를 fetched 에 실어 보내며, 리듀서는 현재 세대와 다른 응답을 버린다.
@@ -117,6 +153,15 @@ export type LunchWeekState = {
   weekStart: string;
   today: string;
 };
+
+// 두 시각을 순간으로 비교한다. 조회 행은 PostgREST("+00:00"), 이벤트 행은 Realtime("Z" 또는 "+00:00") 직렬화라 문자열로는
+// 같은 순간이 다르게 읽힌다. 파싱 불가면 문자열 비교 — lib/candidates.ts isNewSpin 과 같은 폴백.
+function isAfter(a: string, b: string): boolean {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return a > b;
+  return ta > tb;
+}
 
 export const INITIAL_LUNCH_WEEK_STATE: LunchWeekState = {
   days: [],
@@ -149,7 +194,15 @@ export function lunchWeekReducer(state: LunchWeekState, action: LunchWeekAction)
       if (action.generation !== state.generation) return state;
       // 실패를 삼키지 않되 가진 행도 버리지 않는다 — 재조회 실패가 멀쩡한 화면을 비우면 안 된다.
       if (action.error) return { ...state, loaded: true, error: action.error.message };
-      return { ...state, days: action.days, winners: action.winners, loaded: true, error: null };
+      // 조회가 도는 사이 도착한 changed 행은 조회 스냅샷보다 새 것일 수 있고 이벤트는 다시 오지 않는다 — 날짜별로
+      // updated_at(트리거가 찍는 서버 시각)이 늦은 쪽을 남긴다(리뷰 WR-01). 창 밖 행(자정 전 지난 주 행)은 여기서 버린다.
+      const merged = new Map(action.days.map((day) => [day.date, day]));
+      for (const kept of state.days) {
+        if (kept.date < state.weekStart || kept.date > state.today) continue;
+        const fetched = merged.get(kept.date);
+        if (fetched === undefined || isAfter(kept.updated_at, fetched.updated_at)) merged.set(kept.date, kept);
+      }
+      return { ...state, days: [...merged.values()], winners: action.winners, loaded: true, error: null };
     }
     case "changed": {
       const { date } = action.row;

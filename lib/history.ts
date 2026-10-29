@@ -8,7 +8,7 @@
 // 값이 아니라 타입만 쓴다 — 트랜스파일에서 통째로 지워져 supabase 클라이언트가 로드되지 않는다.
 import type { LunchDayRow, ResultRow } from "@/lib/supabase/client";
 // 값 import 는 _shared 한 곳 — lib/time.ts 가 _shared/kst 를 가져오는 선례와 같다(import 0 모듈이라 환경변수를 읽지 않는다).
-import { dayExclusionId } from "@/supabase/functions/_shared/cooldown";
+import { dayExclusionId, isDestinationFresh } from "@/supabase/functions/_shared/cooldown";
 
 // 랭킹이 읽는 컬럼만. 랭킹 페이지는 조회 자체를 이 컬럼으로 좁히므로(candidates jsonb 제외) 전체 행을 요구하면 안 된다.
 export type HistoryRow = Pick<ResultRow, "date" | "menu" | "restaurant_id">;
@@ -37,14 +37,21 @@ export function applyLunchDays<T extends HistoryInput>(
     const day = byDate.get(row.date) ?? null;
     // 점심을 안 먹은 날은 기록도 랭킹도 아니다 — 0 으로 세는 것이 아니라 행 자체가 없다.
     if (day !== null && day.visit_status === "skipped") continue;
-    const id = dayExclusionId(row, day);
     const visited = day !== null && day.visit_status === "visited";
+    // 목적지 매장이 지워진 날(id set-null · 이름 스냅샷 남음): 되돌리기와 달리 "그 집에 가기로 했다" 는 사실은 남으므로
+    // 이름으로 센다 — 삭제된 당첨 매장을 이름 키로 세는 buildRanking 의 규칙과 같다(리뷰 WR-02).
+    const deletedDestination =
+      !visited && day !== null && day.destination_id === null && day.destination_name !== null &&
+      isDestinationFresh(row, day);
+    const id = deletedDestination ? null : dayExclusionId(row, day);
     const pickedFromDay = day !== null && day.destination_id !== null && id === day.destination_id;
     const menu = visited
       ? (day.visited_name ?? row.menu)
-      : pickedFromDay
-        ? (day.destination_name ?? row.menu)
-        : row.menu;
+      : deletedDestination
+        ? day.destination_name
+        : pickedFromDay
+          ? (day.destination_name ?? row.menu)
+          : row.menu;
     entries.push({
       ...row,
       restaurant_id: id,

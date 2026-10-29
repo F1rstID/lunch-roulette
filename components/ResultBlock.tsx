@@ -117,7 +117,14 @@ export function ResultBlock({ phase, poolCount, winner, backups, spinTimeText }:
                 <span style={s.backupRank}>{backup.rank}순위</span>
                 <span style={s.backupName}>{backup.name}</span>
                 {/* 새 탭 + opener 차단을 함께 단다 — 위치 문자열은 다른 사용자가 넣은 값이다(LocationLink 와 같은 이유). */}
-                <a href={backup.href} target="_blank" rel="noopener noreferrer" className="l-tap" style={s.backupMap}>
+                <a
+                  href={backup.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${backup.name} 지도`}
+                  className="l-tap"
+                  style={s.backupMap}
+                >
                   지도
                 </a>
               </div>

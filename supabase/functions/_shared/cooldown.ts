@@ -56,14 +56,24 @@ function isBefore(a: string, b: string): boolean {
   return ta < tb;
 }
 
-/** 오늘 갈 곳의 매장 id. day 가 없거나 목적지를 비웠거나 추첨 전에 고른 것이면 당첨(1순위) */
+/** 기록의 목적지 선택이 이 추첨 뒤의 것인가. set_at 이 null 이거나 spun_at 이전이면 stale(다시 돌리기 전 선택) */
 // destination_set_at 이 spun_at 이전이면 다시 돌리기로 순서가 바뀐 뒤의 옛 목적지다 — 쓰기 없이 규칙으로
 // 무시한다. 그래서 respin 함수가 lunch_days 를 건드리지 않아도 모든 탭이 같은 답을 본다.
-// 같은 순간은 "뒤" 로 본다(set_at >= spun_at 이면 목적지). set_at 이 null 이면 추첨 뒤라는 증거가 없어 당첨이다.
+// 같은 순간은 "뒤" 로 본다(set_at >= spun_at 이면 fresh). set_at 이 null 이면 추첨 뒤라는 증거가 없다.
+// id 와 따로 내보내는 이유: 목적지 매장이 지워지면 destination_id 는 set-null 되고 이름 스냅샷만 남는데, 그 행이
+// "되돌리기"(둘 다 null)가 아니라 "지워진 목적지" 임을 화면·기록이 가리려면 선택의 신선도를 id 없이도 물어야 한다.
+export function isDestinationFresh(winner: WinnerRef, day: DayDestinationRef): boolean {
+  if (day.destination_set_at === null) return false;
+  return !isBefore(day.destination_set_at, winner.spun_at);
+}
+
+/** 오늘 갈 곳의 매장 id. day 가 없거나 목적지를 비웠거나 추첨 전에 고른 것이면 당첨(1순위) */
+// 목적지 매장이 지워진 행(destination_id null · 이름 스냅샷 남음)도 여기서는 당첨 id 로 떨어진다 — 이 함수는 "제외할
+// 매장" 의 정의처이고 지워진 매장은 후보일 수 없어 뺄 것이 없다. 이름을 보이는 쪽(lib/lunchDay.ts·lib/history.ts)이
+// isDestinationFresh + 스냅샷으로 그 경우를 가른다.
 export function effectiveDestinationId(winner: WinnerRef, day: DayDestinationRef | null): string | null {
   if (!day || day.destination_id === null) return winner.restaurant_id;
-  if (day.destination_set_at === null) return winner.restaurant_id;
-  if (isBefore(day.destination_set_at, winner.spun_at)) return winner.restaurant_id;
+  if (!isDestinationFresh(winner, day)) return winner.restaurant_id;
   return day.destination_id;
 }
 

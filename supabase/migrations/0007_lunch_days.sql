@@ -8,6 +8,8 @@
 -- lunch_days 를 조회하므로 표·컬럼이 없으면 42703·42P01 로 그날 추첨을 잃는다.
 -- 적용은 사용자가 대시보드 SQL Editor 에서 1회 실행한다. 모든 문은 재실행 안전형이다(0005·0006 과 같은 규율).
 
+-- 이름 스냅샷 둘은 매장명과 같은 24자(코드포인트) 상한이다(0005 restaurants.name 과 같은 규율) — 카탈로그에서 온 이름이거나
+-- 클라이언트가 같은 상한으로 거른 "다른 매장" 이름이라 DB 가 한 번 더 막는다. 빈 문자열은 null 로 쓴다.
 -- 1. lunch_days — 날짜당 한 행. 행은 누군가 행동할 때(목적지 변경·방문 확인) upsert 로 생긴다.
 -- 아무도 안 누른 날은 행이 없고, 그날 목적지는 코드가 결과 행의 1순위로 파생한다(_shared/cooldown.ts effectiveDestinationId).
 -- 이름 스냅샷을 함께 두는 이유는 results.menu 와 같다 — 매장이 지워져도(FK set null) 그날 기록은 남는다.
@@ -16,11 +18,11 @@
 create table if not exists public.lunch_days (
   date date primary key,
   destination_id uuid references public.restaurants(id) on delete set null,
-  destination_name text,
+  destination_name text check (destination_name is null or char_length(destination_name) between 1 and 24),
   destination_set_at timestamptz,
   visit_status text not null default 'unknown' check (visit_status in ('unknown', 'visited', 'skipped')),
   visited_id uuid references public.restaurants(id) on delete set null,
-  visited_name text,
+  visited_name text check (visited_name is null or char_length(visited_name) between 1 and 24),
   visited_at timestamptz,
   updated_at timestamptz not null default now()
 );
@@ -61,10 +63,12 @@ comment on column public.settings.cooldown_days is
 -- 오차에 흔들린다 — 시계가 몇 초 늦은 휴대폰이 고른 목적지가 "다시 돌리기 전 선택" 으로 읽혀 조용히 무시된다.
 -- 클라이언트는 그 컬럼에 아무 시각이든 보내 "이번 쓰기가 그 사실을 건드렸다" 고 알리고, 값은 여기서 now() 로 바뀐다.
 -- 같은 목적지를 다시 고른 경우(destination_id 는 그대로, set_at 만 새 값)도 재각인돼 다시 돌리기 뒤의 재선택이 살아난다.
--- create or replace + drop trigger if exists 라 재실행 안전형이다.
+-- create or replace + drop trigger if exists 라 재실행 안전형이다. search_path 를 비우는 이유: 트리거 함수는 호출자의 검색 경로로 돌아
+-- 같은 이름의 함수를 다른 스키마에 심는 경로가 열린다 — 본문은 now() 뿐이라 pg_catalog 만으로 충분하다.
 create or replace function public.lunch_days_stamp()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   if new.destination_set_at is not null

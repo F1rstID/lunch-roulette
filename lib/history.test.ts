@@ -217,6 +217,15 @@ describe("applyLunchDays — 기록·랭킹의 입력은 추첨이 아니라 목
     ]);
   });
 
+  it("목적지 매장이 지워진 날(id null · 이름 스냅샷)은 그 이름으로 세고 되돌리기와 구분된다", () => {
+    const deleted = day({ date: "2026-10-27", destination_id: null, destination_name: "사라진 집", destination_set_at: "2026-10-27T03:10:00.000Z" });
+    const reverted = day({ date: "2026-10-28", destination_id: null, destination_name: null, destination_set_at: "2026-10-28T03:10:00.000Z" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1"), res("2026-10-28", "A", "r1")], [deleted, reverted])).toMatchObject([
+      { restaurant_id: null, menu: "사라진 집", drawnId: "r1", unconfirmed: true },
+      { restaurant_id: "r1", menu: "A", unconfirmed: true },
+    ]);
+  });
+
   it("단체 점심을 안 한 날은 빠진다", () => {
     const d = day({ date: "2026-10-27", visit_status: "skipped" });
     expect(applyLunchDays([res("2026-10-27", "A", "r1"), res("2026-10-28", "B", "r2")], [d]).map((e) => e.date)).toEqual([

@@ -29,8 +29,9 @@ type Props = {
   visit: VisitSummary;
   // 어느 쓰기든 도는 동안 모든 버튼을 잠근다 — 하루 한 행에 두 쓰기가 겹치면 뒤의 것이 앞의 것을 덮는다.
   busy: boolean;
-  onSetDestinationAction: (id: string | null, name: string | null) => Promise<void>;
-  onSetVisitAction: (visit: VisitInput) => Promise<void>;
+  // 둘 다 성공 여부를 돌려준다 — "다른 매장" 폼이 실패에 입력을 보존할지 그 값으로 정한다(다른 ~Action 과 같은 규약).
+  onSetDestinationAction: (id: string | null, name: string | null) => Promise<boolean>;
+  onSetVisitAction: (visit: VisitInput) => Promise<boolean>;
 };
 
 export function DestinationCard({
@@ -60,7 +61,9 @@ export function DestinationCard({
       return;
     }
     setOtherError(null);
-    await onSetVisitAction({ status: "visited", id: null, name: parsed.name });
+    // 실패하면 입력을 그대로 둔다 — 실패 문장은 페이지 배너가 띄우고, 다시 치게 만들면 같은 값을 두 번 입력한다.
+    const ok = await onSetVisitAction({ status: "visited", id: null, name: parsed.name });
+    if (!ok) return;
     setOtherOpen(false);
     setOtherText("");
   }
@@ -81,7 +84,14 @@ export function DestinationCard({
         <span style={s.destName}>{destination.name}</span>
         {destination.rank !== null && <span style={s.rankBadge}>{destination.rank}순위</span>}
         {/* 새 탭 + opener 차단을 함께 단다 — 위치 문자열은 다른 사용자가 넣은 값이다(LocationLink 와 같은 이유). */}
-        <a href={mapTarget} target="_blank" rel="noopener noreferrer" className="l-tap" style={s.mapLink}>
+        <a
+          href={mapTarget}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${destination.name} 지도`}
+          className="l-tap"
+          style={s.mapLink}
+        >
           지도
         </a>
       </div>

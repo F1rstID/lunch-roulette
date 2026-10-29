@@ -13,7 +13,7 @@ import {
   joinLoadErrors,
 } from "@/lib/errors";
 import { findWinnerIndex, isNewSpin, joinCandidates } from "@/lib/candidates";
-import { destinationOf, mapHref, nextDestination, visitSummary, weeklyExclusionMap } from "@/lib/lunchDay";
+import { destinationOf, mapHref, nextDestination, visitSummary, weeklyExclusionMap, wheelPool } from "@/lib/lunchDay";
 import { backupRanks } from "@/lib/ranking";
 import { sortRestaurants } from "@/lib/restaurants";
 import { useCandidates } from "@/lib/useCandidates";
@@ -104,9 +104,10 @@ export default function TodayPage() {
     () => weeklyExclusionMap(weekStart, todayKey, week.winners, week.days, restaurantRows),
     [weekStart, todayKey, week.winners, week.days, restaurantRows],
   );
-  // 휠에 실제로 올라가는 후보. 당첨 인덱스도 이 배열 기준이다 — 제외된 매장은 칸이 없으니 당첨일 수도 없다
-  // (서버가 같은 규칙으로 pool 을 만들었다면. 방문 전멸 폴백의 날은 예외라 -1 이 될 수 있고 그때 하이라이트만 빠진다).
-  const wheelItems = useMemo(() => todayCandidates.filter((c) => !excluded.has(c.id)), [todayCandidates, excluded]);
+  // 휠에 실제로 올라가는 후보 = 서버가 뽑을 pool. 2단 폴백(쉬기 전멸·방문 전멸)까지 같은 함수(applyWeeklyExclusions)라
+  // 이번 주 다 가 본 날에도 서버의 당첨이 휠에 있고 당첨 인덱스가 맞는다(리뷰 CR-01).
+  const pool = useMemo(() => wheelPool(todayCandidates, excluded), [todayCandidates, excluded]);
+  const wheelItems = pool.items;
   const winnerIndex = useMemo(() => findWinnerIndex(wheelItems, todayResult), [wheelItems, todayResult]);
   // 이름은 결과 행의 스냅샷이고 메뉴·위치는 지금 카탈로그에 있는 값이다. 두 출처가 다른 것이 의도다 —
   // 매장을 지워도 결과의 이름은 남아야 기록·랭킹이 성립하고(CATL-03), 상세만 비는 것이 맞는 화면이다.
@@ -138,7 +139,6 @@ export default function TodayPage() {
   const visit = visitSummary(todayDay);
   // 뽑는(뽑은) 후보 수. decided 는 결과 행이 말하는 pool(ranking), 그 전은 지금 휠에 있는 수다.
   const poolCount = todayResult?.ranking?.length ?? wheelItems.length;
-  const allExcluded = todayCandidates.length > 0 && wheelItems.length === 0;
 
   // 빈 배열 하나로는 "아직 못 읽었다"·"못 읽었다"·"정말 0개" 가 구분되지 않는다. 두 훅이 들고 있는
   // loaded·error 를 여기서 세 상태로 좁혀 넘긴다 — 실패 화면에 등록 권유 문구가 뜨지 않게 하는 최소 경로다.
@@ -271,7 +271,7 @@ export default function TodayPage() {
   // 목적지·방문 쓰기(D-14). upsert 에 바꿀 컬럼만 보낸다 — PostgREST 는 보낸 컬럼만 갱신하므로 목적지 쓰기가 방문을,
   // 방문 쓰기가 목적지를 건드리지 않는다. 시각 컬럼의 값은 DB 트리거가 now() 로 바꾼다(0007) — 여기 값은 "건드렸다" 는
   // 신호다. 낙관적 업데이트 없음: 화면은 lunch_days Realtime 으로만 바뀐다(모든 탭이 같은 순간에 같은 목적지를 본다).
-  async function setDestination(id: string | null, name: string | null) {
+  async function setDestination(id: string | null, name: string | null): Promise<boolean> {
     const target = name ?? "1순위";
     setDayBusy(true);
     try {
@@ -286,17 +286,19 @@ export default function TodayPage() {
       );
       if (error) {
         setActionError(formatLunchDayWriteError("목적지 변경", target, error));
-        return;
+        return false;
       }
       setActionError(null);
+      return true;
     } catch (e) {
       setActionError(formatLunchDayWriteError("목적지 변경", target, { message: thrownMessage(e) }));
+      return false;
     } finally {
       setDayBusy(false);
     }
   }
 
-  async function setVisit(input: VisitInput) {
+  async function setVisit(input: VisitInput): Promise<boolean> {
     const target = input.status === "skipped" ? "단체 점심 안 함" : (input.name ?? "매장");
     setDayBusy(true);
     try {
@@ -312,11 +314,13 @@ export default function TodayPage() {
       );
       if (error) {
         setActionError(formatLunchDayWriteError("방문 기록", target, error));
-        return;
+        return false;
       }
       setActionError(null);
+      return true;
     } catch (e) {
       setActionError(formatLunchDayWriteError("방문 기록", target, { message: thrownMessage(e) }));
+      return false;
     } finally {
       setDayBusy(false);
     }
@@ -461,9 +465,10 @@ export default function TodayPage() {
             <CandidateList
               candidates={todayCandidates}
               catalog={catalog}
-              excluded={excluded}
+              excluded={pool.offWheel}
               wheelCount={wheelItems.length}
-              allExcluded={allExcluded}
+              allExcluded={pool.allPaused}
+              fellBack={pool.fellBack}
               status={listStatus}
               phase={phase}
               spinTimeText={spinTimeText}

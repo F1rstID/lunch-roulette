@@ -39,8 +39,10 @@ type Props = {
   excluded: ReadonlyMap<string, ExclusionReason>;
   // 휠에 실제로 올라간 수(= 담긴 후보 − 제외). 헤더가 "담긴 n · 뽑는 m" 으로 둘을 나란히 보인다.
   wheelCount: number;
-  // 담긴 후보가 전부 제외라 휠이 비었다 — 서버는 이날 결과 행을 만들지 않으므로(all_paused) 안내가 필요하다.
+  // 담긴 후보가 전부 쉬기라 휠이 비었다 — 서버는 이날 결과 행을 만들지 않으므로(all_paused) 안내가 필요하다.
   allExcluded: boolean;
+  // 이번 주 다 가 봐서 방문 제외를 풀고 쉬기만 뺀 후보로 뽑는 날(서버의 weekly_fallback 과 같은 판정) — 그 사실을 말한다.
+  fellBack: boolean;
   status: ListStatus;
   phase: Phase;
   // 설정에서 온 추첨 시각 문구. 기본값을 두지 않는다 — 두면 시각이 다시 이 파일에 숨는다.
@@ -56,6 +58,7 @@ export function CandidateList({
   excluded,
   wheelCount,
   allExcluded,
+  fellBack,
   status,
   phase,
   spinTimeText,
@@ -111,7 +114,12 @@ export function CandidateList({
           그 둘을 말한다 — 결과 카드는 "아직 결과가 없어요" 만 보여 이유를 모른다. */}
       {allExcluded && (
         <div role="status" style={s.notice}>
-          담긴 후보가 전부 이번 주 제외예요 — 쉬기를 풀거나 매장을 더 담아 주세요
+          담긴 후보가 전부 이번 주 쉬기예요 — 쉬기를 풀거나 매장을 더 담아 주세요
+        </div>
+      )}
+      {fellBack && (
+        <div role="status" style={s.notice}>
+          담긴 후보를 이번 주 다 가 봤어요 — 쉬는 곳만 빼고 다시 뽑아요
         </div>
       )}
 

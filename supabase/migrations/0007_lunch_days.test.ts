@@ -43,6 +43,11 @@ describe("0007 주간 점심 기록 — lunch_days 표 계약", () => {
     expect(sql).toMatch(/visited_name text/);
   });
 
+  it("이름 스냅샷 둘은 매장명과 같은 24자 상한이다 — 0005 의 규율을 이 표만 빠뜨리지 않는다", () => {
+    expect(sql).toMatch(/destination_name text check \(destination_name is null or char_length\(destination_name\) between 1 and 24\)/);
+    expect(sql).toMatch(/visited_name text check \(visited_name is null or char_length\(visited_name\) between 1 and 24\)/);
+  });
+
   it("시각 컬럼 셋 — 목적지 설정 시각(stale 판정)·방문 시각·갱신 시각", () => {
     expect(sql).toMatch(/destination_set_at timestamptz/);
     expect(sql).toMatch(/visited_at timestamptz/);
@@ -104,6 +109,11 @@ describe("0007 — 매장 쉬기 컬럼과 쿨다운 폐기", () => {
     expect(count(/new\.updated_at := now\(\)/g)).toBe(1);
     // 같은 목적지를 다시 골라도(set_at 만 새 값) 재각인돼야 다시 돌리기 뒤의 재선택이 산다 — set_at 변화로 판정한다.
     expect(count(/new\.destination_set_at is distinct from old\.destination_set_at/g)).toBe(1);
+    // INSERT 에는 old 가 없다 — tg_op 가드가 빠지면 첫 행 쓰기가 "old 참조" 로 실패한다.
+    expect(count(/tg_op = 'INSERT' or new\.destination_set_at is distinct from/g)).toBe(1);
+    expect(count(/tg_op = 'INSERT' or new\.visited_at is distinct from/g)).toBe(1);
+    // 트리거 함수는 호출자의 search_path 로 돈다 — 비워 두어야 같은 이름 함수를 다른 스키마에 심는 경로가 닫힌다.
+    expect(count(/set search_path = ''/g)).toBe(1);
   });
 
   it("추가만 한다 — drop(정책·트리거 교체 제외)·cron·settings 쓰기를 건드리지 않는다", () => {

@@ -85,12 +85,13 @@ export function formatRestaurantWriteError(
   return `매장 "${name}" ${action} 실패: ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
 }
 
-// 점심 기록 쓰기의 동사 자리 — 목적지 변경(다음 식당·되돌리기)·방문 기록(어디서 먹었나·단체 점심 안 함)·매장 쉬기 토글.
-export type LunchDayWriteAction = "목적지 변경" | "방문 기록" | "쉬기" | "쉬기 해제";
+// 점심 기록 쓰기의 동사 자리 — 목적지 변경(다음 식당·되돌리기)·방문 기록(어디서 먹었나·단체 점심 안 함).
+// 매장 쉬기 토글은 restaurants 쓰기라 formatRestaurantWriteError("쉬기" | "쉬기 해제") 를 쓴다.
+export type LunchDayWriteAction = "목적지 변경" | "방문 기록";
 
 // 점심 기록 쓰기는 대상이 매장이 아닐 때도 있다(단체 점심 안 함). 그래서 접두가 "매장 …" 이 아니라 동사가 앞이고
 // 대상은 괄호 안이다. 나머지 규칙은 두 벌과 같다: FK 위반(23503)은 클릭 직전에 매장이 지워진 것, null 은 영향 행 0
-// (쉬기 토글의 update 가 지워진 매장을 가리킨 경우), 공백 원문은 대체 문구, 긴 원문은 상한.
+// (호출부가 .select() 로 영향 행을 세는 경우), 공백 원문은 대체 문구, 긴 원문은 상한.
 // 이 함수도 details·hint 는 보지 않는다 — 머리 주석의 이유가 기록 경로에서도 그대로다.
 export function formatLunchDayWriteError(
   action: LunchDayWriteAction,

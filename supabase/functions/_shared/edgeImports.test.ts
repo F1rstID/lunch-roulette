@@ -228,6 +228,14 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     ]).toEqual([1, 1, 1, 1, 1]);
   });
 
+  it("점심 기록 창 조회는 제외 판정에 필요한 다섯 열을 읽는다 (#66)", () => {
+    // 열 하나가 빠지면 좁히기가 null 로 떨어져 방문 확인·목적지 변경이 조용히 무시된다 — 타입은 그걸 못 잡는다(스키마 제네릭 없음).
+    const cols = /select\("date, destination_id, destination_set_at, visit_status, visited_id"\)/g;
+    expect([count(spin, cols), count(respin, cols)]).toEqual([1, 1]);
+    const winners = /select\("date, restaurant_id, spun_at"\)/g;
+    expect([count(spin, winners), count(respin, winners)]).toEqual([1, 1]);
+  });
+
   it("전부 쉬기면 결과 행을 만들지 않고 all_paused 로 끝낸다 (#63)", () => {
     // 쉬기 매장을 몰래 되살리는 폴백이 생기면 "이번 주 쉬기" 가 거짓이 된다. 행이 없어야 다음 분 cron 이 재시도한다.
     expect(count(spin, /skipped: "all_paused"/g)).toBe(1);

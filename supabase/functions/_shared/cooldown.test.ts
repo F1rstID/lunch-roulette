@@ -11,6 +11,7 @@ import {
   applyWeeklyExclusions,
   dayExclusionId,
   effectiveDestinationId,
+  isDestinationFresh,
   weekStartOf,
   weeklyWindowStart,
 } from "./cooldown";
@@ -147,6 +148,21 @@ describe("DEST-01 — 오늘 갈 곳은 lunch_days 가 결과 행보다 뒤에 �
   it("당첨 매장이 지워져 restaurant_id 가 null 이고 day 가 없으면 null 이다 (#21)", () => {
     expect(effectiveDestinationId({ restaurant_id: null, spun_at: WINNER.spun_at }, null)).toBeNull();
   });
+
+  // 목적지 매장이 지워지면 destination_id 는 set-null 되고 이름 스냅샷만 남는다. 제외 id 로는 당첨과 같지만(뺄 매장이
+  // 없다), "되돌리기"(둘 다 null)와는 달라야 화면·기록이 스냅샷 이름을 보일 수 있다 — 그 가름이 신선도 판정이다.
+  it("isDestinationFresh — 추첨 뒤 선택이면 참, 이전이거나 set_at 이 없으면 거짓 (#21a)", () => {
+    expect(isDestinationFresh(WINNER, { destination_id: null, destination_set_at: "2026-10-27T03:10:00.000Z" })).toBe(true);
+    expect(isDestinationFresh(WINNER, { destination_id: "r2", destination_set_at: WINNER.spun_at })).toBe(true);
+    expect(isDestinationFresh(WINNER, { destination_id: "r2", destination_set_at: "2026-10-27T02:40:00.000Z" })).toBe(false);
+    expect(isDestinationFresh(WINNER, { destination_id: "r2", destination_set_at: null })).toBe(false);
+  });
+
+  it("지워진 목적지(destination_id null)는 제외 id 로는 당첨이다 — 지워진 매장은 후보일 수 없다 (#21b)", () => {
+    expect(
+      effectiveDestinationId(WINNER, { destination_id: null, destination_set_at: "2026-10-27T03:10:00.000Z" }),
+    ).toBe("r1");
+  });
 });
 
 describe("WEEK-01 — 하루의 제외 id 는 방문 > 목적지 > 당첨 순이다", () => {
@@ -279,9 +295,14 @@ describe("WEEK-02 — 2단 폴백: 쉬기는 되살리지 않고, 이번 주 방
 });
 
 describe("모듈 형태 — 최근 N일 쿨다운은 사라졌다", () => {
-  it("export 는 주간 규칙 5개뿐이고 applyCooldown·cooldownWindowStart 는 없다 (#36)", () => {
-    expect(Object.keys(cooldown).sort()).toEqual(
-      ["applyWeeklyExclusions", "dayExclusionId", "effectiveDestinationId", "weekStartOf", "weeklyWindowStart"],
-    );
+  it("export 는 주간 규칙 6개뿐이고 applyCooldown·cooldownWindowStart 는 없다 (#36)", () => {
+    expect(Object.keys(cooldown).sort()).toEqual([
+      "applyWeeklyExclusions",
+      "dayExclusionId",
+      "effectiveDestinationId",
+      "isDestinationFresh",
+      "weekStartOf",
+      "weeklyWindowStart",
+    ]);
   });
 });

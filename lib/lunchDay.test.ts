@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from "vitest";
 import type { LunchDayRow, ResultRow, WeekWinnerRow } from "@/lib/supabase/client";
+import type { ExclusionReason } from "@/lib/lunchDay";
 import {
   INITIAL_LUNCH_WEEK_STATE,
   WEEKDAYS,
@@ -17,6 +18,7 @@ import {
   parseOtherVisitName,
   visitSummary,
   weeklyExclusionMap,
+  wheelPool,
 } from "@/lib/lunchDay";
 
 const SPUN_AT = "2026-10-27T02:55:00.000Z";
@@ -95,6 +97,15 @@ describe("DEST-01 — destinationOf: 오늘 갈 곳의 id·이름·순위", () =
 
   it("0006 이전 행(ranking null)도 당첨은 1순위다 (#8)", () => {
     expect(destinationOf({ ...RESULT, ranking: null }, null)).toEqual({ id: "r1", name: "김밥천국", rank: 1 });
+  });
+
+  // 목적지 매장이 지워지면 destination_id 는 set-null 되고 이름만 남는다. 되돌리기(둘 다 null)와 달리 "그 집에 가기로 했다" 는
+  // 사실은 남아야 한다(리뷰 WR-02) — 순위는 없고 지도는 이름 검색이다. 추첨 전 선택(stale)이면 당첨으로 돌아간다.
+  it("지워진 목적지(id null · 이름 스냅샷)는 그 이름으로 보이고 순위가 없다 (#9a)", () => {
+    const d = day({ destination_id: null, destination_name: "사라진 집", destination_set_at: AFTER_SPIN });
+    expect(destinationOf(RESULT, d)).toEqual({ id: null, name: "사라진 집", rank: null });
+    const stale = day({ destination_id: null, destination_name: "사라진 집", destination_set_at: BEFORE_SPIN });
+    expect(destinationOf(RESULT, stale)).toEqual({ id: "r1", name: "김밥천국", rank: 1 });
   });
 
   it("당첨 매장이 지워져 restaurant_id 가 null 이어도 이름 스냅샷으로 1순위를 보인다 (#9)", () => {
@@ -223,6 +234,43 @@ describe("WEEK-01 — weeklyExclusionMap: 휠에서 빠질 매장과 목록 배�
   });
 });
 
+// 휠에 오르는 후보는 서버가 뽑는 pool 과 같아야 한다 — 2단 폴백까지(리뷰 CR-01). 사유 맵에서 한 단으로 빼면 이번 주 다 가 본 날
+// 서버는 결과를 만드는데 화면은 빈 휠을 보인다.
+describe("WEEK-02 — wheelPool: 휠 후보는 서버의 applyWeeklyExclusions 와 같은 2단 폴백이다", () => {
+  const C = [{ id: "r1" }, { id: "r2" }, { id: "r3" }];
+  const V = (date: string) => ({ reason: "visited", date }) as const;
+  const P = { reason: "paused" } as const;
+
+  it("방문·쉬기 매장이 휠에서 빠지고 offWheel 에 사유가 남는다 (#52)", () => {
+    const pool = wheelPool(C, new Map<string, ExclusionReason>([["r1", V("2026-10-27")], ["r2", P]]));
+    expect([pool.items.map((c) => c.id), pool.allPaused, pool.fellBack, [...pool.offWheel.keys()]]).toEqual([
+      ["r3"], false, false, ["r1", "r2"],
+    ]);
+  });
+
+  it("전원 쉬기면 휠이 비고 allPaused — 쉬기는 되살리지 않는다 (#53)", () => {
+    const pool = wheelPool(C, new Map<string, ExclusionReason>([["r1", P], ["r2", P], ["r3", P]]));
+    expect([pool.items, pool.allPaused, pool.fellBack]).toEqual([[], true, false]);
+  });
+
+  it("방문으로 전멸하면 쉬기만 뺀 후보로 되돌리고 fellBack — 방문 매장은 휠에 올라 배지가 빠진다 (#54)", () => {
+    const pool = wheelPool(C, new Map<string, ExclusionReason>([["r1", V("2026-10-27")], ["r2", V("2026-10-28")], ["r3", P]]));
+    expect([pool.items.map((c) => c.id), pool.allPaused, pool.fellBack, [...pool.offWheel.keys()]]).toEqual([
+      ["r1", "r2"], false, true, ["r3"],
+    ]);
+  });
+
+  it("안 담긴 쉬기 매장의 사유는 offWheel 에 남는다 — 담기 전에 배지로 보인다 (#55)", () => {
+    const pool = wheelPool([{ id: "r1" }], new Map<string, ExclusionReason>([["r9", P]]));
+    expect([pool.items.map((c) => c.id), [...pool.offWheel.keys()]]).toEqual([["r1"], ["r9"]]);
+  });
+
+  it("후보가 없으면 플래그 전부 거짓이다 (#56)", () => {
+    const pool = wheelPool([], new Map<string, ExclusionReason>([["r1", P]]));
+    expect([pool.items, pool.allPaused, pool.fellBack]).toEqual([[], false, false]);
+  });
+});
+
 describe("DEST-01 — lunchWeekReducer: 세대 번호로 stale 응답을 버리고 재조회로 복구한다", () => {
   const REFRESHED = lunchWeekReducer(INITIAL_LUNCH_WEEK_STATE, { type: "refresh", weekStart: WEEK_START, today: TODAY });
 
@@ -264,9 +312,34 @@ describe("DEST-01 — lunchWeekReducer: 세대 번호로 stale 응답을 버리�
     const again = lunchWeekReducer(REFRESHED, { type: "refresh", weekStart: WEEK_START, today: TODAY });
     const refetched = lunchWeekReducer(
       { ...loaded, generation: again.generation },
-      { type: "fetched", generation: 2, days: [], winners: [], error: null },
+      { type: "fetched", generation: 2, days: [], winners: [winner("2026-10-27", "r1")], error: null },
     );
-    expect([refetched.days, refetched.loaded]).toEqual([[], true]);
+    // 조회에 없는 날짜의 행은 남는다 — lunch_days 는 delete 정책이 없어 사라질 수 없고, 이벤트로 받은 행이 조회보다 새 것일 수 있다.
+    expect([refetched.days, refetched.winners, refetched.loaded]).toEqual([[day()], [winner("2026-10-27", "r1")], true]);
+  });
+
+  // 조회가 도는 사이 도착한 changed 는 조회 스냅샷보다 새 것일 수 있고 이벤트는 다시 오지 않는다(리뷰 WR-01).
+  it("조회 중 도착한 changed(updated_at 이 더 늦음)는 옛 스냅샷 응답에 지워지지 않는다 (#33a)", () => {
+    const fresh = day({ visit_status: "visited", visited_id: "r2", updated_at: "2026-10-27T03:30:00.000Z" });
+    const stale = day({ updated_at: "2026-10-27T03:10:00.000Z" });
+    const withEvent = lunchWeekReducer(REFRESHED, { type: "changed", row: fresh });
+    const next = lunchWeekReducer(withEvent, { type: "fetched", generation: 1, days: [stale], winners: [], error: null });
+    expect(next.days).toEqual([fresh]);
+  });
+
+  it("조회 행이 더 늦으면 조회 행이 이긴다 — 표기가 달라도 순간으로 비교한다 (#33b)", () => {
+    const older = day({ updated_at: "2026-10-27T03:10:00.000Z" });
+    const newer = day({ visit_status: "skipped", updated_at: "2026-10-27T12:20:00.000+09:00" });
+    const withEvent = lunchWeekReducer(REFRESHED, { type: "changed", row: older });
+    const next = lunchWeekReducer(withEvent, { type: "fetched", generation: 1, days: [newer], winners: [], error: null });
+    expect(next.days).toEqual([newer]);
+  });
+
+  it("창이 바뀐 뒤의 fetched 는 옛 창의 state 행을 버린다 — 자정 뒤 지난 주 행이 남지 않는다 (#33c)", () => {
+    const loaded = lunchWeekReducer(REFRESHED, { type: "fetched", generation: 1, days: [day()], winners: [], error: null });
+    const nextWeek = lunchWeekReducer(loaded, { type: "refresh", weekStart: "2026-11-02", today: "2026-11-03" });
+    const next = lunchWeekReducer(nextWeek, { type: "fetched", generation: 2, days: [], winners: [], error: null });
+    expect(next.days).toEqual([]);
   });
 
   it("fetched 의 error 는 문자열로 남고 가진 행은 유지한다 (#34)", () => {

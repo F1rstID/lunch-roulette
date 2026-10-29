@@ -239,13 +239,13 @@ describe("formatLunchDayWriteError — 목적지 변경·방문 기록·쉬기 �
     ).toBe("이미 삭제된 매장이에요: 샐러드바");
   });
 
-  it("에러 없이 영향 행이 0이면(null) 이미 지워진 매장이다 — 쉬기 토글이 그 경로다", () => {
-    expect(formatLunchDayWriteError("쉬기", "샐러드바", null)).toBe("이미 삭제된 매장이에요: 샐러드바");
+  it("에러 없이 영향 행이 0이면(null) 이미 지워진 매장이다", () => {
+    expect(formatLunchDayWriteError("목적지 변경", "샐러드바", null)).toBe("이미 삭제된 매장이에요: 샐러드바");
   });
 
   it("공백뿐인 원문은 알 수 없는 오류로 대체된다", () => {
-    expect(formatLunchDayWriteError("쉬기 해제", "샐러드바", { message: "   " })).toBe(
-      "쉬기 해제 실패(샐러드바): 알 수 없는 오류",
+    expect(formatLunchDayWriteError("방문 기록", "샐러드바", { message: "   " })).toBe(
+      "방문 기록 실패(샐러드바): 알 수 없는 오류",
     );
   });
 

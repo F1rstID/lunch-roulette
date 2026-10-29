@@ -179,7 +179,10 @@ Deno.serve(async (req) => {
     // 그래서 다시 돌리기가 오늘 목적지 매장을 다시 뽑을 수 있다.
     const weekStart = weekStartOf(now.date, now.weekday);
     const windowStart = weeklyWindowStart(now.date, now.weekday);
-    const pausedIds = candidates.filter((c) => c.paused_week === weekStart).map((c) => c.restaurant_id);
+    // weekStart 가 null(오염 날짜)이면 쉬기를 적용하지 않는다 — null === null 로 쉬지 않는 매장 전원이 걸려 all_paused 가 된다.
+    const pausedIds = weekStart === null
+      ? []
+      : candidates.filter((c) => c.paused_week === weekStart).map((c) => c.restaurant_id);
     const visitedIds: (string | null)[] = [];
     if (windowStart !== null) {
       // 창 조회 둘 — 그 주의 결과 행(당첨·추첨 시각)과 점심 기록(목적지·방문). 날짜로 조인해 하루의 제외 id 를 정한다.
