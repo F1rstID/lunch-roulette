@@ -66,4 +66,4 @@ completed: 2026-10-29
 
 ## Phase 9 전체
 
-커밋 17개(fafda65 … 이 문서). 테스트 439 → 552(+113, 파일 21 → 24). 적용은 README "0007 적용": SQL(사용자) → `spin-roulette`·`respin-roulette` 배포 → PR #8 머지.
+커밋 22개(fafda65 … 리뷰 반영). 테스트 439 → 566(+127, 파일 21 → 24). 리뷰(fable) Critical 1·Warning 4·Info 7 → 전부 처리(`09-REVIEW.md` 반영 표): 클라이언트도 `applyWeeklyExclusions` 2단 폴백(`wheelPool`), 리듀서 `updated_at` 병합, 지워진 목적지 스냅샷(`isDestinationFresh`), 이름 길이 check, 콜백 boolean, 트리거 search_path, Edge weekStart null 가드. 적용은 README "0007 적용": SQL(사용자) → `spin-roulette`·`respin-roulette` 배포 → PR #8 머지.

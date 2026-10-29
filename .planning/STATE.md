@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 9 executed (3/3 plans) — review·push pending
-stopped_at: Phase 9 실행 완료(09-01~03, 커밋 17개, 테스트 552). 다음은 리뷰 fable 1회(09-REVIEW.md) → 수정 → 푸시(gh 계정 F1rstID 확인) → PR #8 드래프트 해제. 라이브 적용은 README "0007 적용"(사용자)
+status: Phase 9 executed + reviewed (fixes applied) — push·PR pending
+stopped_at: Phase 9 실행 완료(09-01~03, 커밋 17개, 테스트 552). 리뷰 fable 1회 완료(CR 1·WR 4·IN 7 전부 처리, 테스트 566). 다음은 푸시(gh 계정 F1rstID 확인) → PR #8 드래프트 해제. 라이브 적용은 README "0007 적용"(사용자)
 last_updated: "2026-10-29T02:39:39.000Z"
 last_activity: "2026-10-29 -- Phase 9 실행 완료: 09-01(주간 규칙·0007 SQL+트리거·Edge 2종·lunchDay 모듈) · 09-02(useLunchWeek·DestinationCard·오늘 탭) · 09-03(쉬기·applyLunchDays·기록/랭킹·문서). 게이트 5종 exit 0, 390px 4탭 넘침 0"
 progress:
@@ -195,5 +195,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-10-29 (/gsd-execute-phase 9 직접 실행 레인)
-Stopped at: Phase 9 실행 완료. 브랜치 `feat/weekly-lunch-record`(PR #8 draft, 미푸시 커밋 있음). 다음은 리뷰 fable 1회 → 수정 → 푸시 → PR #8 드래프트 해제. 라이브 적용(0007 SQL → 함수 → 머지)은 사용자 지시 때만
+Stopped at: Phase 9 실행 완료. 브랜치 `feat/weekly-lunch-record`(PR #8 draft, 미푸시 커밋 있음). 리뷰·수정 완료(09-REVIEW.md 반영 표). 다음은 푸시 → PR #8 드래프트 해제. 라이브 적용(0007 SQL → 함수 → 머지)은 사용자 지시 때만
 Resume file: None
