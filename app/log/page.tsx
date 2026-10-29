@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, type ResultRow } from "@/lib/supabase/client";
+import { supabase, type LunchDayRow, type ResultRow } from "@/lib/supabase/client";
 import { todayKstDate, formatHhMmSs, kstParts } from "@/lib/time";
 import { currentPhase, displayPhase } from "@/lib/phase";
 import { formatLoadError, joinLoadErrors } from "@/lib/errors";
 import { useSettings } from "@/lib/useSettings";
-import { filterSince } from "@/lib/history";
+import { applyLunchDays, filterSince, type HistoryEntry } from "@/lib/history";
 import { TopBar } from "@/components/TopBar";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { CalendarLog } from "@/components/CalendarLog";
@@ -32,6 +32,8 @@ export default function LogPage() {
   });
 
   const [results, setResults] = useState<ResultRow[]>([]);
+  // 같은 창의 점심 기록(목적지·방문). 결과 행과 날짜로 조인해 "간 곳" 을 만든다(lib/history.ts applyLunchDays).
+  const [days, setDays] = useState<LunchDayRow[]>([]);
   // 초기 SELECT 실패 메시지. 실패를 빈 달력으로 위장하지 않는다.
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -65,16 +67,18 @@ export default function LogPage() {
       const endYear = calMonth.m >= 11 ? calMonth.y + 1 : calMonth.y;
       const endMonth = ((calMonth.m + 1) % 12) + 1; // current+2
       const end = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
-      const { data, error } = await supabase
-        .from("results")
-        .select("*")
-        .gte("date", start)
-        .lt("date", end)
-        .order("date", { ascending: true });
+      // 결과와 점심 기록을 같은 창으로 함께 읽는다 — 한쪽만 창이 다르면 조인에서 빠진 날이 "확인 안 됨" 으로 둔갑한다.
+      const [resultsRes, daysRes] = await Promise.all([
+        supabase.from("results").select("*").gte("date", start).lt("date", end).order("date", { ascending: true }),
+        supabase.from("lunch_days").select("*").gte("date", start).lt("date", end),
+      ]);
       if (cancelled) return;
-      // 이 effect 는 calMonth 마다 재실행된다. 성공하면 null 이 들어가 이전 달의 실패 배너가 걷힌다.
-      setLoadError(formatLoadError("기록", error));
-      if (data) setResults(data as ResultRow[]);
+      // 이 effect 는 calMonth 마다 재실행된다. 두 실패를 한 줄에 모으고, 성공하면 null 이 들어가 이전 달의 실패 배너가 걷힌다.
+      setLoadError(
+        joinLoadErrors([formatLoadError("기록", resultsRes.error), formatLoadError("점심 기록", daysRes.error)]),
+      );
+      if (resultsRes.data) setResults(resultsRes.data as ResultRow[]);
+      if (daysRes.data) setDays(daysRes.data as LunchDayRow[]);
     })();
     return () => {
       cancelled = true;
@@ -107,29 +111,61 @@ export default function LogPage() {
     };
   }, []);
 
+  // 점심 기록(목적지·방문)의 INSERT/UPDATE. 날짜가 키라 같은 날짜 행을 교체한다 — delete 정책이 없어 DELETE 는 오지 않는다(0007).
+  // 창 밖 날짜가 와도 그대로 둔다: 조인은 결과 행 쪽에서 날짜를 찾으므로 남는 행은 아무것도 바꾸지 않는다.
+  useEffect(() => {
+    const upsertDay = (row: LunchDayRow) =>
+      setDays((prev) =>
+        prev.some((d) => d.date === row.date) ? prev.map((d) => (d.date === row.date ? row : d)) : [...prev, row],
+      );
+    const ch: RealtimeChannel = supabase
+      .channel(`lunch-days-log-${++topicSeq}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "lunch_days" },
+        (payload) => upsertDay(payload.new as LunchDayRow),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "lunch_days" },
+        (payload) => upsertDay(payload.new as LunchDayRow),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
   // 화면에 올리는 행은 전환일 이후만이다(HIST-01). 위 phase 계산은 필터 전 행을 본다 — 오늘 결과가 있다는 사실은
   // 전환일과 무관하고, 전환 절차가 history_since 를 다음 날로 밀어 두는 하루(wr-01) 에도 상단 라벨이 맞아야 한다.
-  const visible = useMemo(
-    () => filterSince(results, settings.historySince),
-    [results, settings.historySince],
+  // 그 위에 점심 기록을 조인해 "간 곳" 기준 행으로 바꾼다(HIST-04) — 단체 점심 안 한 날은 여기서 빠진다.
+  const entries = useMemo(
+    () => applyLunchDays(filterSince(results, settings.historySince), days),
+    [results, settings.historySince, days],
   );
 
-  const logMap = useMemo<Record<string, ResultRow>>(() => {
-    const m: Record<string, ResultRow> = {};
-    for (const r of visible) m[r.date] = r;
+  const logMap = useMemo<Record<string, HistoryEntry<ResultRow>>>(() => {
+    const m: Record<string, HistoryEntry<ResultRow>> = {};
+    for (const e of entries) m[e.date] = e;
     return m;
-  }, [visible]);
+  }, [entries]);
 
-  const count = visible.filter((r) =>
-    r.date.startsWith(`${calMonth.y}-${String(calMonth.m).padStart(2, "0")}`),
+  const daysByDate = useMemo<Record<string, LunchDayRow>>(() => {
+    const m: Record<string, LunchDayRow> = {};
+    for (const d of days) m[d.date] = d;
+    return m;
+  }, [days]);
+
+  const count = entries.filter((e) =>
+    e.date.startsWith(`${calMonth.y}-${String(calMonth.m).padStart(2, "0")}`),
   ).length;
 
   // 전환일 이전 달이 비어 보이는 것은 고장이 아니라 경계다 — 부제가 그 경계를 말한다.
   // 필터·조회 경계와 같은 판정(=== null)을 쓴다 — 빈 문자열이 흘러들 때 셋이 제각각 갈리지 않게.
   const subhead =
     settings.historySince !== null
-      ? `${settings.historySince.replace(/-/g, ".")} 부터의 매장 기록, 그리고 그날의 후보 수까지.`
-      : "매일 룰렛이 정해준 매장, 그리고 그날의 후보 수까지.";
+      ? `${settings.historySince.replace(/-/g, ".")} 부터 실제로 간 곳, 그리고 그날의 추첨 결과까지.`
+      : "매일 실제로 간 곳, 그리고 그날의 추첨 결과까지.";
 
   // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버 전에는
   // settings 테이블이 없어 상시 표시되는 것이 정상이다. 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않는다.
@@ -158,6 +194,7 @@ export default function LogPage() {
 
         <CalendarLog
           logMap={logMap}
+          days={daysByDate}
           todayKey={todayKey}
           year={calMonth.y}
           month={calMonth.m}

@@ -27,6 +27,7 @@ const ROW_A = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T02:00:00+09:00",
+  paused_week: null,
 };
 // ROW_A 와 같은 id 의 새 행. UPDATE 가 얕은 병합이 아니라 통째 교체라는 것을 보이는 데 쓴다.
 const ROW_A_NEXT = {
@@ -36,6 +37,7 @@ const ROW_A_NEXT = {
   location: "2층 안쪽",
   pinned: true,
   created_at: "2026-09-29T02:00:00+09:00",
+  paused_week: null,
 };
 const ROW_B = {
   id: "r2",
@@ -44,6 +46,7 @@ const ROW_B = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T03:00:00+09:00",
+  paused_week: null,
 };
 const ROW_PINNED = {
   id: "r3",
@@ -52,6 +55,7 @@ const ROW_PINNED = {
   location: null,
   pinned: true,
   created_at: "2026-09-29T04:00:00+09:00",
+  paused_week: null,
 };
 // 같은 핀 그룹 안의 이름 정렬만 보기 위한 셋. 입력 순서를 일부러 사전순과 어긋나게 둔다.
 const ROW_DA = {
@@ -61,6 +65,7 @@ const ROW_DA = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T05:00:00+09:00",
+  paused_week: null,
 };
 const ROW_GA = {
   id: "r5",
@@ -69,6 +74,7 @@ const ROW_GA = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T06:00:00+09:00",
+  paused_week: null,
 };
 const ROW_NA = {
   id: "r6",
@@ -77,6 +83,7 @@ const ROW_NA = {
   location: null,
   pinned: false,
   created_at: "2026-09-29T07:00:00+09:00",
+  paused_week: null,
 };
 
 // 개수 경계(30/31)를 만들 때 쓰는 목록. 이름이 서로 달라야 중복 제거에 걸리지 않는다.

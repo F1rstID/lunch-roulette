@@ -79,6 +79,8 @@ const sql = stripComments(rawSql, "--");
 const clientSrc = readOrEmpty(new URL("../../lib/supabase/client.ts", import.meta.url));
 
 const RESTAURANT_COLUMNS = ["id", "name", "menus", "location", "pinned", "created_at"];
+// 0007 이 paused_week 를 끝에 더했다(supabase/migrations/0007_lunch_days.sql). SQL 쪽(#35)은 0005 파일만 보므로 목록을 가른다.
+const RESTAURANT_ROW_FIELDS = [...RESTAURANT_COLUMNS, "paused_week"];
 const CANDIDATE_COLUMNS = ["restaurant_id", "created_at"];
 const SETTINGS_COLUMNS = ["id", "spin_time", "cooldown_days", "history_since"];
 // 0006 이 ranking 을 끝에 더했다(supabase/migrations/0006_results_ranking.sql). 이 목록은 TS 가 SQL 과 따로 움직이는 것을 잡는다.
@@ -344,7 +346,7 @@ describe("TS/D-13 — 행 타입이 SQL 컬럼 목록과 일치한다", () => {
   });
 
   it("RestaurantRow 필드가 기대 목록과 같다 (#36)", () => {
-    expect(typeFields(clientSrc, "RestaurantRow")).toEqual(RESTAURANT_COLUMNS);
+    expect(typeFields(clientSrc, "RestaurantRow")).toEqual(RESTAURANT_ROW_FIELDS);
   });
 
   it("SQL candidates 컬럼이 기대 목록과 같다 (#37)", () => {

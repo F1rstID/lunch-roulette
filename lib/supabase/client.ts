@@ -30,7 +30,28 @@ export type RestaurantRow = {
   location: string | null;
   pinned: boolean;
   created_at: string;
+  // "이번 주 쉬기" 의 월요일 날짜(0007). 이번 주 월요일과 같을 때만 활성이고 다른 주 값은 만료된 것, null 은 쉬지 않음.
+  // 활성 판정은 lib/lunchDay.ts weeklyExclusionMap 과 두 Edge Function 이 같은 비교(=== weekStart)로 한다.
+  paused_week: string | null;
 };
+
+// 하루 한 행의 점심 기록(supabase/migrations/0007_lunch_days.sql). 행은 누군가 행동할 때만 생기고, 없는 날의 목적지는
+// 결과 행의 1순위로 파생한다(_shared/cooldown.ts effectiveDestinationId). 두 Edge Function 은 이 표를 읽기만 한다.
+// visit_status 가 unknown 이면 "확인 안 됨" — 기록·랭킹·주간 제외는 목적지에 간 것으로 친다(사용자 결정).
+export type LunchDayRow = {
+  date: string; // "yyyy-mm-dd" KST. results.date 와 그대로 조인한다
+  destination_id: string | null; // 매장 삭제 시 set null. null 은 "바꾸지 않음(=1순위)" 또는 되돌리기
+  destination_name: string | null; // 스냅샷 — 매장이 지워져도 "어디 가기로 했나" 가 남는다
+  destination_set_at: string | null; // results.spun_at 보다 앞이면 다시 돌리기 전의 선택이라 코드가 무시한다
+  visit_status: "unknown" | "visited" | "skipped";
+  visited_id: string | null; // visited 인데 null 이면 카탈로그 밖 "다른 매장"
+  visited_name: string | null;
+  visited_at: string | null;
+  updated_at: string;
+};
+
+// 이번 주 창 조회가 results 에서 읽는 세 컬럼. 주간 제외 판정에 필요한 것이 이 셋뿐이라 전체 행을 요구하지 않는다.
+export type WeekWinnerRow = Pick<ResultRow, "date" | "restaurant_id" | "spun_at">;
 
 // 오늘 후보. PK 가 restaurant_id 라서 같은 매장을 두 번 담을 수 없고,
 // Realtime DELETE 이벤트의 payload.old 에도 이 컬럼이 실려 온다 (supabase/migrations/0005_restaurants_settings.sql).
@@ -44,6 +65,6 @@ export type CandidateRow = {
 export type SettingsRow = {
   id: 1;
   spin_time: string; // PostgREST time → "HH:MM:SS" (초 포함). 파서는 "11:55" 가 아니라 "11:55:00" 을 받는다
-  cooldown_days: number; // 0 = 쿨다운 끔
+  cooldown_days: number; // 0007 이후 미사용 — 주간 제외(lunch_days·paused_week)가 대체했다. 컬럼 제거는 다음 마이그레이션
   history_since: string; // "yyyy-mm-dd" (KST 기준 전환일). results.date 와 문자열 그대로 비교한다
 };

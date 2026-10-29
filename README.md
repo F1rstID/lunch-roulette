@@ -67,10 +67,11 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
 - 테이블 4개 (`supabase/migrations/0005_restaurants_settings.sql`):
   | 테이블 | 역할 | RLS(anon) |
   |---|---|---|
-  | `restaurants` | 영구 매장 카탈로그 (name unique 1~24자, menus text[] ≤30×24자, location ≤200자, pinned) | select·insert·update·delete 전면 개방 |
+  | `restaurants` | 영구 매장 카탈로그 (name unique 1~24자, menus text[] ≤30×24자, location ≤200자, pinned, `paused_week`(0007 — 이번 주 쉬기의 월요일 날짜, 이번 주 월요일과 같을 때만 활성)) | select·insert·update·delete 전면 개방 |
   | `candidates` | 오늘 후보 (PK `restaurant_id` → cascade) | 전면 개방 |
-  | `settings` | 단일행 id=1: `spin_time`(기본 11:55) · `cooldown_days`(기본 0) · `history_since`(기본 적용일) | **select 만** — 편집은 대시보드 SQL Editor(service_role) |
+  | `settings` | 단일행 id=1: `spin_time`(기본 11:55) · `cooldown_days`(0007 이후 미사용 — 주간 제외가 대체, 제거는 0008) · `history_since`(기본 적용일) | **select 만** — 편집은 대시보드 SQL Editor(service_role) |
   | `results` | 확정 결과 영구 보존. `menu` = 매장명 스냅샷, `restaurant_id`(set null), `candidates` jsonb, `ranking` jsonb(0006 — 추첨이 정한 순서, 1번째가 당첨, 구 행은 null) | select 만 — 쓰기는 Edge Function(service_role) |
+  | `lunch_days` | 0007. 날짜당 한 행의 점심 기록: `destination_id/name/set_at`(오늘 갈 곳 — 비면 그날 1순위), `visit_status`(unknown·visited·skipped) · `visited_id/name/at`. 시각 셋은 트리거 `lunch_days_stamp` 가 서버 시각으로 찍는다. 두 Edge Function 은 이번 주(월~어제) 창을 읽어 간 매장을 추첨에서 뺀다 | select·insert·update 개방, **delete 정책 없음**(되돌리기는 null 로 update) |
 - pg_cron 잡 3개 (전부 0005 가 등록, 재실행 안전형):
   - `spin-lunch-roulette` `* * * * *` — **매분** `spin-roulette` 를 pg_net 으로 호출. 시각 판정·멱등은 함수가 한다
   - `reset-candidates` `0 15 * * *` (KST 00:00) — `candidates` 비우고 📌 매장 재시드
@@ -78,10 +79,10 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
 - Edge Function 2개 (`supabase/config.toml` 에 `verify_jwt = false` 고정 — true 로 배포되면 401 로 추첨이 조용히 멈춘다):
   - `spin-roulette` — 매분 호출됨. `settings.spin_time` 이후·그날 결과 없음·후보 있음일 때만 추첨(쿨다운 `_shared/cooldown.ts`). 실패는 `console.error` 로 Edge Function Logs 에
   - `respin-roulette` — 클라이언트 "다시 돌리기". POST 만(405), 시간 가드 없음, `results` upsert(`onConflict: date`). 컷오버 직후 새 스키마 경로를 사람이 확인할 수 있는 유일한 함수
-- 마이그레이션 동작불변 원칙: `0005` 의 기본값(`spin_time` 11:55 · `cooldown_days` 0)은 전환 전 동작과 같다 — 동작 변경은 마이그레이션이 아니라 `settings` UPDATE 로만 한다.
+- 마이그레이션 동작불변 원칙: `0005` 의 기본값(`spin_time` 11:55 · `cooldown_days` 0)은 전환 전 동작과 같다 — 동작 변경은 마이그레이션이 아니라 `settings` UPDATE 로만 한다. `cooldown_days` 는 0007 부터 코드가 읽지 않는다(이번 주 간 곳·쉬기 매장 제외가 대체).
 - 설정 바꾸기(대시보드 SQL Editor):
   ```sql
-  update public.settings set spin_time = '12:10', cooldown_days = 3 where id = 1;
+  update public.settings set spin_time = '12:10' where id = 1;
   ```
   앱·함수 모두 Realtime/조회로 즉시 따른다. 재배포 불필요.
 - 다른 Supabase 프로젝트로 옮길 때 `swxiqytyxjlcgubqlozk` 치환 위치(전수): `supabase/migrations/0002_cron.sql`, `supabase/migrations/0005_restaurants_settings.sql`(spin 잡 URL), `supabase/rollback/0005_restaurants_settings.rollback.sql`, `supabase/config.toml`(주석), `CLAUDE.md`(deploy 명령), 이 README
@@ -149,6 +150,17 @@ design/                 React+Babel CDN 프로토타입 (빌드 대상 아님, �
 4. **확인** — 오늘 탭 "다시 돌리기" 뒤 `select date, menu, ranking from public.results order by date desc limit 1;` 에서 `ranking` 이 배열이고 1번째의 `name` 이 `menu` 와 같다. 결과 카드에 `2순위`·`3순위` 두 행(후보 2개면 한 행). 이튿날 11:55 자동 추첨 행에도 `ranking` 이 있다.
 
 **롤백** — 적용의 역순. PR 되돌림(`git revert -m 1`) → 구 함수 재배포(`git checkout <0006 이전 main> -- supabase/functions` 후 deploy) → 필요하면 `supabase/rollback/0006_results_ranking.rollback.sql`(순위 데이터가 사라진다). 컬럼을 그대로 둬도 구 코드에는 영향이 없으므로 SQL 롤백은 선택이다.
+
+## 0007 적용 (주간 점심 기록, 1회)
+
+`supabase/migrations/0007_lunch_days.sql` 은 `lunch_days` 표(하루 한 행: 목적지·방문 확인)와 `restaurants.paused_week`(이번 주 쉬기)를 **추가만** 하고, `settings.cooldown_days` 의 comment 를 미사용으로 바꾼다(컬럼은 남긴다 — 제거는 0008). 새 표는 아무도 읽지 않고 새 컬럼은 null 기본이라 적용 순간 구 함수·구 화면이 그대로 동작한다. 시각 제약 없음, 순서만 지킨다.
+
+1. **SQL 적용(사용자, 대시보드 SQL Editor)** — 0007 전문 실행. 재실행 안전형. 확인: `select table_name from information_schema.tables where table_name = 'lunch_days';` 가 1행, `select column_name from information_schema.columns where table_name = 'restaurants' and column_name = 'paused_week';` 가 1행, `select tgname from pg_trigger where tgname = 'lunch_days_stamp';` 가 1행.
+2. **Edge Function 2종 배포** — `npx supabase@2.117.0 functions deploy spin-roulette --project-ref swxiqytyxjlcgubqlozk --no-verify-jwt`, `respin-roulette` 도 같게. **1번보다 먼저 배포하면 안 된다** — 새 함수는 후보 임베드에 `paused_week` 를, 창 조회에 `lunch_days` 를 읽으므로 없으면 42703/42P01 로 그날 추첨을 잃는다(창 조회 실패는 `weekly_skipped` 로 폴백하지만 임베드 컬럼 부재는 폴백이 없다).
+3. **PR 머지** — 머지 전의 새 UI 는 `lunch_days` 404 를 "이번 주 기록 불러오기 실패" 배너로 보이고 나머지는 동작한다. 2번 뒤에 하는 것이 가장 단순하다.
+4. **확인** — 오늘 탭 결과 카드 아래 "오늘 갈 곳" 카드. "웨이팅 있어요 → …" 를 누른 뒤 `select * from public.lunch_days order by date desc limit 1;` 에 오늘 행이 있고 `destination_set_at` 이 서버 시각(트리거)이다. 화요일 이후 11:55 자동 추첨 응답(cron 로그)에 `weekly_fallback`·`weekly_skipped` 두 키가 있고 보통 둘 다 false. 매장 탭 "이번 주 쉬기" 를 켠 매장이 오늘 탭 목록에서 흐려지고 휠에서 빠진다(월요일 00:00 KST 해제).
+
+**롤백** — 적용의 역순. PR 되돌림(`git revert -m 1`) → 구 함수 재배포(`git checkout <0007 이전 main> -- supabase/functions` 후 deploy) → 필요하면 `supabase/rollback/0007_lunch_days.rollback.sql`(점심 기록·쉬기 상태가 사라진다 — 추첨 결과는 `results` 에 남는다). 표·컬럼을 그대로 둬도 구 코드에는 영향이 없으므로 SQL 롤백은 선택이다.
 
 ## 메모리 사용 주의
 

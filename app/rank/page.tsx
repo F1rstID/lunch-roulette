@@ -2,31 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase, type ResultRow } from "@/lib/supabase/client";
+import { supabase, type LunchDayRow, type ResultRow } from "@/lib/supabase/client";
 import { formatHhMmSs, todayKstDate } from "@/lib/time";
 import { currentPhase, displayPhase } from "@/lib/phase";
 import { formatLoadError, joinLoadErrors } from "@/lib/errors";
 import { useSettings } from "@/lib/useSettings";
-import { filterSince } from "@/lib/history";
+import { applyLunchDays, filterSince } from "@/lib/history";
 import { TopBar } from "@/components/TopBar";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { RankingView } from "@/components/RankingView";
 
 // 랭킹이 읽는 컬럼만 조회한다. candidates jsonb 가 행마다 가장 무겁고 랭킹은 그것을 쓰지 않는다.
-// id 는 Realtime 이벤트의 멱등 병합에 필요하다. 리터럴 한 줄로 두는 이유: supabase-js 는 select 문자열이 리터럴
-// 타입일 때만 응답 타입을 파싱한다(배열을 join 하면 string 이 되어 GenericStringError 로 떨어진다).
-const RANK_COLUMNS = "id,date,menu,restaurant_id";
+// id 는 Realtime 이벤트의 멱등 병합에, spun_at 은 점심 기록 조인(다시 돌리기 전에 고른 목적지 판정)에 필요하다(0007).
+// 리터럴 한 줄로 두는 이유: supabase-js 는 select 문자열이 리터럴 타입일 때만 응답 타입을 파싱한다
+// (배열을 join 하면 string 이 되어 GenericStringError 로 떨어진다).
+const RANK_COLUMNS = "id,date,menu,restaurant_id,spun_at";
 // 상태 행 타입을 그 리터럴에서 파생한다 — 한쪽에만 컬럼을 더하면 tsc 가 잡지 못하고 런타임에 undefined 필드가 조용히 생긴다.
 // ResultRow 에 없는 이름이 리터럴에 섞이면 Pick 의 제약에서 컴파일 에러가 난다.
 type SplitColumns<S extends string> = S extends `${infer Head},${infer Tail}` ? Head | SplitColumns<Tail> : S;
 type RankResultRow = Pick<ResultRow, SplitColumns<typeof RANK_COLUMNS>>;
 
 // Realtime 페이로드는 전체 행이다. 조회와 같은 모양으로 깎아 넣어야 상태의 행 모양이 출처에 따라 달라지지 않는다.
-const toRankResultRow = ({ id, date, menu, restaurant_id }: ResultRow): RankResultRow => ({
+const toRankResultRow = ({ id, date, menu, restaurant_id, spun_at }: ResultRow): RankResultRow => ({
   id,
   date,
   menu,
   restaurant_id,
+  spun_at,
 });
 
 // 구독마다 토픽에 붙일 일련번호(app/log/page.tsx 와 같은 논증).
@@ -40,6 +42,8 @@ export default function RankPage() {
   }, []);
 
   const [results, setResults] = useState<RankResultRow[]>([]);
+  // 같은 경계의 점심 기록(목적지·방문). 결과 행과 날짜로 조인해 "간 곳" 을 센다(lib/history.ts applyLunchDays).
+  const [days, setDays] = useState<LunchDayRow[]>([]);
   // 첫 결과 응답이 왔는가(성공·실패 모두). 조회가 설정 뒤로 직렬화되므로 이 값 없이는 설정만 온 한 왕복 동안
   // 결과 0건으로 계산한 "추첨 대기" 가 반드시 보인다 — displayPhase 의 가림막을 결과까지 기다리게 하는 근거다(리뷰 WR-02).
   const [resultsLoaded, setResultsLoaded] = useState(false);
@@ -76,12 +80,20 @@ export default function RankPage() {
     if (!settingsLoaded) return;
     let cancelled = false;
     (async () => {
-      let query = supabase.from("results").select(RANK_COLUMNS).order("date", { ascending: false });
-      if (lowerBound !== null) query = query.gte("date", lowerBound);
-      const { data, error } = await query;
+      // 점심 기록도 같은 아래 경계로 읽는다 — 결과보다 좁으면 조인에서 빠진 날이 "확인 안 됨" 으로 둔갑한다.
+      let resultsQuery = supabase.from("results").select(RANK_COLUMNS).order("date", { ascending: false });
+      let daysQuery = supabase.from("lunch_days").select("*");
+      if (lowerBound !== null) {
+        resultsQuery = resultsQuery.gte("date", lowerBound);
+        daysQuery = daysQuery.gte("date", lowerBound);
+      }
+      const [resultsRes, daysRes] = await Promise.all([resultsQuery, daysQuery]);
       if (cancelled) return;
-      setLoadError(formatLoadError("랭킹", error));
-      if (data) setResults(data as RankResultRow[]);
+      setLoadError(
+        joinLoadErrors([formatLoadError("랭킹", resultsRes.error), formatLoadError("점심 기록", daysRes.error)]),
+      );
+      if (resultsRes.data) setResults(resultsRes.data as RankResultRow[]);
+      if (daysRes.data) setDays(daysRes.data as LunchDayRow[]);
       // 실패여도 올린다 — 배너가 사유를 말하고 라벨은 정직하게 결과 없음으로 간다.
       setResultsLoaded(true);
     })();
@@ -116,8 +128,36 @@ export default function RankPage() {
     };
   }, []);
 
+  // 점심 기록의 INSERT/UPDATE — 날짜 키로 교체. DELETE 는 오지 않는다(delete 정책 없음, 0007). app/log/page.tsx 와 같은 형태.
+  useEffect(() => {
+    const upsertDay = (row: LunchDayRow) =>
+      setDays((prev) =>
+        prev.some((d) => d.date === row.date) ? prev.map((d) => (d.date === row.date ? row : d)) : [...prev, row],
+      );
+    const ch: RealtimeChannel = supabase
+      .channel(`lunch-days-rank-${++topicSeq}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "lunch_days" },
+        (payload) => upsertDay(payload.new as LunchDayRow),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "lunch_days" },
+        (payload) => upsertDay(payload.new as LunchDayRow),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
   // 화면에 올리는 행은 전환일 이후만이다(HIST-02). 조회 경계는 대역폭이고 정의는 이 한 줄이다.
-  const visible = useMemo(() => filterSince(results, historySince), [results, historySince]);
+  // 그 위에 점심 기록을 조인해 "간 곳" 을 센다(HIST-04) — 확인 안 된 날은 1순위, 단체 점심 안 한 날은 뺀다.
+  const visible = useMemo(
+    () => applyLunchDays(filterSince(results, historySince), days),
+    [results, historySince, days],
+  );
 
   // 설정 실패·경고는 훅이 소유하므로 닫기 버튼(setLoadError(null))으로 사라지지 않는다. 컷오버 전에는
   // settings 테이블이 없어 상시 표시되는 것이 정상이다. 파싱 경고는 이미 완성된 문장이라 접두를 붙이지 않는다.

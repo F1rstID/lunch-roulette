@@ -189,25 +189,26 @@ describe("EDGE/QUAL-02 — respin-roulette 의 복붙이 _shared 로 합쳐졌�
 // 개수는 전부 주석 제거 사본(spin·respin)에서 센다. 한글 Why 주석에 검사 토큰이 섞이면 게이트가 자기 자신을
 // 세어 조용히 무력화되기 때문이다 — 그래서 이 파일의 주석도 토큰 리터럴 대신 한국어 표현을 쓴다.
 
-describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · settings · 쿨다운 위에서 돈다", () => {
+describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · settings · 주간 제외 위에서 돈다", () => {
   it("후보를 오늘 후보 테이블에서 읽고 옛 메뉴 테이블은 더 읽지 않는다 (#23)", () => {
     // 부재와 존재를 한 번에 센다 — 한쪽만 세면 "둘 다 읽는" 중간 상태가 통과한다.
     expect([count(spin, /from\("menus"\)/g), count(spin, /from\("candidates"\)/g)]).toEqual([0, 1]);
   });
 
-  it("후보와 함께 매장을 임베드로 읽는다 (#24)", () => {
+  it("후보와 함께 매장을 쉬기 컬럼까지 임베드로 읽는다 (#24)", () => {
     // 공백 변형을 허용한다. PostgREST 파서가 공백에 관대하므로 텍스트 단언도 같은 관대함을 가져야 한다.
-    expect(count(spin, /restaurants\s*\(\s*id\s*,\s*name\s*\)/g)).toBe(1);
+    // paused_week 가 빠지면 쉬기 제외가 조용히 꺼진다 — 타입은 그걸 못 잡는다(임베드는 unknown 으로 받는다).
+    expect(count(spin, /restaurants\s*\(\s*id\s*,\s*name\s*,\s*paused_week\s*\)/g)).toBe(1);
   });
 
-  it("설정 단일행을 읽는다 — 추첨 시각과 쿨다운 일수의 출처다 (#25)", () => {
-    expect(count(spin, /from\("settings"\)/g)).toBe(1);
+  it("설정 단일행을 읽되 쿨다운 일수는 더 읽지 않는다 — 추첨 시각의 출처다 (#25)", () => {
+    expect([count(spin, /from\("settings"\)/g), count(spin, /cooldown_days/g)]).toEqual([1, 0]);
   });
 
-  it("결과 테이블을 세 번 만진다 (#26)", () => {
-    // 숫자의 근거를 여기 적어 둔다: 오늘 결과 존재 확인 1 + 쿨다운 창 조회 1 + 기록 1.
+  it("결과 테이블을 세 번, 점심 기록 테이블을 한 번 만진다 (#26)", () => {
+    // 숫자의 근거를 여기 적어 둔다: 오늘 결과 존재 확인 1 + 주간 창 조회 1 + 기록 1. 점심 기록은 주간 창 조회 1.
     // 근거 없이 숫자만 남으면 다음 사람이 이 단언을 고칠 수도, 믿을 수도 없다.
-    expect(count(spin, /from\("results"\)/g)).toBe(3);
+    expect([count(spin, /from\("results"\)/g), count(spin, /from\("lunch_days"\)/g)]).toEqual([3, 1]);
   });
 
   it("쓰기 본문과 성공 응답이 당첨 매장 id 를 함께 싣는다 (#27)", () => {
@@ -215,13 +216,29 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     expect(count(spin, /restaurant_id: winner\.restaurant_id/g)).toBe(2);
   });
 
-  it("쿨다운 모듈이 배선됐다 (#28)", () => {
-    // 창 계산과 필터 적용은 짝이다 — 하나만 있는 파일은 쿨다운이 반쪽만 켜진 상태다.
+  it("주간 제외 모듈이 네 함수로 배선됐다 (#28)", () => {
+    // 주 시작·창 시작·하루 제외 id·2단 폴백은 한 벌이다 — 하나만 빠진 파일은 제외가 반쪽만 켜진 상태다.
+    // 쉬기 판정에 weekStartOf 를 따로 부르는 이유: 월요일에는 창(weeklyWindowStart)이 null 인데 쉬기는 그날도 적용돼야 한다.
     expect([
       count(spin, /from "\.\.\/_shared\/cooldown\.ts"/g),
-      count(spin, /cooldownWindowStart\(/g),
-      count(spin, /applyCooldown\(/g),
-    ]).toEqual([1, 1, 1]);
+      count(spin, /weekStartOf\(/g),
+      count(spin, /weeklyWindowStart\(/g),
+      count(spin, /dayExclusionId\(/g),
+      count(spin, /applyWeeklyExclusions\(/g),
+    ]).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it("점심 기록 창 조회는 제외 판정에 필요한 다섯 열을 읽는다 (#66)", () => {
+    // 열 하나가 빠지면 좁히기가 null 로 떨어져 방문 확인·목적지 변경이 조용히 무시된다 — 타입은 그걸 못 잡는다(스키마 제네릭 없음).
+    const cols = /select\("date, destination_id, destination_set_at, visit_status, visited_id"\)/g;
+    expect([count(spin, cols), count(respin, cols)]).toEqual([1, 1]);
+    const winners = /select\("date, restaurant_id, spun_at"\)/g;
+    expect([count(spin, winners), count(respin, winners)]).toEqual([1, 1]);
+  });
+
+  it("전부 쉬기면 결과 행을 만들지 않고 all_paused 로 끝낸다 (#63)", () => {
+    // 쉬기 매장을 몰래 되살리는 폴백이 생기면 "이번 주 쉬기" 가 거짓이 된다. 행이 없어야 다음 분 cron 이 재시도한다.
+    expect(count(spin, /skipped: "all_paused"/g)).toBe(1);
   });
 
   it("supabase 클라이언트 명세자가 정확 버전으로 핀됐다 (#29)", () => {
@@ -240,14 +257,14 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     ]).toEqual([1, true]);
   });
 
-  it("시각 판정 → 오늘 결과 확인 → 후보 조회 → 쿨다운 → 기록 순서를 지킨다 (#31)", () => {
+  it("시각 판정 → 오늘 결과 확인 → 후보 조회 → 주간 제외 → 기록 순서를 지킨다 (#31)", () => {
     // 개수가 아니라 위치를 묻는 유일한 단언이라 count 헬퍼 대신 indexOf 를 직접 쓴다.
-    // 이 순서가 뒤집히면 후보를 비운 뒤 뽑는 경로가 열려 빈 배열에서 난수를 고르게 된다.
+    // 이 순서가 뒤집히면 후보를 비운 뒤 뽑는 경로가 열려 빈 배열에서 순서를 정하게 된다.
     const at = [
       spin.indexOf("isAfterSpinTime("),
       spin.indexOf('from("results")'),
       spin.indexOf('from("candidates")'),
-      spin.indexOf("applyCooldown("),
+      spin.indexOf("applyWeeklyExclusions("),
       spin.indexOf(".insert("),
     ];
     expect([
@@ -260,18 +277,19 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     // 하한이 아니라 정확 개수인 이유: 하한은 "옮기는 것" 과 "지우는 것" 을 구분하지 못해
     // 규약("실패·폴백 경로마다 1건")을 실제로는 지키지 못한다. 숫자의 근거를 여기 적어 둔다 —
     // 설정 조회 실패 1 + 추첨 시각 파싱 실패 1 + 오늘 결과 조회 실패 1 + 후보 조회 실패 1 +
-    // 조인 제외 1 + 쿨다운 창 조회 실패 1 + 기록 실패 1 + 처리되지 않은 예외 1 = 8.
-    expect(count(spin, /console\.error\(/g)).toBe(8);
+    // 조인 제외 1 + 주간 결과 창 조회 실패 1 + 주간 기록 창 조회 실패 1 + 기록 실패 1 + 처리되지 않은 예외 1 = 9.
+    expect(count(spin, /console\.error\(/g)).toBe(9);
   });
 
-  it("쿨다운 창은 시작일부터 어제까지다 — 오늘은 뺀다 (#52)", () => {
-    // 이 세 개수가 창의 유일한 배선이다. 상계를 lt 에서 lte 로 한 글자만 바꾸면 오늘 당첨 매장이
+  it("주간 창 조회 둘은 월요일부터 어제까지다 — 오늘은 뺀다 (#52)", () => {
+    // 이 개수가 창의 유일한 배선이다. 상계를 lt 에서 lte 로 한 글자만 바꾸면 오늘 목적지 매장이
     // 영원히 제외돼 "다시 돌리기" 가 같은 매장을 다시 뽑을 수 없게 되는데, 타입도 낭독도 그걸 못 잡는다.
+    // 결과 창 1 + 점심 기록 창 1 = 2 — 한쪽만 lt 인 파일은 두 조회가 다른 날짜 집합을 조인한다.
     expect([
       count(spin, /\.gte\("date"/g),
       count(spin, /\.lt\("date"/g),
       count(spin, /\.lte\("date"/g),
-    ]).toEqual([1, 1, 0]);
+    ]).toEqual([2, 2, 0]);
   });
 
   it("후보 없음 응답 문자열이 클라이언트 번역 키와 같다 (#53)", () => {
@@ -279,19 +297,20 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     expect(count(spin, /skipped: "no_candidates"/g)).toBe(1);
   });
 
-  it("폴백 플래그 세 키가 응답에 상시 실린다 (#33)", () => {
-    // 전부 거짓인 줄이 정상이고, 참이 보이면 그날 설정과 DB 를 본다 — 그러려면 키가 항상 있어야 한다.
+  it("폴백 플래그 세 키가 응답에 상시 실리고 옛 쿨다운 키는 없다 (#33)", () => {
+    // 전부 거짓인 줄이 정상이고, 참이 보이면 그날 기록과 DB 를 본다 — 그러려면 키가 항상 있어야 한다.
     expect([
       count(spin, /settings_fallback/g),
-      count(spin, /cooldown_fallback/g),
-      count(spin, /cooldown_skipped/g),
-    ]).toEqual([1, 1, 1]);
+      count(spin, /weekly_fallback/g),
+      count(spin, /weekly_skipped/g),
+      count(spin, /cooldown_/g), // 모듈 파일명(cooldown.ts)은 남고, 옛 응답 키·설정 컬럼(cooldown_*)만 사라진다
+    ]).toEqual([1, 1, 1, 0]);
   });
 
-  it("조인에서 떨어진 후보 수를 두 응답이 함께 싣는다 (#50)", () => {
-    // 후보 없음 응답 1 + 성공 응답 1 = 2. 후보 없음 쪽이 빠지면 "테이블이 비었다" 와
+  it("조인에서 떨어진 후보 수를 세 응답이 함께 싣는다 (#50)", () => {
+    // 후보 없음 응답 1 + 전부 쉬기 응답 1 + 성공 응답 1 = 3. 후보 없음 쪽이 빠지면 "테이블이 비었다" 와
     // "조인이 깨져 전부 떨어졌다" 가 응답에서 같아져 호출자가 둘을 구분할 수 없다.
-    expect(count(spin, /excluded_count/g)).toBe(2);
+    expect(count(spin, /excluded_count/g)).toBe(3);
   });
 
   it("모든 반환이 응답 헬퍼를 지난다 (#34)", () => {
@@ -305,29 +324,36 @@ describe("EDGE/SPIN-04 — respin-roulette 가 같은 조회 위에서 덮어쓴
     expect([count(respin, /from\("menus"\)/g), count(respin, /from\("candidates"\)/g)]).toEqual([0, 1]);
   });
 
-  it("후보와 함께 매장을 임베드로 읽는다 (#36)", () => {
-    expect(count(respin, /restaurants\s*\(\s*id\s*,\s*name\s*\)/g)).toBe(1);
+  it("후보와 함께 매장을 쉬기 컬럼까지 임베드로 읽는다 (#36)", () => {
+    expect(count(respin, /restaurants\s*\(\s*id\s*,\s*name\s*,\s*paused_week\s*\)/g)).toBe(1);
   });
 
-  it("설정 단일행을 읽는다 — 쿨다운 일수만 쓰지만 같은 조회·같은 정책이다 (#37)", () => {
-    expect(count(respin, /from\("settings"\)/g)).toBe(1);
+  it("설정 단일행을 읽되 쿨다운 일수는 더 읽지 않는다 — 값은 안 쓰고 형제 대칭·폴백 플래그만 남는다 (#37)", () => {
+    expect([count(respin, /from\("settings"\)/g), count(respin, /cooldown_days/g)]).toEqual([1, 0]);
   });
 
-  it("결과 테이블을 두 번 만진다 (#38)", () => {
-    // 쿨다운 창 조회 1 + 덮어쓰기 1. 이 숫자가 "이 함수에는 멱등 조회가 없다" 는 사실까지 고정한다.
-    expect(count(respin, /from\("results"\)/g)).toBe(2);
+  it("결과 테이블을 두 번, 점심 기록 테이블을 한 번 만진다 (#38)", () => {
+    // 주간 창 조회 1 + 덮어쓰기 1. 이 숫자가 "이 함수에는 멱등 조회가 없다" 는 사실까지 고정한다.
+    expect([count(respin, /from\("results"\)/g), count(respin, /from\("lunch_days"\)/g)]).toEqual([2, 1]);
   });
 
   it("쓰기 본문과 성공 응답이 당첨 매장 id 를 함께 싣는다 (#39)", () => {
     expect(count(respin, /restaurant_id: winner\.restaurant_id/g)).toBe(2);
   });
 
-  it("쿨다운 모듈이 배선됐다 (#40)", () => {
+  it("주간 제외 모듈이 네 함수로 배선됐다 (#40)", () => {
     expect([
       count(respin, /from "\.\.\/_shared\/cooldown\.ts"/g),
-      count(respin, /cooldownWindowStart\(/g),
-      count(respin, /applyCooldown\(/g),
-    ]).toEqual([1, 1, 1]);
+      count(respin, /weekStartOf\(/g),
+      count(respin, /weeklyWindowStart\(/g),
+      count(respin, /dayExclusionId\(/g),
+      count(respin, /applyWeeklyExclusions\(/g),
+    ]).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it("전부 쉬기면 결과 행을 건드리지 않고 all_paused 로 끝낸다 (#64)", () => {
+    // 이 문자열은 클라이언트가 "후보가 전부 이번 주 쉬기 중이에요" 로 번역하는 코드값이다(#53 과 같은 성격).
+    expect(count(respin, /skipped: "all_paused"/g)).toBe(1);
   });
 
   it("supabase 클라이언트 명세자가 정확 버전으로 핀됐다 (#41)", () => {
@@ -344,36 +370,37 @@ describe("EDGE/SPIN-04 — respin-roulette 가 같은 조회 위에서 덮어쓴
 
   it("실패·폴백 경로마다 서버 로그가 정확히 하나다 (#43)", () => {
     // #32 와 같은 이유로 정확 개수다. 근거 — 설정 조회 실패 1 + 후보 조회 실패 1 + 조인 제외 1 +
-    // 쿨다운 창 조회 실패 1 + 덮어쓰기 실패 1 + 처리되지 않은 예외 1 = 6.
+    // 주간 결과 창 조회 실패 1 + 주간 기록 창 조회 실패 1 + 덮어쓰기 실패 1 + 처리되지 않은 예외 1 = 7.
     // 형제보다 둘 적은 것이 정상이다: 이 함수에는 시각 판정도 멱등 조회도 없다.
-    expect(count(respin, /console\.error\(/g)).toBe(6);
+    expect(count(respin, /console\.error\(/g)).toBe(7);
   });
 
-  it("쿨다운 창은 시작일부터 어제까지다 — 오늘은 뺀다 (#54)", () => {
-    // 형제(#52)보다 이쪽이 더 아프다. 상계가 lte 가 되면 오늘 당첨 매장이 후보에서 빠져
+  it("주간 창 조회 둘은 월요일부터 어제까지다 — 오늘은 뺀다 (#54)", () => {
+    // 형제(#52)보다 이쪽이 더 아프다. 상계가 lte 가 되면 오늘 목적지 매장이 후보에서 빠져
     // "다시 돌리기" 가 후보 2개일 때 항상 나머지 하나만 내놓는다.
     expect([
       count(respin, /\.gte\("date"/g),
       count(respin, /\.lt\("date"/g),
       count(respin, /\.lte\("date"/g),
-    ]).toEqual([1, 1, 0]);
+    ]).toEqual([2, 2, 0]);
   });
 
   it("후보 없음 응답 문자열이 클라이언트 번역 키와 같다 (#55)", () => {
     expect(count(respin, /skipped: "no_candidates"/g)).toBe(1);
   });
 
-  it("폴백 플래그 세 키가 응답에 상시 실린다 (#44)", () => {
+  it("폴백 플래그 세 키가 응답에 상시 실리고 옛 쿨다운 키는 없다 (#44)", () => {
     expect([
       count(respin, /settings_fallback/g),
-      count(respin, /cooldown_fallback/g),
-      count(respin, /cooldown_skipped/g),
-    ]).toEqual([1, 1, 1]);
+      count(respin, /weekly_fallback/g),
+      count(respin, /weekly_skipped/g),
+      count(respin, /cooldown_/g),
+    ]).toEqual([1, 1, 1, 0]);
   });
 
-  it("조인에서 떨어진 후보 수를 두 응답이 함께 싣는다 (#51)", () => {
+  it("조인에서 떨어진 후보 수를 세 응답이 함께 싣는다 (#51)", () => {
     // #50 과 같은 근거. 이쪽은 응답이 곧 사용자 배너라 구분 실패가 화면까지 올라온다.
-    expect(count(respin, /excluded_count/g)).toBe(2);
+    expect(count(respin, /excluded_count/g)).toBe(3);
   });
 
   it("맨 응답 생성은 프리플라이트 단락과 헬퍼 두 곳뿐이다 (#45)", () => {
@@ -394,6 +421,11 @@ describe("EDGE/QUAL — 두 파일의 대칭·설정 파일의 위치·클라이
     // 페이지가 "후보가 없어요" 로 번역한다 — 한쪽 오타는 번역을 건너뛰어 배너에 코드값을 띄운다.
     // 페이지가 사라지거나 옮겨지면 읽기 실패가 빈 문자열로 흡수되므로 길이도 함께 본다.
     expect([rawPage.length > 0, count(page, /"no_candidates"/g)]).toEqual([true, 1]);
+  });
+
+  it("전부 쉬기 코드값도 함수와 페이지 양쪽에 하나씩 있다 (#65)", () => {
+    // #56 과 같은 성격. 페이지가 "후보가 전부 이번 주 쉬기 중이에요" 로 번역한다 — 한쪽 오타는 코드값을 배너에 띄운다.
+    expect(count(page, /"all_paused"/g)).toBe(1);
   });
 
   it("후보 정규화 헬퍼 이름이 두 파일에서 같다 (#47)", () => {

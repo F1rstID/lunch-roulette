@@ -11,7 +11,7 @@
 **Files:**
 - 컴포넌트 파일은 PascalCase, **파일명 = export 하는 컴포넌트명**: `components/Wheel.tsx` → `Wheel`, `components/CalendarLog.tsx` → `CalendarLog`. 예외 없음(7개 파일 전부).
 - `lib/` 모듈은 소문자 단수 명사: `lib/time.ts`, `lib/phase.ts`, `lib/colors.ts`, `lib/settings.ts`, `lib/supabase/client.ts`.
-- **예외 1종: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅), `lib/useRestaurants.ts`(Phase 5), `lib/useCandidates.ts`(Phase 6). 같은 도메인의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`·`lib/candidates.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
+- **예외 1종: 공용 훅은 `lib/useX.ts` 로 `use` 접두를 붙인다** — `lib/useSettings.ts`(레포 첫 공용 훅), `lib/useRestaurants.ts`(Phase 5), `lib/useCandidates.ts`(Phase 6), `lib/useLunchWeek.ts`(Phase 9 — 훅 분기 0개 규칙의 의도적 예외: 재조회 트리거 `visible`·`SUBSCRIBED` 분기 2개, CLAUDE.md 컨벤션 문단). 같은 도메인의 순수 모듈(`lib/settings.ts`·`lib/restaurants.ts`·`lib/candidates.ts`·`lib/lunchDay.ts`)과 훅을 파일명으로 가르는 것이 규칙의 목적이므로 소문자 단수 명사로 되돌리지 말 것.
 - 페이지는 App Router 규약대로 `app/page.tsx`, `app/restaurants/page.tsx`, `app/log/page.tsx`, `app/rank/page.tsx`.
 - 마이그레이션은 `supabase/migrations/000N_설명.sql` (4자리 zero-pad + snake_case 영문 설명): `0001_init.sql`, `0002_cron.sql`, `0003_reseed_menus.sql`, `0004_pinned_menus.sql`.
 - Edge Function은 kebab-case 디렉터리 + `index.ts`: `supabase/functions/spin-roulette/index.ts`, `supabase/functions/respin-roulette/index.ts`.
@@ -171,7 +171,7 @@
   }, [dep]);
   ```
   (`app/page.tsx:37-55`, `app/log/page.tsx:30-49`, `app/rank/page.tsx:21-33`). 병렬 쿼리는 `Promise.all`로 묶는다(`app/page.tsx:41-45`).
-- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 전부 카운터로 매긴다(`app/page.tsx` → `results-<n>`, `app/log/page.tsx` → `results-log-<n>`, `app/rank/page.tsx` → `results-rank-<n>`, `lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`, `lib/useCandidates.ts` → `candidates-<n>`). 재구독이 있는 자리(`app/page.tsx`·두 페이지)는 effect 안에서, 없는 훅은 `useState` 초기화로. 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다 — 오늘 탭의 고정 토픽은 그 이유로 Phase 6 이 카운터로 바꿨다.
+- Realtime 구독은 별도 `useEffect`에서 `supabase.channel(name).on("postgres_changes", {...}).subscribe()`, cleanup에서 `supabase.removeChannel(ch)`. 채널 토픽은 **구독 인스턴스마다** 고유 — 전부 카운터로 매긴다(`app/page.tsx` → `results-<n>`, `app/log/page.tsx` → `results-log-<n>`, `app/rank/page.tsx` → `results-rank-<n>`, `lib/useSettings.ts` → `settings-changes-<n>`, `lib/useRestaurants.ts` → `restaurants-<n>`, `lib/useCandidates.ts` → `candidates-<n>`, `lib/useLunchWeek.ts` → `lunch-days-<n>`, `app/log/page.tsx` → `lunch-days-log-<n>`, `app/rank/page.tsx` → `lunch-days-rank-<n>`). 재구독이 있는 자리(`app/page.tsx`·두 페이지·`lib/useLunchWeek.ts`)는 effect 안에서, 없는 훅은 `useState` 초기화로. 같은 토픽을 두 마운트가 쓰면 라우트 전환 시 realtime-js 가 leave 중인 옛 인스턴스를 돌려줘 새 구독이 조용히 죽는다 — 오늘 탭의 고정 토픽은 그 이유로 Phase 6 이 카운터로 바꿨다.
 - Realtime payload는 제네릭이라 **행 타입으로 단언한다**: `payload.new as ResultRow`. DELETE는 부분 행만 오므로 `payload.old as Partial<MenuRow>`로 받고 키 존재를 확인한 뒤 쓴다(`app/page.tsx:84-85,110-111`).
 - 상태 갱신은 항상 함수형 업데이터 + 멱등 처리. INSERT 이벤트는 중복 삽입을 막는다: `prev.some((m) => m.id === row.id) ? prev : [...prev, row]` (`app/page.tsx:75-77`, `app/log/page.tsx:60`).
 - **낙관적 업데이트를 하지 않는다.** 쓰기는 supabase에 보내고, 화면 갱신은 realtime 이벤트가 돌아올 때 일어난다. 근거 주석: `app/page.tsx:172-173`.

@@ -62,7 +62,7 @@ export function formatRespinError(fallbackMessage: string, body: unknown): strin
 }
 
 // 호출부가 오타로 아무 문자열이나 넘기지 못하게 리터럴 유니온으로 묶는다 — 배너 문장의 동사 자리다.
-export type RestaurantWriteAction = "등록" | "수정" | "삭제" | "고정" | "고정 해제";
+export type RestaurantWriteAction = "등록" | "수정" | "삭제" | "고정" | "고정 해제" | "쉬기" | "쉬기 해제";
 
 // 매장 쓰기 실패는 익명 사용자가 그대로 읽는다. 사용자가 손쓸 수 있는 두 경우(이름 중복·입력 규칙 위반)만
 // 한국어로 갈아끼우는 이유: PostgREST 원문은 제약 이름과 SQL 조각을 실어 와 읽을 수도, 고칠 수도 없다.
@@ -83,6 +83,24 @@ export function formatRestaurantWriteError(
   if (error.code === "23514") return `입력 규칙에 맞지 않아요(${name}): 이름 1~24자, 메뉴 30개·24자, 위치 200자`;
   // 원문이 공백뿐이면 접두만 남은 배너가 되므로 대체 문구를 쓴다(formatRespinError 와 같은 논증).
   return `매장 "${name}" ${action} 실패: ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
+}
+
+// 점심 기록 쓰기의 동사 자리 — 목적지 변경(다음 식당·되돌리기)·방문 기록(어디서 먹었나·단체 점심 안 함).
+// 매장 쉬기 토글은 restaurants 쓰기라 formatRestaurantWriteError("쉬기" | "쉬기 해제") 를 쓴다.
+export type LunchDayWriteAction = "목적지 변경" | "방문 기록";
+
+// 점심 기록 쓰기는 대상이 매장이 아닐 때도 있다(단체 점심 안 함). 그래서 접두가 "매장 …" 이 아니라 동사가 앞이고
+// 대상은 괄호 안이다. 나머지 규칙은 두 벌과 같다: FK 위반(23503)은 클릭 직전에 매장이 지워진 것, null 은 영향 행 0
+// (호출부가 .select() 로 영향 행을 세는 경우), 공백 원문은 대체 문구, 긴 원문은 상한.
+// 이 함수도 details·hint 는 보지 않는다 — 머리 주석의 이유가 기록 경로에서도 그대로다.
+export function formatLunchDayWriteError(
+  action: LunchDayWriteAction,
+  target: string,
+  error: { code?: string; message: string } | null,
+): string {
+  if (error === null) return `이미 삭제된 매장이에요: ${target}`;
+  if (error.code === "23503") return `이미 삭제된 매장이에요: ${target}`;
+  return `${action} 실패(${target}): ${readableMessage(error.message) ?? "알 수 없는 오류"}`;
 }
 
 // 후보 담기·빼기의 동사 자리. 매장 쓰기와 낱말이 겹치지 않아 유니온을 따로 둔다.

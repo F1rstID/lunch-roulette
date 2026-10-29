@@ -8,7 +8,8 @@
 // 일부러 안 하는 것: 컴포넌트·페이지는 테스트하지 않는다 — 렌더 하네스가 없고, 판단을 여기로 내린 이유가 그것이다.
 
 import { describe, it, expect } from "vitest";
-import { buildMonthGrid, buildRanking, filterSince, type HistoryRow } from "@/lib/history";
+import type { LunchDayRow } from "@/lib/supabase/client";
+import { applyLunchDays, buildMonthGrid, buildRanking, filterSince, type HistoryRow } from "@/lib/history";
 
 type Row = HistoryRow;
 
@@ -161,5 +162,101 @@ describe("buildMonthGrid", () => {
   it("31일 월의 마지막 본월 셀은 31일이다", () => {
     const own = buildMonthGrid(2026, 10).filter((c) => !c.dim);
     expect(own[own.length - 1].d).toBe(31);
+  });
+});
+
+// 0007 부터 기록이 증명하는 것은 추첨이 아니라 목적지다 — 방문 확인 > 목적지 변경 > 1순위 순이고, 확인 안 된 날은
+// 1순위에 간 것으로 센다(사용자 결정 2026-10-28). 우선순위 판정은 _shared/cooldown.ts 의 dayExclusionId 와 같은
+// 함수라 여기서는 "이름 스냅샷·drawn*·unconfirmed·skipped 제외" 만 묻는다.
+const res = (date: string, menu: string, restaurant_id: string | null = null, spun_at = `${date}T02:55:00.000Z`) => ({
+  date,
+  menu,
+  restaurant_id,
+  spun_at,
+});
+
+function day(over: Partial<LunchDayRow> & { date: string }): LunchDayRow {
+  return {
+    destination_id: null,
+    destination_name: null,
+    destination_set_at: null,
+    visit_status: "unknown",
+    visited_id: null,
+    visited_name: null,
+    visited_at: null,
+    updated_at: `${over.date}T03:10:00.000Z`,
+    ...over,
+  };
+}
+
+describe("applyLunchDays — 기록·랭킹의 입력은 추첨이 아니라 목적지다 (HIST-04)", () => {
+  it("기록이 없으면 당첨 그대로이고 확인 안 됨이다 — drawn* 도 같은 값", () => {
+    expect(applyLunchDays([res("2026-10-27", "A", "r1")], [])).toEqual([
+      { ...res("2026-10-27", "A", "r1"), drawnId: "r1", drawnName: "A", unconfirmed: true },
+    ]);
+  });
+
+  it("추첨 뒤 바꾼 목적지가 매장이 되고 이름은 스냅샷이며 당첨은 drawn* 에 남는다", () => {
+    const d = day({ date: "2026-10-27", destination_id: "r2", destination_name: "B", destination_set_at: "2026-10-27T03:10:00.000Z" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1")], [d])).toMatchObject([
+      { restaurant_id: "r2", menu: "B", drawnId: "r1", drawnName: "A", unconfirmed: true },
+    ]);
+  });
+
+  it("방문 확인된 날은 실제로 간 매장이고 확인됨이다", () => {
+    const d = day({ date: "2026-10-27", visit_status: "visited", visited_id: "r3", visited_name: "C" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1")], [d])).toMatchObject([
+      { restaurant_id: "r3", menu: "C", drawnId: "r1", unconfirmed: false },
+    ]);
+  });
+
+  it("카탈로그 밖 '다른 매장' 은 id 없이 이름으로 남는다 — 랭킹은 이름 키로 센다", () => {
+    const d = day({ date: "2026-10-27", visit_status: "visited", visited_id: null, visited_name: "편의점" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1")], [d])).toMatchObject([
+      { restaurant_id: null, menu: "편의점", unconfirmed: false },
+    ]);
+  });
+
+  it("목적지 매장이 지워진 날(id null · 이름 스냅샷)은 그 이름으로 세고 되돌리기와 구분된다", () => {
+    const deleted = day({ date: "2026-10-27", destination_id: null, destination_name: "사라진 집", destination_set_at: "2026-10-27T03:10:00.000Z" });
+    const reverted = day({ date: "2026-10-28", destination_id: null, destination_name: null, destination_set_at: "2026-10-28T03:10:00.000Z" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1"), res("2026-10-28", "A", "r1")], [deleted, reverted])).toMatchObject([
+      { restaurant_id: null, menu: "사라진 집", drawnId: "r1", unconfirmed: true },
+      { restaurant_id: "r1", menu: "A", unconfirmed: true },
+    ]);
+  });
+
+  it("단체 점심을 안 한 날은 빠진다", () => {
+    const d = day({ date: "2026-10-27", visit_status: "skipped" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1"), res("2026-10-28", "B", "r2")], [d]).map((e) => e.date)).toEqual([
+      "2026-10-28",
+    ]);
+  });
+
+  it("다시 돌리기 전에 고른 목적지(stale)는 당첨 그대로다", () => {
+    const d = day({ date: "2026-10-27", destination_id: "r2", destination_name: "B", destination_set_at: "2026-10-27T02:40:00.000Z" });
+    expect(applyLunchDays([res("2026-10-27", "A", "r1")], [d])).toMatchObject([{ restaurant_id: "r1", menu: "A" }]);
+  });
+
+  it("날짜가 맞지 않는 기록은 무시하고 입력 순서를 보존하며 입력을 바꾸지 않는다", () => {
+    const rows = [res("2026-10-28", "B", "r2"), res("2026-10-27", "A", "r1")];
+    const d = day({ date: "2026-10-30", visit_status: "visited", visited_id: "r9", visited_name: "Z" });
+    const out = applyLunchDays(rows, [d]);
+    expect(out.map((e) => [e.date, e.restaurant_id])).toEqual([
+      ["2026-10-28", "r2"],
+      ["2026-10-27", "r1"],
+    ]);
+    expect(rows[0].restaurant_id).toBe("r2");
+  });
+
+  it("buildRanking 과 이어 쓰면 목적지 키로 센다 — 확인 안 된 날도 1순위로 들어간다", () => {
+    const days = [
+      day({ date: "2026-10-27", destination_id: "r2", destination_name: "B", destination_set_at: "2026-10-27T03:10:00.000Z" }),
+      day({ date: "2026-10-28", visit_status: "visited", visited_id: "r2", visited_name: "B" }),
+      day({ date: "2026-10-29", visit_status: "skipped" }),
+    ];
+    const rows = [res("2026-10-26", "A", "r1"), res("2026-10-27", "A", "r1"), res("2026-10-28", "A", "r1"), res("2026-10-29", "A", "r1")];
+    const { list, total } = buildRanking(applyLunchDays(rows, days));
+    expect([total, list.map((e) => [e.key, e.wins])]).toEqual([3, [["r2", 2], ["r1", 1]]]);
   });
 });

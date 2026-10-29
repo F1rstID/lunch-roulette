@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   formatCandidateWriteError,
   formatLoadError,
+  formatLunchDayWriteError,
   formatRespinError,
   formatRestaurantWriteError,
   joinLoadErrors,
@@ -217,5 +218,39 @@ describe("formatCandidateWriteError — 후보 담기·빼기 실패 (D-17)", ()
     expect(formatCandidateWriteError("빼기", "김밥천국", { message: "   " })).toBe(
       '매장 "김밥천국" 빼기 실패: 알 수 없는 오류',
     );
+  });
+});
+
+// 점심 기록 쓰기(목적지 변경·방문 기록·쉬기)는 대상이 매장이 아닐 때도 있다(단체 점심 안 함). 그래서 접두가
+// "매장 …" 이 아니라 동사가 앞에 오고 대상은 괄호 안이다 — 나머지 규칙(FK 위반·영향 행 0·공백 원문·상한)은 두 벌과 같다.
+describe("formatLunchDayWriteError — 목적지 변경·방문 기록·쉬기 실패 (Phase 9)", () => {
+  it("코드가 없는 실패는 동사 + 대상 + 원문으로 조립된다", () => {
+    expect(formatLunchDayWriteError("목적지 변경", "샐러드바", { message: "permission denied" })).toBe(
+      "목적지 변경 실패(샐러드바): permission denied",
+    );
+  });
+
+  it("23503 은 클릭 직전에 매장이 지워졌다고 말한다 (destination_id·visited_id 가 FK 다)", () => {
+    expect(
+      formatLunchDayWriteError("방문 기록", "샐러드바", {
+        code: "23503",
+        message: 'insert or update on table "lunch_days" violates foreign key constraint',
+      }),
+    ).toBe("이미 삭제된 매장이에요: 샐러드바");
+  });
+
+  it("에러 없이 영향 행이 0이면(null) 이미 지워진 매장이다", () => {
+    expect(formatLunchDayWriteError("목적지 변경", "샐러드바", null)).toBe("이미 삭제된 매장이에요: 샐러드바");
+  });
+
+  it("공백뿐인 원문은 알 수 없는 오류로 대체된다", () => {
+    expect(formatLunchDayWriteError("방문 기록", "샐러드바", { message: "   " })).toBe(
+      "방문 기록 실패(샐러드바): 알 수 없는 오류",
+    );
+  });
+
+  it("긴 원문은 상한에서 잘린다 (readableMessage 를 세 벌이 공유한다)", () => {
+    const formatted = formatLunchDayWriteError("방문 기록", "단체 점심 안 함", { message: "가".repeat(250) });
+    expect([formatted.endsWith("…"), formatted.includes("가".repeat(200))]).toEqual([true, true]);
   });
 });

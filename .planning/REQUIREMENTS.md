@@ -62,6 +62,25 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SHIP-03**: `CLAUDE.md`·`README.md`가 현행화된다 (낡은 항목 4건 수정 + 새 컨벤션: settings 단일 소스, `_shared` 모듈, 마이그레이션 동작불변 원칙)
 - [x] **SHIP-04**: 배포 체크리스트가 문서화된다: 마이그레이션(사용자, 대시보드) → Edge Function 2개 deploy → PR 머지 → 라이브 확인
 
+## v1.1 Requirements
+
+v1.0 라이브 뒤 추가된 후속 기능(Phase 9). 설계 정본 `.planning/notes/weekly-exclusion-visit-record.md`(2026-10-28).
+
+### 목적지·방문 (DEST·VISIT)
+
+- [x] **DEST-01**: 결과가 확정된 날 오늘 탭에 "오늘 갈 곳" 이 보인다. 기본은 1순위이고, 누구든 "웨이팅 있어요 → 다음 식당" 을 누르면 열린 모든 탭이 같은 목적지로 바뀌며 되돌릴 수 있다. 1·2·3순위에 지도 링크가 있다
+- [x] **VISIT-01**: "여기서 먹었어요"(순위 매장·다른 매장·단체 점심 안 함)로 방문을 확인할 수 있다. 안 누른 날은 "확인 안 됨" 으로 구분된다. 추첨 결과(`results`)는 덮어쓰지 않는다
+
+### 주간 제외 (WEEK)
+
+- [x] **WEEK-01**: 이번 주(월~어제) 목적지 매장과 "이번 주 쉬기" 매장은 추첨 pool 과 휠에서 빠지고, 후보 목록에 사유와 함께 흐리게 남는다. 서버와 클라이언트가 같은 순수 규칙으로 판정한다
+- [x] **WEEK-02**: 제외는 월요일 00:00 KST 에 전부 해제된다. 매장 탭에서 "이번 주 쉬기" 를 켜고 끌 수 있다. 쉬기로 후보가 전멸하면 결과 행을 만들지 않고(다음 분 재시도), 방문으로 전멸하면 쉬기만 뺀 후보로 되돌린다. `settings.cooldown_days` 는 더 쓰지 않는다
+
+### 기록·문서 (HIST·SHIP)
+
+- [x] **HIST-04**: 기록 탭·랭킹이 추첨이 아니라 목적지(방문 확인 > 목적지 변경 > 1순위) 기준으로 집계한다. 확인 안 된 날은 1순위로 세고 라벨로 구분하며, 단체 점심 안 한 날은 뺀다
+- [x] **SHIP-05**: 0007 마이그레이션·롤백 SQL 과 README "0007 적용" 절(SQL → 함수 2종 배포 → 머지)이 있고, `tsc`·`lint`·`test`·`build`·`check:edge` 가 통과하며 커밋·PR 에 AI 표기가 없다
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -130,11 +149,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHIP-02 | Phase 8 — 컷오버 | Complete |
 | SHIP-03 | Phase 8 — 컷오버 | Complete |
 | SHIP-04 | Phase 8 — 컷오버 | Complete |
+| DEST-01 | Phase 9 — 주간 점심 기록 | Complete |
+| VISIT-01 | Phase 9 — 주간 점심 기록 | Complete |
+| WEEK-01 | Phase 9 — 주간 점심 기록 | Complete |
+| WEEK-02 | Phase 9 — 주간 점심 기록 | Complete |
+| HIST-04 | Phase 9 — 주간 점심 기록 | Complete |
+| SHIP-05 | Phase 9 — 주간 점심 기록 | Complete |
 
 **Coverage:**
 - v1 requirements: 34 total
 - Mapped to phases: 34 ✓
 - Unmapped: 0
+- v1.1 requirements: 6 total → Phase 9 (6/6 mapped)
 
 **페이즈별 집계:**
 
@@ -148,7 +174,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | 6 — 오늘 탭 | CAND-01, CAND-02, CAND-03, CAND-05, SPIN-05, SPIN-06 | 6 |
 | 7 — 기록·랭킹 | HIST-01, HIST-02 | 2 |
 | 8 — 컷오버 | SHIP-02, SHIP-03, SHIP-04, QUAL-05 | 4 |
+| 9 — 주간 점심 기록 (v1.1) | DEST-01, VISIT-01, WEEK-01, WEEK-02, HIST-04, SHIP-05 | 6 |
 
 ---
 *Requirements defined: 2026-09-18*
-*Last updated: 2026-09-18 after roadmap creation (traceability 34/34)*
+*Last updated: 2026-10-29 — v1.1 6건 Complete(Phase 9 실행 완료, 라이브 적용은 README "0007 적용" 절차 대기), traceability 40/40*
