@@ -3,6 +3,7 @@
 import { useMemo, type CSSProperties } from "react";
 // 집계(키·정렬)는 lib/history.ts 가 정한다 — 이 컴포넌트는 호출만 하고 판단을 갖지 않는다.
 // 결과 행 전체가 아니라 HistoryRow 만 받는 이유: 랭킹 페이지가 조회 컬럼을 그만큼으로 좁힌다.
+// 0007 부터 입력은 applyLunchDays 를 지난 행이다 — "당첨" 이 아니라 "간 곳"(방문 확인 > 목적지 > 1순위)을 센다. 문구도 그렇게 읽힌다.
 import { buildRanking, type HistoryRow, type RankEntry } from "@/lib/history";
 
 export function RankingView({ results }: { results: HistoryRow[] }) {
@@ -24,12 +25,12 @@ export function RankingView({ results }: { results: HistoryRow[] }) {
       <div className="l-page-head">
         <div>
           <div className="micro" style={{ marginBottom: 8 }}>
-            역대 당첨 랭킹
+            역대 방문 랭킹
           </div>
-          <h1 style={head.h1}>가장 많이 당첨된 매장</h1>
+          <h1 style={head.h1}>가장 많이 간 매장</h1>
           <div style={head.sub}>
-            지금까지 룰렛이 정한 점심 <span className="mono">{total}</span>번 · 총{" "}
-            <span className="mono">{list.length}</span>개 매장
+            지금까지 간 점심 <span className="mono">{total}</span>번 · 총{" "}
+            <span className="mono">{list.length}</span>개 매장 · 확인 안 된 날은 1순위로 셈
           </div>
         </div>
       </div>
@@ -67,9 +68,9 @@ export function RankingView({ results }: { results: HistoryRow[] }) {
           <div className="l-rank-row" style={s.tableHead}>
             <span>순위</span>
             <span>매장</span>
-            <span style={{ textAlign: "right" }}>당첨</span>
+            <span style={{ textAlign: "right" }}>방문</span>
             <span className="l-hide-narrow">비율</span>
-            <span style={{ textAlign: "right" }}>최근 당첨일</span>
+            <span style={{ textAlign: "right" }}>최근 방문일</span>
           </div>
           {rest.map((m, i) => (
             <RankRow key={m.key} entry={m} rank={i + 4} maxWins={maxWins} />
@@ -128,7 +129,7 @@ function PodiumCard({ entry, rank }: { entry: RankEntry; rank: number }) {
           {entry.wins}
         </span>
         <span style={{ color: "var(--muted)", fontSize: 13, whiteSpace: "nowrap" }}>
-          회 당첨
+          회 방문
         </span>
       </div>
       <div style={s.podiumMeta}>

@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { ResultRow } from "@/lib/supabase/client";
+import type { LunchDayRow, ResultRow } from "@/lib/supabase/client";
 import { SLICE_COLORS } from "@/lib/colors";
 // 격자 산술과 "이번 달 최다 매장" 집계는 lib/history.ts 가 정한다 — 랭킹 페이지와 같은 키 규칙을 쓰기 위해서다.
-import { buildMonthGrid, buildRanking } from "@/lib/history";
+// 0007 부터 이 컴포넌트가 받는 행은 applyLunchDays 를 지난 것이다: menu·restaurant_id 가 "간 곳" 이고 추첨 1순위는 drawn* 에 있다.
+import { buildMonthGrid, buildRanking, type HistoryEntry } from "@/lib/history";
+// 요일 라벨과 요일 계산은 lib/lunchDay.ts 가 든다 — 오늘 탭 배지("화 방문")와 같은 배열·같은 산술이다.
+import { WEEKDAYS, weekdayLabel } from "@/lib/lunchDay";
 import { backupRanks } from "@/lib/ranking";
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -17,15 +18,20 @@ function fmtDate(y: number, m: number, d: number) {
   return `${y}-${pad2(m)}-${pad2(d)}`;
 }
 
+type LogEntry = HistoryEntry<ResultRow>;
+
 type Props = {
-  logMap: Record<string, ResultRow>;
+  // 날짜 → 간 곳 기준 행(단체 점심 안 한 날은 없다).
+  logMap: Record<string, LogEntry>;
+  // 날짜 → 점심 기록 행. 단체 점심 안 한 날(skipped)을 달력에 표시하려면 결과 행과 별도로 필요하다.
+  days: Record<string, LunchDayRow>;
   todayKey: string;
   year: number;
   month: number;
   onChangeMonthAction: (y: number, m: number) => void;
 };
 
-export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction }: Props) {
+export function CalendarLog({ logMap, days, todayKey, year, month, onChangeMonthAction }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const detailRef = useRef<HTMLElement>(null);
   const cells = buildMonthGrid(year, month);
@@ -41,10 +47,13 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
 
   const monthPrefix = `${year}-${pad2(month)}`;
   const entriesThisMonth = Object.values(logMap).filter((e) => e.date.startsWith(monthPrefix));
-  // 이름이 아니라 매장 키로 센다 — 개명한 매장이 두 줄로 갈라지면 "가장 많이 당첨된 매장" 이 틀린다.
+  // 이름이 아니라 매장 키로 센다 — 개명한 매장이 두 줄로 갈라지면 "가장 많이 간 매장" 이 틀린다.
   const topRestaurant = buildRanking(entriesThisMonth).list[0] ?? null;
 
-  const sel = selected ? logMap[selected] : null;
+  const sel = selected ? (logMap[selected] ?? null) : null;
+  const selDay = selected ? (days[selected] ?? null) : null;
+  // 단체 점심 안 한 날은 간 곳 행이 없다 — 상세는 그 사실 한 줄이다.
+  const selSkipped = sel === null && selDay !== null && selDay.visit_status === "skipped";
 
   return (
     <div className="l-cols-log" style={s.layout}>
@@ -57,7 +66,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             <div style={s.gridSub}>
               {entriesThisMonth.length}일 점심 ·{" "}
               {topRestaurant
-                ? `가장 많이 당첨된 매장 "${topRestaurant.name}" (${topRestaurant.wins}회)`
+                ? `가장 많이 간 매장 "${topRestaurant.name}" (${topRestaurant.wins}회)`
                 : "기록 없음"}
             </div>
           </div>
@@ -112,6 +121,9 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
           {cells.map((c, i) => {
             const key = fmtDate(c.y, c.m, c.d);
             const entry = logMap[key];
+            // 단체 점심 안 한 날 — 간 곳 행은 없지만 "안 먹었다" 는 사실은 칸에 남긴다(빈 칸과 다르다).
+            const skipped = days[key]?.visit_status === "skipped";
+            const selectable = entry !== undefined || skipped;
             const isToday = key === todayKey;
             const weekday = i % 7;
             const isWeekend = weekday === 0 || weekday === 6;
@@ -122,18 +134,20 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
                 className="l-cal-cell"
                 // 좁은 화면에서는 매장명과 "오늘" 표시가 display: none 이라 접근성 트리에서도 빠진다.
                 // 보이는 글자에 기대지 않고 이름을 직접 준다.
-                aria-label={entry ? `${c.m}월 ${c.d}일 ${entry.menu}` : undefined}
+                aria-label={
+                  entry ? `${c.m}월 ${c.d}일 ${entry.menu}` : skipped ? `${c.m}월 ${c.d}일 단체 점심 안 함` : undefined
+                }
                 aria-current={isToday ? "date" : undefined}
-                aria-pressed={entry ? isSelected : undefined}
+                aria-pressed={selectable ? isSelected : undefined}
                 style={{
                   ...s.cell,
                   background: isSelected ? "oklch(0.95 0.04 60)" : "white",
                   borderColor: isSelected ? "var(--accent)" : "var(--line-soft)",
-                  cursor: entry ? "pointer" : "default",
+                  cursor: selectable ? "pointer" : "default",
                   opacity: c.dim ? 0.35 : 1,
                 }}
-                onClick={() => entry && setSelected(isSelected ? null : key)}
-                disabled={!entry}
+                onClick={() => selectable && setSelected(isSelected ? null : key)}
+                disabled={!selectable}
               >
                 <div style={s.cellTop}>
                   <span
@@ -176,6 +190,14 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
                     </span>
                   </div>
                 )}
+                {!entry && skipped && (
+                  <div style={s.entryChip}>
+                    <span style={s.skipDot} />
+                    <span className="l-hide-narrow" style={{ ...s.entryName, color: "var(--muted)" }}>
+                      쉼
+                    </span>
+                  </div>
+                )}
               </button>
             );
           })}
@@ -183,7 +205,7 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
       </div>
 
       <aside ref={detailRef} className="card" style={s.detail}>
-        {!sel && (
+        {!sel && !selSkipped && (
           <div style={s.detailEmpty}>
             <div style={s.detailEmptyIcon}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -198,21 +220,40 @@ export function CalendarLog({ logMap, todayKey, year, month, onChangeMonthAction
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.6 }}>
               점심 기록이 있는 날을 누르면<br />
-              그날 추첨 결과를 볼 수 있어요.
+              그날 간 곳과 추첨 결과를 볼 수 있어요.
             </div>
           </div>
         )}
         {sel && <DetailView entry={sel} />}
+        {selSkipped && selected && <SkippedView date={selected} />}
       </aside>
     </div>
   );
 }
 
-function DetailView({ entry }: { entry: ResultRow }) {
-  const [y, m, d] = entry.date.split("-").map(Number);
-  const wd = WEEKDAYS[new Date(y, m - 1, d).getDay()];
+// 단체 점심을 안 한 날의 상세 — 간 곳 행이 없으므로 날짜와 그 사실만 있다.
+function SkippedView({ date }: { date: string }) {
+  return (
+    <div style={s.detailBody}>
+      <div className="mono" style={s.detailDate}>
+        {date.replace(/-/g, ".")} <span style={{ color: "var(--muted)" }}>({weekdayLabel(date)})</span>
+      </div>
+      <div style={{ ...s.detailWinner, background: "var(--bg-soft)", borderColor: "var(--line)" }}>
+        <span className="micro" style={{ color: "var(--muted)" }}>
+          이날
+        </span>
+        <h2 style={{ ...s.detailMenu, fontSize: 20, color: "var(--ink-soft)" }}>단체 점심 안 했어요</h2>
+      </div>
+    </div>
+  );
+}
+
+function DetailView({ entry }: { entry: LogEntry }) {
+  const wd = weekdayLabel(entry.date);
   const winnerOf = entry.candidates?.length ?? 0;
   const backups = backupRanks(entry.ranking);
+  // 간 곳이 추첨 1순위와 다르면(목적지 변경·방문 확인) 1순위를 보조행으로 남긴다 — 추첨 결과도 기록의 일부다.
+  const drawDiffers = entry.drawnId !== entry.restaurant_id || entry.drawnName !== entry.menu;
 
   return (
     <div style={s.detailBody}>
@@ -222,12 +263,17 @@ function DetailView({ entry }: { entry: ResultRow }) {
       </div>
 
       <div style={s.detailWinner}>
-        <span className="micro" style={{ color: "var(--accent-ink)" }}>
-          당첨
-        </span>
+        <div style={s.detailLabelLine}>
+          <span className="micro" style={{ color: "var(--accent-ink)" }}>
+            {entry.unconfirmed ? "갈 곳" : "먹은 곳"}
+          </span>
+          {/* 방문 확인이 없는 날은 목적지(기본 1순위)에 간 것으로 센다 — 그 가정을 숨기지 않는다. */}
+          {entry.unconfirmed && <span style={s.detailTag}>확인 안 됨</span>}
+        </div>
         <h2 style={s.detailMenu}>{entry.menu}</h2>
+        {drawDiffers && <div style={s.detailDrawn}>추첨 1순위 {entry.drawnName}</div>}
       </div>
-      {/* 그날의 2·3순위. 0006 이전 행은 비어 있어 줄 자체가 없다. 기록이 증명하는 것은 추첨 결과이지 실제 방문이 아니다. */}
+      {/* 그날의 2·3순위. 0006 이전 행은 비어 있어 줄 자체가 없다. */}
       {backups.length > 0 && (
         <div style={s.detailBackups}>
           {backups.map((backup, i) => (
@@ -243,11 +289,6 @@ function DetailView({ entry }: { entry: ResultRow }) {
         <DetailRow label="후보 수">
           <span className="mono">{winnerOf}개</span>의 매장 중 선택
         </DetailRow>
-        {winnerOf > 0 && (
-          <DetailRow label="당첨 확률">
-            <span className="mono">{((1 / winnerOf) * 100).toFixed(1)}%</span>
-          </DetailRow>
-        )}
         {entry.candidates && entry.candidates.length > 0 && (
           <DetailRow label="후보 목록">
             <span style={{ color: "var(--ink-soft)" }}>
@@ -359,6 +400,26 @@ const s = {
     fontWeight: 500,
     letterSpacing: "-0.01em",
   },
+  // 단체 점심 안 한 날의 점 — 색 조각이 아니라 빈 테두리라 "기록은 있지만 간 곳은 없다" 로 읽힌다.
+  skipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    border: "1px solid var(--muted)",
+    display: "inline-block",
+    flexShrink: 0,
+  },
+  detailLabelLine: { display: "flex", alignItems: "center", gap: 8 },
+  detailTag: {
+    fontSize: 10.5,
+    fontWeight: 600,
+    color: "var(--muted)",
+    border: "1px solid var(--line)",
+    borderRadius: 6,
+    padding: "1px 6px",
+    background: "white",
+  },
+  detailDrawn: { marginTop: 6, fontSize: 12.5, color: "var(--muted)" },
   detail: {
     padding: 24,
     position: "sticky",
