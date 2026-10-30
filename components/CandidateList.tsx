@@ -194,7 +194,7 @@ export function CandidateList({
           규칙
         </span>
         <span style={s.footerText}>
-          {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · 이번 주 간 곳·쉬는 곳은 자동으로 빠져요 · `}
+          {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · 그중 이번 주 간 곳·쉬는 곳은 빠져요 · 직접 담으면 그래도 올라가요 · `}
           <Link href="/restaurants" style={s.footerLink}>
             매장 등록·수정은 매장 탭에서
           </Link>
