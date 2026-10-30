@@ -1,10 +1,16 @@
 // 주간 제외 규칙의 정의처. "이번 주(월~어제) 간 매장" 과 "이번 주 쉬기" 매장을 추첨 pool 에서 빼는 판정과,
 // 그 판정에 필요한 주 시작(월요일)·오늘 갈 곳(목적지)·하루의 제외 id 규칙이 전부 여기 있다.
+// 제외는 자정 cron 이 자동으로 담은 후보(seed)에만 적용된다 — 사람이 오늘 담기를 누른 후보(manual, 0008)는 쉬기여도
+// 방문이어도 항상 pool 에 남는다. 담기는 "오늘 룰렛에 올린다" 는 뜻이고, 그 뜻이 이번 주 쉬기보다 나중의 더 좁은 결정이다.
 // Edge Function 2종(서버 pool)과 클라이언트(휠·목록 배지)가 같은 함수를 쓴다 — 둘이 갈라지면 "휠에서 빠진
 // 매장이 서버에서 뽑히는 날" 이 생긴다. 0007 이전의 "최근 N일 쿨다운"(applyCooldown·cooldownWindowStart)은
 // 이 규칙으로 대체돼 사라졌다.
 // 이 파일도 import 를 하나도 하지 않는다(이유는 kst.ts 머리 주석 참조). DB 조회는 여기서 하지 않는다 —
 // "이미 읽어 온 행" 만 받는다.
+
+/** 후보를 누가 담았나(candidates.source, 0008). seed = 자정 cron 의 📌 자동 시드, manual = 사람이 오늘 탭에서 담기 */
+// 두 낱말은 0008 SQL 의 check 제약·두 Edge Function 의 좁히기와 같은 집합이다 — 한쪽이 늘면 셋을 함께 고친다.
+export type CandidateSource = "seed" | "manual";
 
 /** 당첨(결과 행)에서 목적지 판정에 필요한 둘 */
 export type WinnerRef = { restaurant_id: string | null; spun_at: string };
@@ -87,12 +93,15 @@ export function dayExclusionId(winner: WinnerRef, day: DayVisitRef | null): stri
   return effectiveDestinationId(winner, day);
 }
 
-/** 쉬기 매장을 빼고(전멸이면 allPaused — 되살리지 않는다), 그 다음 이번 주 방문 매장을 뺀다(전멸이면 pool1 로 폴백) */
+/** 쉬기 매장을 빼고(전멸이면 allPaused — 되살리지 않는다), 그 다음 이번 주 방문 매장을 뺀다(전멸이면 pool1 로 폴백). 둘 다 seed 행에만 */
 // 2단인 이유: "이번 주 쉬기" 는 사람이 명시한 뜻이라 몰래 되살리면 거짓이 된다 — 전멸이면 결과 행을 만들지 않는
 // 쪽이 맞다(호출자가 all_paused 로 보고하고 다음 분에 재시도한다). 반면 "이번 주 다 가 봤다" 는 기록이 만든
 // 자연 제외라 전멸이면 다시 가는 게 맞다. 그래서 둘째 단만 되돌린다. 폴백·전멸 여부를 boolean 으로 함께 돌려주는
 // 이유는 호출자가 응답에 그 사실을 실어 "왜 오늘 이 매장이 뽑혔는가" 를 응답만으로 설명할 수 있게 하기 위해서다.
-export function applyWeeklyExclusions<T extends { restaurant_id: string }>(
+// manual 행은 두 단 어디서도 빠지지 않는다 — 사람이 오늘 담은 것은 "몰래 되살리기" 가 아니라 사람의 명시한 뜻이고,
+// 그래서 manual 이 하나라도 있으면 allPaused 도 fellBack 도 아니다. 판정은 "manual 인가" 로만 한다(seed 가 아닌 값이
+// 들어와도 제외를 유지한다 — 사람 뜻이 확인되지 않은 행을 되살리지 않는 쪽이 안전하다).
+export function applyWeeklyExclusions<T extends { restaurant_id: string; source: CandidateSource }>(
   candidates: readonly T[],
   exclusions: { pausedIds: Iterable<string | null>; visitedIds: Iterable<string | null> },
 ): { picked: T[]; allPaused: boolean; fellBack: boolean } {
@@ -106,10 +115,11 @@ export function applyWeeklyExclusions<T extends { restaurant_id: string }>(
   const visited = new Set<string>();
   for (const id of exclusions.visitedIds) if (id) visited.add(id);
 
-  const pool1 = candidates.filter((c) => !paused.has(c.restaurant_id));
+  const isManual = (c: T) => c.source === "manual";
+  const pool1 = candidates.filter((c) => isManual(c) || !paused.has(c.restaurant_id));
   if (pool1.length === 0) return { picked: [], allPaused: true, fellBack: false };
 
-  const pool2 = pool1.filter((c) => !visited.has(c.restaurant_id));
+  const pool2 = pool1.filter((c) => isManual(c) || !visited.has(c.restaurant_id));
   return pool2.length > 0
     ? { picked: pool2, allPaused: false, fellBack: false }
     : { picked: pool1, allPaused: false, fellBack: true };

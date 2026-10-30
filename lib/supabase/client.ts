@@ -1,6 +1,8 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
+// 후보 출처의 두 낱말은 주간 제외 규칙의 정의처(_shared/cooldown.ts)가 갖는다 — 타입만 가져오므로 Deno 모듈이 로드되지 않는다.
+import type { CandidateSource } from "@/supabase/functions/_shared/cooldown";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -58,6 +60,9 @@ export type WeekWinnerRow = Pick<ResultRow, "date" | "restaurant_id" | "spun_at"
 export type CandidateRow = {
   restaurant_id: string;
   created_at: string;
+  // 누가 담았나(0008). seed = 자정 cron 의 📌 자동 시드(이번 주 제외를 받는다), manual = 사람이 오늘 탭에서 담기(항상 휠에 오른다).
+  // 오늘 탭의 담기 insert 가 "manual" 을 쓰고 DB 기본값은 "seed" 다 — 기본값에 기대는 쓰기는 자정 cron 하나뿐이다.
+  source: CandidateSource;
 };
 
 // 설정 단일행(id = 1). anon 은 읽기만 가능하고 편집은 대시보드(service_role)에서만 한다

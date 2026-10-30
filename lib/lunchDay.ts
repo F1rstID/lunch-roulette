@@ -11,6 +11,7 @@ import { MENU_NAME_MAX_LEN } from "@/lib/constants";
 import { parseLocationLink } from "@/lib/restaurants";
 import {
   applyWeeklyExclusions,
+  type CandidateSource,
   dayExclusionId,
   effectiveDestinationId,
   isDestinationFresh,
@@ -113,7 +114,7 @@ export function weeklyExclusionMap(
   return map;
 }
 
-export type WheelPool<T extends { id: string }> = {
+export type WheelPool<T extends { id: string; source: CandidateSource }> = {
   items: T[]; // 휠에 올라가는 후보 — 서버가 뽑을 pool 과 같은 규칙
   allPaused: boolean; // 쉬기로 전멸 — 서버는 결과 행을 만들지 않는다(all_paused)
   fellBack: boolean; // 방문으로 전멸해 쉬기만 뺀 후보로 되돌렸다 — 서버의 weekly_fallback 과 같은 날
@@ -123,14 +124,16 @@ export type WheelPool<T extends { id: string }> = {
 /** 휠에 올릴 후보와 폴백 사실. 서버의 applyWeeklyExclusions 를 그대로 불러 2단 폴백까지 같은 답을 낸다 */
 // 사유 맵에서 한 단으로 빼면 "이번 주 다 가 본 날" 서버는 쉬기만 뺀 후보로 결과를 만드는데 화면은 빈 휠 + 전부 제외 안내를
 // 보인다 — 그 불일치가 리뷰 CR-01 이다. 그래서 휠·카운터·안내·배지 전부가 이 함수의 출력 위에 선다.
-export function wheelPool<T extends { id: string }>(
+// source 를 함께 넘기는 이유: 제외는 자동 시드(seed)에만 적용되고 사람이 담은 행(manual)은 항상 오른다(0008) — 그 판정도 서버와 같은 함수다.
+// 그래서 manual 행은 offWheel 에 들어가지 않고 목록에서 사유 배지 대신 번호 배지를 받는다(listTodayRows 는 바뀌지 않는다).
+export function wheelPool<T extends { id: string; source: CandidateSource }>(
   candidates: readonly T[],
   excluded: ReadonlyMap<string, ExclusionReason>,
 ): WheelPool<T> {
   const pausedIds: string[] = [];
   const visitedIds: string[] = [];
   for (const [id, reason] of excluded) (reason.reason === "paused" ? pausedIds : visitedIds).push(id);
-  const wrapped = candidates.map((candidate) => ({ restaurant_id: candidate.id, candidate }));
+  const wrapped = candidates.map((candidate) => ({ restaurant_id: candidate.id, source: candidate.source, candidate }));
   const result = applyWeeklyExclusions(wrapped, { pausedIds, visitedIds });
   const items = result.picked.map((entry) => entry.candidate);
   const onWheel = new Set(items.map((candidate) => candidate.id));

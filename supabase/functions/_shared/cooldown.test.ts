@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import * as cooldown from "./cooldown";
 import {
   applyWeeklyExclusions,
+  type CandidateSource,
   dayExclusionId,
   effectiveDestinationId,
   isDestinationFresh,
@@ -218,8 +219,10 @@ describe("WEEK-01 — 하루의 제외 id 는 방문 > 목적지 > 당첨 순이
   });
 });
 
-type C = { restaurant_id: string };
-const c = (...ids: string[]): C[] => ids.map((restaurant_id) => ({ restaurant_id }));
+type C = { restaurant_id: string; source: CandidateSource };
+// c = 자정 cron 이 자동으로 담은 행(seed), m = 사람이 오늘 담기를 누른 행(manual, 0008). 제외는 seed 에만 적용된다.
+const c = (...ids: string[]): C[] => ids.map((restaurant_id) => ({ restaurant_id, source: "seed" }));
+const m = (...ids: string[]): C[] => ids.map((restaurant_id) => ({ restaurant_id, source: "manual" }));
 
 describe("WEEK-02 — 2단 폴백: 쉬기는 되살리지 않고, 이번 주 방문은 전멸 때 되돌린다", () => {
   it("후보가 0개면 뺄 것도 폴백할 것도 없다 (#27)", () => {
@@ -291,6 +294,51 @@ describe("WEEK-02 — 2단 폴백: 쉬기는 되살리지 않고, 이번 주 방
     const input = c("r1", "r2");
     applyWeeklyExclusions(input, { pausedIds: ["r1"], visitedIds: ["r2"] });
     expect(input).toEqual(c("r1", "r2"));
+  });
+});
+
+describe("CAND-SRC — 사람이 담은 행(manual)은 이번 주 제외를 받지 않는다 (0008, D1 A)", () => {
+  // 담기는 "오늘 룰렛에 올린다" 는 뜻이다. 자동 시드(seed)에만 제외를 적용해야 담기를 누른 매장이 흐린 채 휠에서 빠지는
+  // 상태가 생기지 않는다. 쉬기까지 이기는 것은 의도다 — 오늘 담기는 이번 주 쉬기보다 나중의, 더 좁은 사람의 뜻이다.
+  it("이번 주 간 매장이라도 사람이 담았으면 pool 에 남는다 — seed 행만 빠진다 (#37)", () => {
+    expect(applyWeeklyExclusions([...c("r1"), ...m("r2")], { pausedIds: [], visitedIds: ["r1", "r2"] })).toEqual({
+      picked: m("r2"),
+      allPaused: false,
+      fellBack: false,
+    });
+  });
+
+  it("이번 주 쉬기 매장이라도 사람이 담았으면 pool 에 남는다 (#38)", () => {
+    expect(applyWeeklyExclusions([...c("r1"), ...m("r2")], { pausedIds: ["r1", "r2"], visitedIds: [] })).toEqual({
+      picked: m("r2"),
+      allPaused: false,
+      fellBack: false,
+    });
+  });
+
+  it("seed 전원이 쉬기여도 manual 이 하나 있으면 allPaused 가 아니다 — 그 행으로 추첨한다 (#39)", () => {
+    expect(applyWeeklyExclusions([...c("r1", "r2"), ...m("r3")], { pausedIds: ["r1", "r2"], visitedIds: ["r3"] })).toEqual({
+      picked: m("r3"),
+      allPaused: false,
+      fellBack: false,
+    });
+  });
+
+  it("방문 전멸 폴백은 seed 가 전부 빠졌는데 manual 도 없을 때만이다 — manual 이 있으면 폴백 없이 그 행이다 (#40)", () => {
+    expect(applyWeeklyExclusions([...c("r1", "r2"), ...m("r3")], { pausedIds: [], visitedIds: ["r1", "r2"] })).toEqual({
+      picked: m("r3"),
+      allPaused: false,
+      fellBack: false,
+    });
+    // manual 이 없으면 전과 같이 되돌린다(#31).
+    expect(applyWeeklyExclusions(c("r1", "r2"), { pausedIds: [], visitedIds: ["r1", "r2"] }).fellBack).toBe(true);
+  });
+
+  it("담은 순서를 유지한다 — manual 이 앞이면 앞에 남는다 (#41)", () => {
+    expect(applyWeeklyExclusions([...m("r0"), ...c("r1", "r2")], { pausedIds: [], visitedIds: ["r1"] }).picked).toEqual([
+      ...m("r0"),
+      ...c("r2"),
+    ]);
   });
 });
 
