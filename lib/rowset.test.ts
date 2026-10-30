@@ -72,6 +72,13 @@ describe("createRowSetReducer — changed 병합 (D-05)", () => {
     expect(reduce(live, { type: "changed", event: "INSERT", row: A }).rows).toEqual([A]);
   });
 
+  it("같은 key 의 INSERT 가 다른 내용으로 오면 자리를 지키며 통째로 교체한다 — DELETE 를 놓친 탭이 빼기→담기의 새 행을 받는 경로", () => {
+    // 0008 부터 빼기 → 담기는 같은 키로 내용이 다른 INSERT(source seed → manual)다. 재연결 틈에 DELETE 만 놓쳐도
+    // 이 INSERT 로 그 탭이 복구돼야 서버 pool 과 휠이 어긋나지 않는다. 무시 규칙이면 옛 행이 리로드까지 남는다.
+    const live = reduce(EMPTY, { type: "fetched", rows: [A, B], error: null });
+    expect(reduce(live, { type: "changed", event: "INSERT", row: A_NEXT }).rows).toEqual([A_NEXT, B]);
+  });
+
   it("UPDATE 는 같은 key 의 행을 통째로 교체한다 (얕은 병합이 아니다)", () => {
     const live = reduce(EMPTY, { type: "fetched", rows: [A], error: null });
     expect(reduce(live, { type: "changed", event: "UPDATE", row: A_NEXT }).rows).toEqual([A_NEXT]);

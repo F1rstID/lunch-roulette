@@ -114,7 +114,7 @@ export function CandidateList({
           그 둘을 말한다 — 결과 카드는 "아직 결과가 없어요" 만 보여 이유를 모른다. */}
       {allExcluded && (
         <div role="status" style={s.notice}>
-          담긴 후보가 전부 이번 주 쉬기예요 — 쉬기를 풀거나 매장을 더 담아 주세요
+          담긴 후보가 전부 이번 주 쉬기예요 — 쉬기를 풀거나 매장을 더 담아 주세요(빼고 다시 담아도 올라가요)
         </div>
       )}
       {fellBack && (
@@ -194,7 +194,7 @@ export function CandidateList({
           규칙
         </span>
         <span style={s.footerText}>
-          {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · 그중 이번 주 간 곳·쉬는 곳은 빠져요 · 직접 담으면 그래도 올라가요 · `}
+          {`${spinTimeText}에 룰렛이 자동으로 돌아가요 · 📌 고정 매장은 매일 자정 자동으로 담겨요 · 그중 이번 주 간 곳·쉬는 곳은 빠져요 · 직접 담으면 그래도 올라가요(이미 담긴 매장은 빼고 다시 담기) · `}
           <Link href="/restaurants" style={s.footerLink}>
             매장 등록·수정은 매장 탭에서
           </Link>

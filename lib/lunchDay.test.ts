@@ -284,6 +284,18 @@ describe("WEEK-02 — wheelPool: 휠 후보는 서버의 applyWeeklyExclusions �
     expect([pool.items.map((c) => c.id), pool.allPaused, [...pool.offWheel.keys()]]).toEqual([["r2"], false, ["r1"]]);
   });
 
+  it("seed 전원 방문 + manual 하나면 폴백이 아니라 manual 만 휠에 있다 — 0007 과 가장 크게 갈리는 날 (#60)", () => {
+    // 0007 에서는 방문 전멸 → fellBack 으로 전원이 휠에 올랐다. 0008 부터는 사람이 담은 행이 pool 을 채우므로
+    // 폴백이 켜지지 않고, 방문 seed 행은 offWheel 에 남아 사유 배지를 유지한다.
+    const pool = wheelPool(
+      [{ id: "r1", source: "seed" }, { id: "r2", source: "seed" }, { id: "r3", source: "manual" }] as const,
+      new Map<string, ExclusionReason>([["r1", V("2026-10-27")], ["r2", V("2026-10-28")]]),
+    );
+    expect([pool.items.map((c) => c.id), pool.allPaused, pool.fellBack, [...pool.offWheel.keys()]]).toEqual([
+      ["r3"], false, false, ["r1", "r2"],
+    ]);
+  });
+
   it("안 담긴 방문 매장의 사유는 담기 전까지만 offWheel 에 있다 — 담으면(manual) 사라진다 (#59)", () => {
     const before = wheelPool([{ id: "r1", source: "seed" }] as const, new Map<string, ExclusionReason>([["r9", V("2026-10-28")]]));
     const after = wheelPool(
