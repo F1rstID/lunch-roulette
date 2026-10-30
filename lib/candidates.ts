@@ -13,9 +13,10 @@
 // 않는다 — 이 모듈을 환경변수 없이 테스트할 수 있는 근거다.
 import type { CandidateRow, ResultRow, RestaurantRow } from "@/lib/supabase/client";
 import type { ExclusionReason } from "@/lib/lunchDay";
+import type { CandidateSource } from "@/supabase/functions/_shared/cooldown";
 import { createRowSetReducer, initialRowSetState, type RowSetAction, type RowSetState } from "@/lib/rowset";
 
-// 휠과 목록이 그대로 쓰는 모양. addedAt 은 후보 행의 등록 시각이다.
+// 휠과 목록이 그대로 쓰는 모양. addedAt 은 후보 행의 등록 시각, source 는 누가 담았나(0008 — 이번 주 제외는 seed 에만)다.
 export type TodayCandidate = {
   id: string;
   name: string;
@@ -23,6 +24,7 @@ export type TodayCandidate = {
   location: string | null;
   pinned: boolean;
   addedAt: string;
+  source: CandidateSource;
 };
 
 // slice 가 null 이면 휠에 없는 매장이다 — 아직 담기지 않았거나, 담겼지만 이번 주 제외(excludedReason)다. 숫자면 그 값이
@@ -79,6 +81,7 @@ export function joinCandidates(candidates: CandidateRow[], restaurants: Restaura
     location: store.location,
     pinned: store.pinned,
     addedAt: candidate.created_at,
+    source: candidate.source,
   }));
 }
 
