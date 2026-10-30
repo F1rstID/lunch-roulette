@@ -236,6 +236,17 @@ describe("EDGE/SPIN-01 — spin-roulette 가 candidates ⋈ restaurants · setti
     expect([count(spin, winners), count(respin, winners)]).toEqual([1, 1]);
   });
 
+  it("후보 조회가 출처(source)를 함께 읽고, manual 이 아니면 seed 로 좁힌다 — 두 함수 같게 (#67)", () => {
+    // source 가 select 에서 빠지면 좁히기가 전부 seed 로 떨어져 사람이 담은 매장이 다시 제외된다 — 타입은 그걸 못 잡는다
+    // (임베드 응답은 unknown 으로 받는다). 좁히기 방향도 계약이다: "manual 인가" 로만 판정해 모르는 값은 제외를 유지한다.
+    const select = /select\("restaurant_id, created_at, source, restaurants \( id, name, paused_week \)"\)/g;
+    expect([count(spin, select), count(respin, select)]).toEqual([1, 1]);
+    const narrow = /source === "manual" \? "manual" : "seed"/g;
+    expect([count(spin, narrow), count(respin, narrow)]).toEqual([1, 1]);
+    const typed = /type CandidateSource/g;
+    expect([count(spin, typed), count(respin, typed)]).toEqual([1, 1]);
+  });
+
   it("전부 쉬기면 결과 행을 만들지 않고 all_paused 로 끝낸다 (#63)", () => {
     // 쉬기 매장을 몰래 되살리는 폴백이 생기면 "이번 주 쉬기" 가 거짓이 된다. 행이 없어야 다음 분 cron 이 재시도한다.
     expect(count(spin, /skipped: "all_paused"/g)).toBe(1);
