@@ -242,7 +242,9 @@ export default function TodayPage() {
 
   async function addCandidate(id: string, name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from("candidates").insert({ restaurant_id: id });
+      // source: "manual" 이 이 행을 이번 주 제외에서 면제한다(0008) — 사람이 담은 매장은 간 곳·쉬는 곳이어도 휠에 오른다.
+      // DB 기본값은 "seed"(자정 cron 용)라 생략하면 담은 매장이 흐린 채 휠에서 빠지는 옛 동작으로 돌아간다.
+      const { error } = await supabase.from("candidates").insert({ restaurant_id: id, source: "manual" });
       if (error) return reportCandidateWrite(formatCandidateWriteError("담기", name, error));
       setActionError(null);
       return true;

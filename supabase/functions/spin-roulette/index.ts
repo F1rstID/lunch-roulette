@@ -16,6 +16,8 @@
 // - 이번 주(월~어제) 간 매장과 "이번 주 쉬기" 매장은 pool 에서 뺀다(0007). 쉬기로 후보가 전멸하면 결과 행을 만들지
 //   않는다 — 쉬기를 몰래 되살리면 거짓이 되고, 행이 없으면 다음 분 cron 이 다시 시도한다. 방문 매장으로만 전멸하면
 //   쉬기만 뺀 후보로 되돌린다(이번 주 다 가 봤으면 다시 가는 게 맞다). 월요일 00:00 KST 에 창이 없어져 전부 해제된다
+// - 사람이 오늘 담은 후보(candidates.source = manual, 0008)는 그 제외를 받지 않는다 — 담기는 "오늘 룰렛에 올린다" 는 뜻이다.
+//   자정 cron 이 자동으로 담은 seed 행만 빠진다. 판정은 같은 _shared 함수가 source 로 한다
 // - KST 변환·시각 판정·순서 결정·주간 제외는 _shared/ 한 곳으로 합쳤다 (respin-roulette 와의 복붙 제거)
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -24,6 +26,7 @@ import { kstNow } from "../_shared/kst.ts";
 import { DEFAULT_SPIN_TIME, isAfterSpinTime, parseSpinTime } from "../_shared/spinTime.ts";
 import {
   applyWeeklyExclusions,
+  type CandidateSource,
   dayExclusionId,
   type DayVisitRef,
   weekStartOf,
@@ -34,7 +37,8 @@ import { rankCandidates } from "../_shared/ranking.ts";
 // lib/supabase/client.ts 의 행 타입을 그대로 쓸 수 없어(Deno 는 경로 별칭·확장자 규칙이 달라
 // lib/ 를 import 하지 못한다) 필요한 최소 구조만 여기 다시 선언한다. 한쪽이 늘면 양쪽을 함께 고친다.
 // paused_week 는 "이번 주 쉬기" 의 월요일 날짜다 — 활성 판정(이번 주 월요일과 같은가)은 아래 본문이 한다.
-type Candidate = { restaurant_id: string; name: string; paused_week: string | null };
+// source 는 누가 담았나(0008) — seed(자정 cron)만 주간 제외를 받고 manual(사람의 담기)은 항상 pool 에 남는다.
+type Candidate = { restaurant_id: string; name: string; paused_week: string | null; source: CandidateSource };
 
 // 설정은 단일행이다 — 이 값을 정한 것은 0005 마이그레이션의 check (id = 1) 이고, 코드 쪽에는
 // 출처 없는 맨 숫자만 남아 있었다. 이름을 붙여 둬야 "왜 하필 1인가" 를 다시 묻지 않는다.
@@ -75,10 +79,14 @@ function normalizeCandidates(
     if (typeof row.restaurant_id !== "string" || typeof one.name !== "string") { excludedIds.push(label); continue; }
     // paused_week 는 제외 판정이 아니라 형태 방어다 — 문자열이 아니면 "쉬지 않음" 으로 읽는다(컬럼 부재는 임베드 조회가 먼저 거부한다).
     const pausedWeek: unknown = "paused_week" in one ? one.paused_week : null;
+    // source 도 형태 방어다 — "manual 인가" 로만 판정하고 그 밖의 값은 seed 로 읽어 제외를 유지한다(사람 뜻이 확인되지 않은
+    // 행을 되살리지 않는다). 컬럼 부재 자체는 명시 select 가 42703 으로 먼저 거부하므로 여기까지 오지 않는다.
+    const source: unknown = "source" in row ? row.source : null;
     picked.push({
       restaurant_id: row.restaurant_id,
       name: one.name,
       paused_week: typeof pausedWeek === "string" ? pausedWeek : null,
+      source: source === "manual" ? "manual" : "seed",
     }); // 담은 순서를 유지한다
   }
   return { picked, excluded: excludedIds.length, excludedIds };
@@ -160,7 +168,7 @@ Deno.serve(async () => {
     // 오늘 후보 조회. 정렬 옵션을 주지 않으면 부모(후보 행) 정렬이다 — 임베드 정렬이 아니다.
     const { data: rows, error: candErr } = await supabase
       .from("candidates")
-      .select("restaurant_id, created_at, restaurants ( id, name, paused_week )")
+      .select("restaurant_id, created_at, source, restaurants ( id, name, paused_week )")
       .order("created_at", { ascending: true });
 
     if (candErr) {

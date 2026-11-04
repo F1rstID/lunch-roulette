@@ -237,7 +237,8 @@ describe("WEEK-01 — weeklyExclusionMap: 휠에서 빠질 매장과 목록 배�
 // 휠에 오르는 후보는 서버가 뽑는 pool 과 같아야 한다 — 2단 폴백까지(리뷰 CR-01). 사유 맵에서 한 단으로 빼면 이번 주 다 가 본 날
 // 서버는 결과를 만드는데 화면은 빈 휠을 보인다.
 describe("WEEK-02 — wheelPool: 휠 후보는 서버의 applyWeeklyExclusions 와 같은 2단 폴백이다", () => {
-  const C = [{ id: "r1" }, { id: "r2" }, { id: "r3" }];
+  // source 는 0008 의 후보 출처다 — 여기 셋은 전부 자정 시드(seed)라 0007 과 같은 제외를 받는다.
+  const C = [{ id: "r1", source: "seed" }, { id: "r2", source: "seed" }, { id: "r3", source: "seed" }] as const;
   const V = (date: string) => ({ reason: "visited", date }) as const;
   const P = { reason: "paused" } as const;
 
@@ -261,8 +262,47 @@ describe("WEEK-02 — wheelPool: 휠 후보는 서버의 applyWeeklyExclusions �
   });
 
   it("안 담긴 쉬기 매장의 사유는 offWheel 에 남는다 — 담기 전에 배지로 보인다 (#55)", () => {
-    const pool = wheelPool([{ id: "r1" }], new Map<string, ExclusionReason>([["r9", P]]));
+    const pool = wheelPool([{ id: "r1", source: "seed" }], new Map<string, ExclusionReason>([["r9", P]]));
     expect([pool.items.map((c) => c.id), [...pool.offWheel.keys()]]).toEqual([["r1"], ["r9"]]);
+  });
+
+  it("사람이 담은(manual) 방문 매장은 휠에 오르고 offWheel 에서 빠진다 — 목록 배지가 사유 대신 번호가 된다 (#57)", () => {
+    const pool = wheelPool(
+      [{ id: "r1", source: "manual" }, { id: "r2", source: "seed" }] as const,
+      new Map<string, ExclusionReason>([["r1", V("2026-10-27")], ["r2", P]]),
+    );
+    expect([pool.items.map((c) => c.id), pool.allPaused, pool.fellBack, [...pool.offWheel.keys()]]).toEqual([
+      ["r1"], false, false, ["r2"],
+    ]);
+  });
+
+  it("seed 전원 쉬기 + manual 하나면 allPaused 가 아니고 그 매장만 휠에 있다 (#58)", () => {
+    const pool = wheelPool(
+      [{ id: "r1", source: "seed" }, { id: "r2", source: "manual" }] as const,
+      new Map<string, ExclusionReason>([["r1", P], ["r2", P]]),
+    );
+    expect([pool.items.map((c) => c.id), pool.allPaused, [...pool.offWheel.keys()]]).toEqual([["r2"], false, ["r1"]]);
+  });
+
+  it("seed 전원 방문 + manual 하나면 폴백이 아니라 manual 만 휠에 있다 — 0007 과 가장 크게 갈리는 날 (#60)", () => {
+    // 0007 에서는 방문 전멸 → fellBack 으로 전원이 휠에 올랐다. 0008 부터는 사람이 담은 행이 pool 을 채우므로
+    // 폴백이 켜지지 않고, 방문 seed 행은 offWheel 에 남아 사유 배지를 유지한다.
+    const pool = wheelPool(
+      [{ id: "r1", source: "seed" }, { id: "r2", source: "seed" }, { id: "r3", source: "manual" }] as const,
+      new Map<string, ExclusionReason>([["r1", V("2026-10-27")], ["r2", V("2026-10-28")]]),
+    );
+    expect([pool.items.map((c) => c.id), pool.allPaused, pool.fellBack, [...pool.offWheel.keys()]]).toEqual([
+      ["r3"], false, false, ["r1", "r2"],
+    ]);
+  });
+
+  it("안 담긴 방문 매장의 사유는 담기 전까지만 offWheel 에 있다 — 담으면(manual) 사라진다 (#59)", () => {
+    const before = wheelPool([{ id: "r1", source: "seed" }] as const, new Map<string, ExclusionReason>([["r9", V("2026-10-28")]]));
+    const after = wheelPool(
+      [{ id: "r1", source: "seed" }, { id: "r9", source: "manual" }] as const,
+      new Map<string, ExclusionReason>([["r9", V("2026-10-28")]]),
+    );
+    expect([[...before.offWheel.keys()], [...after.offWheel.keys()], after.items.map((c) => c.id)]).toEqual([["r9"], [], ["r1", "r9"]]);
   });
 
   it("후보가 없으면 플래그 전부 거짓이다 (#56)", () => {

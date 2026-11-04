@@ -47,15 +47,14 @@ function applyChange<Row>(rows: Row[], change: RowChange<Row>, keyOf: (row: Row)
   }
   const key = keyOf(change.row);
   const known = rows.some((row) => keyOf(row) === key);
-  if (change.event === "INSERT") {
-    // 같은 행이 두 번 와도 늘지 않게 한다 — 구독 재연결 직후 같은 이벤트가 되풀이될 수 있고, 조회 응답에
-    // 이미 들어 있는 행이 버퍼에도 남아 있는 것은 정상 경로다.
-    return known ? rows : [...rows, change.row];
-  }
-  // 모르는 키면 끝에 더한다. 재연결 틈에 놓친 INSERT 가 이 경로로 복구된다.
+  // INSERT·UPDATE 는 같은 규칙이다 — 모르는 키면 끝에 더하고, 아는 키면 통째로 교체한다.
+  // 같은 행이 두 번 와도 늘지 않는다(구독 재연결 직후 같은 이벤트가 되풀이되고, 조회 응답에 이미 든 행이 버퍼에도
+  // 남는 것은 정상 경로다). 아는 키의 INSERT 를 "무시" 가 아니라 "교체" 로 두는 이유: 빼기 → 담기는 같은 키로
+  // 내용이 다른 INSERT(source seed → manual, 0008)이고, 재연결 틈에 DELETE 를 놓친 탭이 그 INSERT 만 받으면
+  // 무시 규칙에서는 옛 행이 남아 서버 pool 과 휠이 어긋난다. payload.new 는 전체 새 행이라 교체가 안전하다.
+  // 모르는 키의 UPDATE 를 더하는 것도 같은 복구다 — 재연결 틈에 놓친 INSERT 가 이후 UPDATE 로 돌아온다.
   if (!known) return [...rows, change.row];
-  // payload.new 는 이미 전체 새 행이다. 얕은 병합({ ...prev, ...row })은 "빠진 필드는 이전 값" 이라는 틀린
-  // 가정을 코드에 심으므로 통째로 교체한다.
+  // 얕은 병합({ ...prev, ...row })은 "빠진 필드는 이전 값" 이라는 틀린 가정을 코드에 심으므로 통째로 교체한다.
   return rows.map((row) => (keyOf(row) === key ? change.row : row));
 }
 

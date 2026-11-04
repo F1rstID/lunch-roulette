@@ -183,7 +183,7 @@ export function RestaurantList({
           규칙
         </span>
         <span style={s.footerText}>
-          📌 고정한 매장은 매일 자정 오늘 후보에 자동으로 담겨요 · 이번 주 쉬기는 월요일에 저절로 풀려요 · 오늘 후보 담기는 오늘 탭에서
+          📌 고정한 매장은 매일 자정 오늘 후보에 자동으로 담겨요 · 이번 주 쉬기는 월요일에 저절로 풀려요 · 쉬는 매장도 오늘 탭에서 직접 담으면 그날은 올라가요 · 오늘 후보 담기는 오늘 탭에서
         </span>
       </footer>
     </div>
@@ -396,7 +396,7 @@ function PauseButton({ paused, busy, onToggle }: { paused: boolean; busy: boolea
       type="button"
       aria-pressed={paused}
       disabled={busy}
-      title={paused ? "월요일에 저절로 풀려요 — 지금 해제" : "이번 주 추첨·휠에서 뺀다 — 월요일에 저절로 풀려요"}
+      title={paused ? "월요일에 저절로 풀려요 — 지금 해제" : "자동으로 담긴 날의 추첨·휠에서 뺀다 — 직접 담으면 올라가요 · 월요일에 저절로 풀려요"}
       onClick={onToggle}
       className="l-tap"
       style={{

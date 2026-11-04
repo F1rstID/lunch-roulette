@@ -27,7 +27,7 @@ type Store = {
   created_at: string;
   paused_week: string | null;
 };
-type Candidate = { restaurant_id: string; created_at: string };
+type Candidate = { restaurant_id: string; created_at: string; source: "seed" | "manual" };
 type Today = {
   id: string;
   name: string;
@@ -35,6 +35,7 @@ type Today = {
   location: string | null;
   pinned: boolean;
   addedAt: string;
+  source: "seed" | "manual";
 };
 
 // 자정 재시드가 한 문장 insert 로 남기는 동률 시각. 트랜잭션 시작 시각이라 행마다 같다.
@@ -144,15 +145,15 @@ const S_LATE_REG: Store = {
   paused_week: null,
 };
 
-const C_GIM: Candidate = { restaurant_id: "r1", created_at: "2026-09-29T03:00:00+09:00" };
-const C_MARA: Candidate = { restaurant_id: "r2", created_at: "2026-09-29T04:00:00+09:00" };
+const C_GIM: Candidate = { restaurant_id: "r1", created_at: "2026-09-29T03:00:00+09:00", source: "seed" };
+const C_MARA: Candidate = { restaurant_id: "r2", created_at: "2026-09-29T04:00:00+09:00", source: "seed" };
 // 재시드로 함께 들어간 두 행. 첫 키가 동률이라 매장 등록 순서가 순서를 정한다.
-const C_RESEED_GIM: Candidate = { restaurant_id: "r1", created_at: RESEED_AT };
-const C_RESEED_SALAD: Candidate = { restaurant_id: "r3", created_at: RESEED_AT };
-const C_TIE_LATE: Candidate = { restaurant_id: "r9", created_at: RESEED_AT };
-const C_TIE_EARLY: Candidate = { restaurant_id: "r8", created_at: RESEED_AT };
+const C_RESEED_GIM: Candidate = { restaurant_id: "r1", created_at: RESEED_AT, source: "seed" };
+const C_RESEED_SALAD: Candidate = { restaurant_id: "r3", created_at: RESEED_AT, source: "seed" };
+const C_TIE_LATE: Candidate = { restaurant_id: "r9", created_at: RESEED_AT, source: "seed" };
+const C_TIE_EARLY: Candidate = { restaurant_id: "r8", created_at: RESEED_AT, source: "seed" };
 // 카탈로그에서 이미 사라진 매장을 가리키는 후보. cascade 삭제 이벤트가 두 훅에 따로 도착하는 창의 정상 상태다.
-const C_GONE: Candidate = { restaurant_id: "r404", created_at: "2026-09-29T05:00:00+09:00" };
+const C_GONE: Candidate = { restaurant_id: "r404", created_at: "2026-09-29T05:00:00+09:00", source: "seed" };
 
 const T_GIM: Today = {
   id: "r1",
@@ -161,6 +162,7 @@ const T_GIM: Today = {
   location: null,
   pinned: false,
   addedAt: "2026-09-29T03:00:00+09:00",
+  source: "seed",
 };
 const T_SALAD: Today = {
   id: "r3",
@@ -169,6 +171,7 @@ const T_SALAD: Today = {
   location: "2층 안쪽",
   pinned: true,
   addedAt: RESEED_AT,
+  source: "seed",
 };
 
 const RESULT_GIM = {
@@ -202,10 +205,12 @@ describe("joinCandidates — 휠 순서의 정의처 (D-06)", () => {
     expect(joinCandidates([C_GIM, C_GONE], [S_GIM]).map((c) => c.id)).toEqual(["r1"]);
   });
 
-  it("매장의 이름·메뉴·위치·핀이 그대로 실린다 (표시에 필요한 값을 다시 찾지 않게)", () => {
+  it("매장의 이름·메뉴·위치·핀과 후보의 출처가 그대로 실린다 (표시·제외 판정에 필요한 값을 다시 찾지 않게)", () => {
     expect(joinCandidates([C_RESEED_SALAD], [S_SALAD])).toEqual([
-      { id: "r3", name: "샐러드바", menus: ["샐러드", "수프"], location: "2층 안쪽", pinned: true, addedAt: RESEED_AT },
+      { id: "r3", name: "샐러드바", menus: ["샐러드", "수프"], location: "2층 안쪽", pinned: true, addedAt: RESEED_AT, source: "seed" },
     ]);
+    // 사람이 담은 행은 manual 로 실린다 — wheelPool 이 이 값으로 제외 면제를 판정한다(0008).
+    expect(joinCandidates([{ ...C_RESEED_SALAD, source: "manual" }], [S_SALAD])[0].source).toBe("manual");
   });
 
   it("후보가 0개면 빈 배열이다", () => {
@@ -216,8 +221,8 @@ describe("joinCandidates — 휠 순서의 정의처 (D-06)", () => {
   it('"Z" 와 "+09:00" 이 같은 순간이면 동률로 보고 다음 키(매장 등록 시각)로 넘어간다', () => {
     const rows = joinCandidates(
       [
-        { restaurant_id: "r10", created_at: INSTANT_KST },
-        { restaurant_id: "r11", created_at: INSTANT_Z },
+        { restaurant_id: "r10", created_at: INSTANT_KST, source: "seed" },
+        { restaurant_id: "r11", created_at: INSTANT_Z, source: "seed" },
       ],
       [S_EARLY_REG, S_LATE_REG],
     );
@@ -227,8 +232,8 @@ describe("joinCandidates — 휠 순서의 정의처 (D-06)", () => {
   it("소수 초가 붙은 형식도 같은 순간이면 동률이다", () => {
     const rows = joinCandidates(
       [
-        { restaurant_id: "r11", created_at: INSTANT_MILLIS },
-        { restaurant_id: "r10", created_at: INSTANT_Z },
+        { restaurant_id: "r11", created_at: INSTANT_MILLIS, source: "seed" },
+        { restaurant_id: "r10", created_at: INSTANT_Z, source: "seed" },
       ],
       [S_EARLY_REG, S_LATE_REG],
     );
@@ -239,9 +244,9 @@ describe("joinCandidates — 휠 순서의 정의처 (D-06)", () => {
     const rows = joinCandidates(
       [
         // 02:00 UTC — 문자열로는 앞서 보이지만 실제로는 30분 늦다.
-        { restaurant_id: "r10", created_at: "2026-09-29T02:00:00+00:00" },
+        { restaurant_id: "r10", created_at: "2026-09-29T02:00:00+00:00", source: "seed" },
         // 01:30 UTC
-        { restaurant_id: "r11", created_at: "2026-09-29T10:30:00+09:00" },
+        { restaurant_id: "r11", created_at: "2026-09-29T10:30:00+09:00", source: "seed" },
       ],
       [S_EARLY_REG, S_LATE_REG],
     );
