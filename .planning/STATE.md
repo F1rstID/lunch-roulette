@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 9 live (0007 applied 2026-10-29) — Quick 004 candidate-source implemented, PR pending
-stopped_at: Quick 004(사람이 담은 후보는 이번 주 제외 면제 — candidates.source, 0008) 구현·게이트 5종 통과. 리뷰 1회 → 반영 → 푸시 → PR. 라이브 적용은 README "0008 적용"(사용자: SQL → 함수 2종 → 머지)
-last_updated: "2026-10-30T03:20:00.000Z"
+status: Phase 9 + Quick 004 live (0007 2026-10-29 · 0008 2026-11-06) — Quick 005 wheel-labels-spin implemented, PR pending
+stopped_at: Quick 004 라이브 적용 완료(11-06 09:45 — PR #9 는 11-04 사용자 머지, 0008 SQL 11-06, 함수 v5). Quick 005(휠 도는 동안 라벨 유지 + 멈춤 튐 제거) 구현·게이트 통과 → PR. 머지는 사용자 지시(DB·함수 무변경)
+last_updated: "2026-11-06T03:00:00.000Z"
 last_activity: "2026-10-30 -- Phase 9 라이브 적용 완료(10-29 13:17: 0007 SQL·함수 v4·PR #8 머지 6543942). Quick 004 candidate-source: 0008 SQL+롤백+spec, cooldown.ts seed 한정, Edge 2종 source, 담기 insert manual, 문서. 테스트 566 → 591"
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-18)
 
 **Core value:** 매일 설정 시각에 오늘 담긴 매장 중 하나가 자동으로 확정되고 모든 접속자 화면에 동시에 뜬다.
-**Current focus:** Quick 004(브랜치 `feat/candidate-source`) 리뷰 → PR → 사용자 라이브 적용(README "0008 적용": SQL → 함수 2종 → 머지). Phase 9 는 10-29 라이브. v1.0 마일스톤 마감(`/gsd-complete-milestone`)은 아직 안 함 — v1.1 과 함께 판단
+**Current focus:** Quick 005(브랜치 `feat/wheel-labels-spin`) PR → 머지(Vercel 자동 배포). Quick 004 는 11-06 라이브(0008 SQL·함수 v5·PR #9). v1.0 마일스톤 마감(`/gsd-complete-milestone`)은 아직 안 함 — v1.1 과 함께 판단
 
 ## Current Position
 
 Phase: 9 (3/3 plans executed) — Phase 1~9 complete, 0007 live 2026-10-29
-Plan: Quick 004 candidate-source (direct lane)
-Status: Quick 004 implemented, review·PR pending
-Last activity: 2026-10-30 -- Quick 004 구현 완료(커밋 4개, 테스트 591), 리뷰 1회 진행
+Plan: Quick 005 wheel-labels-spin (direct lane)
+Status: Quick 005 implemented, PR pending
+Last activity: 2026-11-06 -- Quick 004 라이브 적용(0008 SQL·함수 v5). Quick 005 구현(라벨 회전 그룹 안·settledRotation), 캡처 검증
 
 Progress: [██████████] 9/9 phases (plans 23/23)
 
@@ -184,6 +184,7 @@ Progress: [██████████] 9/9 phases (plans 23/23)
 | 002 | 휠 라벨 가독성 + 시계 중복·영문 라벨 정리 | 2026-09-30 | 6ec1744 | [002-wheel-labels-copy](./quick/002-wheel-labels-copy/) |
 | 003 | 결과 순위(1순위 + 2·3순위) 저장·표시 | 2026-10-06 | d00603c | [003-ranked-results](./quick/003-ranked-results/) |
 | 004 | 사람이 담은 후보는 이번 주 제외 면제 — `candidates.source`(0008) | 2026-10-30 | d1e04eb | [004-candidate-source](./quick/004-candidate-source/) |
+| 005 | 휠 도는 동안 라벨 유지 + 멈춤 튐 제거 | 2026-11-06 | a53d7ba | [005-wheel-labels-spin](./quick/005-wheel-labels-spin/) |
 
 ## Deferred Items
 
@@ -195,6 +196,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-30 (/gsd-quick 004 직접 실행 레인)
-Stopped at: Quick 004 구현 완료, 브랜치 `feat/candidate-source`. 리뷰 1회 → 반영 → 푸시 → PR. 라이브 적용(0008 SQL → 함수 2종 → 머지)은 사용자 지시 때만. PR #8(0007)은 10-29 머지·라이브 완료
+Last session: 2026-11-06 (/gsd-quick 005 직접 실행 레인)
+Stopped at: Quick 005 구현 완료, 브랜치 `feat/wheel-labels-spin`, PR. 머지는 사용자 지시(Vercel 자동 배포). Quick 004(0008)는 11-06 라이브 완료
 Resume file: None
