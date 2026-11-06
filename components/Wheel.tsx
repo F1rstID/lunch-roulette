@@ -61,10 +61,13 @@ export function Wheel({
   // 목표 각도까지 굴려 주고, decided/idle이면 transition 없이 즉시 정지 각도로 놓는다.
   // state+effect로 갱신하면 react-hooks/set-state-in-effect 에 걸리고, 실제로도 props의 파생값이다.
   const isSpinning = phase === "spinning" && hasWinner;
+  // 멈출 각도에도 같은 흩음(spinJitter)을 더한다. 도는 목표에만 더하면 transition 이 끝나고 decided 로 바뀌는 순간
+  // 휠이 흩은 만큼(최대 칸의 30%) 정중앙으로 튄다 — 라벨이 도는 동안에도 보이는 지금은 그 튐이 글자로 드러난다.
+  const settledRotation = hasWinner ? restRotation + spinJitter(winnerIndex, sliceDeg) : 0;
   const rotation = isSpinning
-    ? SPIN_TURNS * 360 + restRotation + spinJitter(winnerIndex, sliceDeg)
+    ? SPIN_TURNS * 360 + settledRotation
     : phase === "decided"
-      ? restRotation
+      ? settledRotation
       : 0;
 
   React.useEffect(() => {
@@ -85,7 +88,6 @@ export function Wheel({
   const labelBandStart = Rinner + 18;
   const labelBandEnd = R - 8;
   const labelBandMid = (labelBandStart + labelBandEnd) / 2;
-  const showLabels = phase !== "spinning" && items.length > 0;
   const isDecided = phase === "decided";
 
   if (items.length === 0) {
@@ -164,32 +166,27 @@ export function Wheel({
               />
             );
           })}
-        </g>
-
-        <g
-          style={{
-            opacity: showLabels ? 1 : 0,
-            transition: "opacity .25s ease-out",
-            pointerEvents: "none",
-          }}
-        >
+          {/* 라벨은 회전 그룹 안에서 칸과 함께 돈다. 밖에 두고 각도를 JS 로 계산하면 CSS transition 이 도는 동안은 렌더가
+              없어 따라갈 수 없고, 그래서 예전에는 도는 동안 라벨을 숨겼다 — 색만으로 칸을 구분해야 했다. 안에 두면 좌표는
+              칸 기준(localMid)이고 뒤집기만 멈출 각도(localMid + rotation)로 미리 정한다: 도는 동안은 고정이라 왼쪽 반원을
+              지날 때 잠깐 거꾸로 보이지만 멈추면 정확히 맞는다. */}
           {items.map((item, i) => {
             // 당첨 칸은 방사형 라벨 대신 아래의 가로 배지로 그린다.
             if (isDecided && i === winnerIndex) return null;
             const localMid = i * sliceDeg + sliceDeg / 2;
-            const screenMid = localMid + rotation;
+            const settledMid = localMid + rotation;
             const number = String(i + 1).padStart(2, "0");
             const label = fitWheelLabel(item.name);
             // 칸 중앙 각도로 돌린 좌표계: +x 가 허브에서 테두리로 향한다. 왼쪽 반원은 띠 중앙을 축으로
             // 한 번 더 돌려 화면에서 왼→오로 읽히게 한다. 번호가 항상 허브 쪽에 오도록 그때는 순서를 바꾼다.
-            const flipped = isLabelFlipped(screenMid);
+            const flipped = isLabelFlipped(settledMid);
             const numberSpan = (
               <tspan fontFamily="var(--font-mono)" fontSize="9" fontWeight="500" fill="oklch(0.30 0.02 70 / 0.55)" letterSpacing="0.12em">
                 {number}
               </tspan>
             );
             return (
-              <g key={"l" + item.id} transform={`translate(${cx} ${cy}) rotate(${screenMid - 90})`}>
+              <g key={"l" + item.id} transform={`translate(${cx} ${cy}) rotate(${localMid - 90})`}>
                 <text
                   x={labelBandMid}
                   y="0"
@@ -217,8 +214,11 @@ export function Wheel({
               </g>
             );
           })}
-          {/* 배지는 방사형 라벨을 전부 그린 뒤에 한 번 그린다 — map 안에서 그리면 뒤 인덱스의 이웃 라벨이
-              배지 위에 얹혀 당첨 이름의 끝 글자를 가로지른다. */}
+        </g>
+
+        {/* 배지는 회전 그룹 밖에서 정지 각도로 한 번 그린다 — 가로 글자라 칸과 함께 돌면 안 되고, 방사형 라벨을 전부 그린
+            뒤에 그려야 이웃 라벨이 배지 위에 얹혀 당첨 이름의 끝 글자를 가로지르지 않는다. */}
+        <g style={{ pointerEvents: "none" }}>
           {isDecided && hasWinner && (() => {
             const winner = items[winnerIndex];
             const screenMid = winnerIndex * sliceDeg + sliceDeg / 2 + rotation;
